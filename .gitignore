@@ -1,0 +1,15 @@
+# Claude Code lokale Konfiguration
+CLAUDE.local.md
+.claude/settings.local.json
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Temporäre Dateien
+*.tmp
+*.bak
