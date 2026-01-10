@@ -37,6 +37,19 @@
 - **Flows**: `[App]-[Aktion]-[Trigger]` (z.B. `CRM-SendEmail-OnCreate`)
 - **Canvas Apps**: `[Bereich]_[Funktion]_App` (z.B. `Sales_OrderEntry_App`)
 
+### Canvas App Variablen (Dot Notation)
+Verwende hierarchische Record-Strukturen für bessere Organisation:
+
+| Struktur | Verwendung | Beispiel-Zugriff |
+|----------|------------|------------------|
+| `App.Themes` | Farben, Größen, Schatten | `App.Themes.Primary`, `App.Themes.Background` |
+| `App.Fonts` | Schriftarten, Größen | `App.Fonts.Header`, `App.Fonts.Body` |
+| `App.User` | Benutzerinfo, Berechtigungen | `App.User.Email`, `App.User.IsAdmin` |
+| `App.Config` | Einstellungen, Feature-Flags | `App.Config.ApiUrl`, `App.Config.DebugMode` |
+| `App.State` | Navigation, Ladezustand | `App.State.CurrentScreen`, `App.State.IsLoading` |
+| `Screen.State` | Screen-lokaler Kontext | `Screen.State.SelectedItem` |
+| `Data.Cache` | Gecachte Collections | `Data.Cache.Customers`, `Data.Cache.Products` |
+
 ### Environment Strategy
 - **DEV**: Entwicklung und Tests
 - **TEST/UAT**: User Acceptance Testing
