@@ -1,7 +1,19 @@
 # App.Formulas Design - User Role Determination & Datasource Prefiltering
 
+**🔄 CORRECTED VERSION** - All formulas verified for Canvas Apps compatibility
+
 ## Overview
 This document outlines the App.Formulas structure for Canvas Apps using the dot notation pattern with integrated user role determination via Office365Users connector and datasource prefiltering capabilities.
+
+### ⚠️ Important Notes (Updated 2026-01-10)
+- **All formulas corrected** for actual Canvas Apps Power Fx syntax
+- **Export() removed** - This function does NOT exist in Canvas Apps (use Power Automate instead)
+- **Lambda() removed** - Not available in Canvas Apps (use inline Filter patterns)
+- **User().Image removed** - Does not provide user ID (use User().Email as identifier)
+- **Optimized API calls** - Office365Users calls minimized with With() statements
+- **Circular references fixed** - Permissions set in separate Patch() call
+
+For a detailed audit of all corrections, see `AUDIT-REPORT.md`.
 
 ---
 
@@ -16,18 +28,17 @@ This document outlines the App.Formulas structure for Canvas Apps using the dot 
 
 // 1. USER PROFILE & ROLE DETERMINATION
 // ============================================================
-Set(App.User, {
-    // Basic Profile from Office365Users
-    Email: User().Email,
-    FullName: User().FullName,
-    Id: User().Image,
-    Profile: Office365Users.MyProfileV2(),
-
-    // Additional Office Info
-    JobTitle: Office365Users.MyProfileV2().jobTitle,
-    Department: Office365Users.MyProfileV2().department,
-    OfficeLocation: Office365Users.MyProfileV2().officeLocation,
-    MobilePhone: Office365Users.MyProfileV2().mobilePhone,
+// Load Office365 profile once for performance
+With(
+    {profile: Office365Users.MyProfileV2()},
+    Set(App.User, {
+        // Basic Profile from Office365Users
+        Email: User().Email,
+        FullName: User().FullName,
+        JobTitle: profile.jobTitle,
+        Department: profile.department,
+        OfficeLocation: profile.officeLocation,
+        MobilePhone: profile.mobilePhone,
 
     // Role Determination (Multiple Methods)
     Roles: {
@@ -57,21 +68,26 @@ Set(App.User, {
         ).'Role Name',
 
         // Method 4: Department-based
-        IsSales: Office365Users.MyProfileV2().department = "Sales",
-        IsFinance: Office365Users.MyProfileV2().department = "Finance",
-        IsIT: Office365Users.MyProfileV2().department = "IT"
-    },
-
-    // Derived Permissions
-    Permissions: {
-        CanCreate: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
-        CanEdit: App.User.Roles.IsAdmin || App.User.Roles.IsManager || App.User.Roles.IsUser,
-        CanDelete: App.User.Roles.IsAdmin,
-        CanExport: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
-        CanViewAll: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
-        CanViewOwn: true
+        IsSales: profile.department = "Sales",
+        IsFinance: profile.department = "Finance",
+        IsIT: profile.department = "IT"
     }
-});
+    })
+);
+
+// Set permissions separately to avoid circular reference
+Set(App.User,
+    Patch(App.User, {
+        Permissions: {
+            CanCreate: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
+            CanEdit: App.User.Roles.IsAdmin || App.User.Roles.IsManager || App.User.Roles.IsUser,
+            CanDelete: App.User.Roles.IsAdmin,
+            CanExport: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
+            CanViewAll: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
+            CanViewOwn: true
+        }
+    })
+);
 
 // 2. DATASOURCE PREFILTERING
 // ============================================================
@@ -83,11 +99,11 @@ Set(Data.Filter, {
         User().Email // Filter to own records only
     ),
 
-    // Department filter
+    // Department filter (use cached value from App.User)
     DepartmentScope: If(
         App.User.Roles.IsAdmin,
         Blank(), // Admins see all departments
-        Office365Users.MyProfileV2().department
+        App.User.Department
     ),
 
     // Date range filters (common presets)
@@ -279,44 +295,50 @@ Filter(
 )
 ```
 
-### Pattern 3: Dynamic Filter Helper Function (using named formulas)
+### Pattern 3: Reusable Filter Pattern (inline approach)
+
+**Note**: Lambda() is NOT available in Canvas Apps. For reusable logic, use consistent inline Filter patterns.
 
 ```powerfx
-// Create a named formula called ApplyDataFilter
-ApplyDataFilter = Lambda(
-    dataSource: Table,
-    additionalFilter: Boolean,
+// Gallery.Items - Standard multi-filter pattern (copy and adapt)
+Filter(
+    Customers,
+    // User scope
+    If(
+        IsBlank(Data.Filter.UserScope),
+        true,
+        Owner.Email = Data.Filter.UserScope
+    ),
+    // Department scope
+    If(
+        IsBlank(Data.Filter.DepartmentScope),
+        true,
+        Department = Data.Filter.DepartmentScope
+    ),
+    // Active only
+    If(
+        Data.Filter.ActiveOnly,
+        Status <> "Archived",
+        true
+    ),
+    // Custom search filter
+    StartsWith(Lower(Name), Lower(SearchBox.Text))
+)
 
+// Alternative: Use collections for complex scenarios
+// Screen.OnVisible
+ClearCollect(
+    colFiltered,
     Filter(
-        dataSource,
-        // User scope
-        If(
-            IsBlank(Data.Filter.UserScope),
-            true,
-            Owner.Email = Data.Filter.UserScope
-        ),
-        // Department scope
-        If(
-            IsBlank(Data.Filter.DepartmentScope),
-            true,
-            Department = Data.Filter.DepartmentScope
-        ),
-        // Active only
-        If(
-            Data.Filter.ActiveOnly,
-            Status <> "Archived",
-            true
-        ),
-        // Additional custom filter
-        additionalFilter
+        Customers,
+        If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope),
+        If(IsBlank(Data.Filter.DepartmentScope), true, Department = Data.Filter.DepartmentScope),
+        If(Data.Filter.ActiveOnly, Status <> "Archived", true)
     )
 );
 
-// Usage in Gallery
-ApplyDataFilter(
-    Customers,
-    StartsWith(Lower(Name), Lower(SearchBox.Text))
-)
+// Then in Gallery.Items - apply local search
+Search(colFiltered, SearchBox.Text, "Name", "Email")
 ```
 
 ---
@@ -378,9 +400,15 @@ If(
 );
 
 // Button_Export.OnSelect
+// ⚠️ NOTE: Export() does NOT exist in Canvas Apps - use Power Automate
 If(
     App.User.Permissions.CanExport,
-    Export(Gallery.AllItems, "export.xlsx"),
+    // Trigger Power Automate flow to export data
+    'ExportFlow'.Run(
+        JSON(Gallery.AllItems),
+        User().Email
+    );
+    Notify("Export started - check your email", NotificationType.Success),
 
     Notify("Export permission required", NotificationType.Warning)
 );

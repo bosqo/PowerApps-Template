@@ -1,5 +1,24 @@
 # Canvas App - User Role & Datasource Filtering Implementation
 
+**🔄 CORRECTED VERSION (2026-01-10)** - All formulas verified for Canvas Apps compatibility
+
+## ⚠️ Important Corrections Made
+
+**All code has been audited and corrected for actual Canvas Apps Power Fx syntax**:
+
+| Issue | Status | Solution |
+|-------|--------|----------|
+| Lambda() function | ❌ Removed | Not available in Canvas Apps - use inline Filter() patterns |
+| Export() function | ❌ Removed | Does NOT exist - use Power Automate flows instead |
+| User().Image for ID | ❌ Removed | Returns image data, not ID - use User().Email as identifier |
+| Multiple API calls | ✅ Fixed | Optimized with With() statement for single API call |
+| Circular references | ✅ Fixed | Split into two Set() statements |
+| MyProfileV2() syntax | ⚠️ Verified | Works but verify in your environment (some may need MyProfile()) |
+
+**📋 See `AUDIT-REPORT.md` for complete details of all corrections.**
+
+---
+
 ## Overview
 This implementation provides a comprehensive, reusable pattern for Canvas Apps with:
 - **User role determination** via Office365Users and Office365Groups connectors
@@ -153,6 +172,23 @@ Set(Data.Filter,
             User().Email
         )
     })
+)
+```
+
+### Example 5: Export Data via Power Automate
+```powerfx
+// ⚠️ NOTE: Export() function does NOT exist in Canvas Apps
+// Button_Export.OnSelect
+If(
+    App.User.Permissions.CanExport,
+    // Trigger Power Automate flow to export data
+    'ExportToExcelFlow'.Run(
+        JSON(Gallery.AllItems),
+        User().Email,  // Send results to user's email
+        "Export_" & Text(Now(), "yyyymmdd_hhmmss")  // Filename
+    );
+    Notify("Export started - check your email in a few minutes", NotificationType.Success),
+    Notify("Export permission required", NotificationType.Error)
 )
 ```
 

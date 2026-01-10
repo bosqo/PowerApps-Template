@@ -246,23 +246,65 @@ Notify("Filter updated", NotificationType.Information)
 
 
 // ============================================================
-// PATTERN 15: EXPORT WITH FILTERED DATA
+// PATTERN 15: EXPORT WITH FILTERED DATA (via Power Automate)
 // ============================================================
-// Button_Export.OnSelect
+// ⚠️ NOTE: There is NO built-in Export() function in Canvas Apps!
+// You must use Power Automate flow to export data to Excel/CSV
+
+// Button_Export.OnSelect - Method 1: Power Automate Flow
 If(
     App.User.Permissions.CanExport,
-    // Export only visible/filtered data
-    Export(
+    // Trigger a Power Automate flow to export filtered data
+    'ExportToExcelFlow'.Run(
+        // Pass filtered data as JSON to the flow
+        JSON(Filter(
+            Orders,
+            If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope),
+            'Order Date' >= Data.Filter.DateRange.ThisMonth
+        )),
+        // Additional parameters
+        "Orders_Export_" & Text(Now(), "yyyymmdd_hhmmss"),  // filename
+        User().Email  // send to user's email
+    );
+    Notify("Export started - check your email in a few minutes", NotificationType.Success),
+    Notify("Export permission required", NotificationType.Error)
+)
+
+// Alternative Method 2: Save to SharePoint/OneDrive (if connector available)
+/*
+If(
+    App.User.Permissions.CanExport,
+    // Create a table and save to SharePoint
+    Patch('SharePoint List',
+        Defaults('SharePoint List'),
+        {
+            Title: "Export_" & Text(Now(), "yyyymmdd_hhmmss"),
+            ExportData: JSON(Gallery.AllItems),
+            RequestedBy: User().Email,
+            Status: "Pending"
+        }
+    );
+    Notify("Export request created", NotificationType.Success),
+    Notify("Export permission required", NotificationType.Error)
+)
+*/
+
+// Alternative Method 3: Copy to collection for manual review/copy
+/*
+If(
+    App.User.Permissions.CanExport,
+    ClearCollect(colExportData,
         Filter(
             Orders,
             If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope),
             'Order Date' >= Data.Filter.DateRange.ThisMonth
-        ),
-        "Orders_Export_" & Text(Now(), "yyyymmdd_hhmmss") & ".xlsx"
+        )
     );
-    Notify("Exported successfully", NotificationType.Success),
+    Navigate(ExportScreen, ScreenTransition.None);
+    Notify("Data prepared for export - " & CountRows(colExportData) & " records", NotificationType.Success),
     Notify("Export permission required", NotificationType.Error)
 )
+*/
 
 
 // ============================================================
