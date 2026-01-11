@@ -410,18 +410,18 @@ GetRoleBadge()
 Text(ThisItem.'Created On', "mmm d, yyyy")
 */
 
-// AFTER (use Text function with format strings):
+// AFTER (using German date formatting UDFs):
 // Label_CreatedDate.Text (short format)
-Text(ThisItem.'Created On', "mmm d, yyyy")
+FormatDateShort(ThisItem.'Created On')
 
 // Label_DateShort.Text
-Text(ThisItem.'Due Date', "mmm d, yyyy")
+FormatDateShort(ThisItem.'Due Date')
 
 // Label_DateLong.Text
-Text(ThisItem.'Event Date', "mmmm d, yyyy")
+FormatDateLong(ThisItem.'Event Date')
 
 // Label_DateTime.Text
-Text(ThisItem.'Last Modified', "mmm d, yyyy h:mm AM/PM")
+FormatDateTime(ThisItem.'Last Modified')
 
 
 // -----------------------------------------------------------
@@ -431,13 +431,13 @@ Text(ThisItem.'Last Modified', "mmm d, yyyy h:mm AM/PM")
 // Label_TaskStatus.Text
 If(
     ThisItem.'Due Date' < Today(),
-    "Overdue by " & Text(Today() - ThisItem.'Due Date') & " days",
+    "Überfällig: " & Text(Today() - ThisItem.'Due Date') & " Tage",
     If(
         ThisItem.'Due Date' = Today(),
-        "Due Today",
+        "Fällig heute",
         If(
             ThisItem.'Due Date' > Today() && !IsBlank(ThisItem.'Due Date'),
-            "Due in " & Text(ThisItem.'Due Date' - Today()) & " days",
+            "Fällig in " & Text(ThisItem.'Due Date' - Today()) & " Tagen",
             ThisItem.Status
         )
     )

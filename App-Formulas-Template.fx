@@ -660,6 +660,51 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
 
 
 // -----------------------------------------------------------
+// Date & Time Formatting Functions (German Format)
+// -----------------------------------------------------------
+
+// Format date as short format (e.g., "15.1.2025")
+FormatDateShort(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
+
+// Format date as long format (e.g., "15. Januar 2025")
+FormatDateLong(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
+
+// Format date and time together (e.g., "15.1.2025 14:30")
+FormatDateTime(inputDateTime: DateTime): Text =
+    If(
+        IsBlank(inputDateTime),
+        "",
+        Text(inputDateTime, "d.m.yyyy hh:mm")
+    );
+
+// Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
+FormatDateRelative(inputDate: Date): Text =
+    If(
+        IsBlank(inputDate),
+        "",
+        If(
+            inputDate = Today(),
+            "Heute",
+            If(
+                inputDate = Today() - 1,
+                "Gestern",
+                If(
+                    inputDate = Today() + 1,
+                    "Morgen",
+                    If(
+                        inputDate < Today(),
+                        "vor " & Text(Today() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - Today()) & " Tagen"
+                    )
+                )
+            )
+        )
+    );
+
+
+// -----------------------------------------------------------
 // Text Formatting Functions
 // -----------------------------------------------------------
 
