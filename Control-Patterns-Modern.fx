@@ -71,8 +71,8 @@ Filter(
     CanAccessItem(Owner.Email, Department),
     // Active status via conditional
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
-    // Date range via UDF
-    IsWithinDateRange('Created On', ActiveFilters.DateRangeName),
+    // Date range filter (manual date comparison)
+    If(IsBlank(ActiveFilters.DateRangeStart), true, 'Created On' >= ActiveFilters.DateRangeStart),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -94,7 +94,7 @@ Filter(
     // Active only
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
     // Due in future or today
-    'Due Date' >= DateRanges.Today || IsBlank('Due Date')
+    'Due Date' >= Today() || IsBlank('Due Date')
 )
 
 
@@ -122,7 +122,7 @@ Sort(
     Filter(
         Invoices,
         CanAccessRecord('Sales Rep'.Email),
-        IsWithinDateRange('Invoice Date', "last90days"),
+        'Invoice Date' >= Today() - 90,
         If(ActiveFilters.ActiveOnly, Status <> "Void", true)
     ),
     'Invoice Date',
@@ -356,18 +356,13 @@ GetThemeColor("ErrorLight")
 // -----------------------------------------------------------
 
 // Gallery Row Template - Rectangle_RowBackground.Fill
-// NOTE: This pattern assumes Gallery has a "RowIndex" column calculated in OnStart or data source
 If(
     ThisRecord = Gallery.Selected,
     GetThemeColor("PrimaryLight"),
     If(
-        IsOverdue(ThisItem.'Due Date'),
-        GetThemeColor("ErrorLight"),
-        If(
-            Mod(Coalesce(ThisItem.RowIndex, 1), 2) = 0,
-            GetThemeColor("Surface"),
-            GetThemeColor("Background")
-        )
+        Mod(Coalesce(ThisItem.RowIndex, 1), 2) = 0,
+        GetThemeColor("Surface"),
+        GetThemeColor("Background")
     )
 )
 
@@ -415,18 +410,18 @@ GetRoleBadge()
 Text(ThisItem.'Created On', "mmm d, yyyy")
 */
 
-// AFTER:
-// Label_CreatedDate.Text (relative)
-FormatDateRelative(ThisItem.'Created On')
+// AFTER (use Text function with format strings):
+// Label_CreatedDate.Text (short format)
+Text(ThisItem.'Created On', "mmm d, yyyy")
 
 // Label_DateShort.Text
-FormatDateShort(ThisItem.'Due Date')
+Text(ThisItem.'Due Date', "mmm d, yyyy")
 
 // Label_DateLong.Text
-FormatDateLong(ThisItem.'Event Date')
+Text(ThisItem.'Event Date', "mmmm d, yyyy")
 
 // Label_DateTime.Text
-FormatDateTime(ThisItem.'Last Modified')
+Text(ThisItem.'Last Modified', "mmm d, yyyy h:mm AM/PM")
 
 
 // -----------------------------------------------------------
@@ -435,14 +430,14 @@ FormatDateTime(ThisItem.'Last Modified')
 
 // Label_TaskStatus.Text
 If(
-    IsOverdue(ThisItem.'Due Date'),
-    "Overdue by " & Text(-GetDaysDifference(ThisItem.'Due Date')) & " days",
+    ThisItem.'Due Date' < Today(),
+    "Overdue by " & Text(Today() - ThisItem.'Due Date') & " days",
     If(
-        IsToday(ThisItem.'Due Date'),
+        ThisItem.'Due Date' = Today(),
         "Due Today",
         If(
-            IsFutureDate(ThisItem.'Due Date'),
-            "Due in " & Text(GetDaysDifference(ThisItem.'Due Date')) & " days",
+            ThisItem.'Due Date' > Today() && !IsBlank(ThisItem.'Due Date'),
+            "Due in " & Text(ThisItem.'Due Date' - Today()) & " days",
             ThisItem.Status
         )
     )
@@ -454,7 +449,11 @@ If(
 // -----------------------------------------------------------
 
 // Label_Description.Text
-TruncateText(ThisItem.Description, 100)
+If(
+    Len(Coalesce(ThisItem.Description, "")) > 100,
+    Left(ThisItem.Description, 97) & "...",
+    Coalesce(ThisItem.Description, "")
+)
 
 // Tooltip on Label_Description.Tooltip
 ThisItem.Description
@@ -502,13 +501,13 @@ GetStatusColor(ThisItem.Status)
 // -----------------------------------------------------------
 
 // Icon_OverdueWarning.Icon
-If(IsOverdue(ThisItem.'Due Date'), Icon.Warning, Icon.Clock)
+If(ThisItem.'Due Date' < Today(), Icon.Warning, Icon.Clock)
 
 // Icon_OverdueWarning.Visible
 !IsBlank(ThisItem.'Due Date')
 
 // Icon_OverdueWarning.Color
-If(IsOverdue(ThisItem.'Due Date'), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
+If(ThisItem.'Due Date' < Today(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
 
 
 // ============================================================
@@ -567,8 +566,7 @@ If(
     'ExportToExcelFlow'.Run(
         JSON(Filter(
             Records,
-            CanAccessRecord(Owner.Email),
-            IsWithinDateRange('Created On', ActiveFilters.DateRangeName)
+            CanAccessRecord(Owner.Email)
         )),
         "Export_" & Text(Now(), "yyyymmdd_hhmmss"),
         UserProfile.Email
@@ -601,8 +599,6 @@ NotifyInfo("Filter applied: " & Self.Selected.DisplayName)
 Set(ActiveFilters,
     Patch(ActiveFilters, {
         DateRangeName: Self.Selected.Value,
-        DateRangeStart: GetDateRangeStart(Self.Selected.Value),
-        DateRangeEnd: GetDateRangeEnd(Self.Selected.Value),
         CurrentPage: 1
     })
 )
@@ -864,8 +860,7 @@ FormatCurrency(
     Sum(
         Filter(
             Invoices,
-            CanAccessRecord('Sales Rep'.Email),
-            IsWithinDateRange('Invoice Date', ActiveFilters.DateRangeName)
+            CanAccessRecord('Sales Rep'.Email)
         ),
         'Total Amount'
     ),
@@ -883,7 +878,7 @@ Text(
         Filter(
             Tasks,
             CanAccessRecord('Assigned To'.Email),
-            IsOverdue('Due Date'),
+            'Due Date' < Today(),
             Status in ["Active", "In Progress", "Pending"]
         )
     )
