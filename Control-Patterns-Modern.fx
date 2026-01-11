@@ -131,10 +131,10 @@ Sort(
 
 
 // -----------------------------------------------------------
-// Pattern 1.6: Paginated Gallery
+// Pattern 1.6: Paginated Gallery (Refactored 2025 with UDFs)
 // -----------------------------------------------------------
 
-// Gallery_AllRecords.Items
+// Gallery_AllRecords.Items - Using pagination UDFs
 FirstN(
     Skip(
         Sort(
@@ -146,9 +146,46 @@ FirstN(
             'Created On',
             SortOrder.Descending
         ),
-        (ActiveFilters.CurrentPage - 1) * ActiveFilters.PageSize
+        GetSkipCount(ActiveFilters.CurrentPage, ActiveFilters.PageSize)
     ),
     ActiveFilters.PageSize
+)
+
+// Label_PageInfo.Text - Page range display
+GetPageRangeText(
+    ActiveFilters.CurrentPage,
+    ActiveFilters.PageSize,
+    CountRows(Filter(Records, CanAccessRecord(Owner.Email)))
+)
+
+// Button_PreviousPage.DisplayMode
+If(CanGoToPreviousPage(ActiveFilters.CurrentPage), DisplayMode.Edit, DisplayMode.Disabled)
+
+// Button_NextPage.DisplayMode
+If(
+    CanGoToNextPage(
+        ActiveFilters.CurrentPage,
+        CountRows(Filter(Records, CanAccessRecord(Owner.Email))),
+        ActiveFilters.PageSize
+    ),
+    DisplayMode.Edit,
+    DisplayMode.Disabled
+)
+
+// Button_PreviousPage.OnSelect
+Set(ActiveFilters, Patch(ActiveFilters, {CurrentPage: Max(1, ActiveFilters.CurrentPage - 1)}))
+
+// Button_NextPage.OnSelect
+Set(ActiveFilters,
+    Patch(ActiveFilters, {
+        CurrentPage: Min(
+            GetTotalPages(
+                CountRows(Filter(Records, CanAccessRecord(Owner.Email))),
+                ActiveFilters.PageSize
+            ),
+            ActiveFilters.CurrentPage + 1
+        )
+    })
 )
 
 
