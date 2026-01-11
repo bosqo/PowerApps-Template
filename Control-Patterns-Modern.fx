@@ -209,12 +209,6 @@ HasPermission("Delete")
 // Button_Create.Visible
 HasPermission("Create")
 
-// Button_Export.Visible
-HasPermission("Export")
-
-// Button_BulkOperations.Visible
-HasPermission("Bulk")
-
 // Button_Settings.Visible
 HasPermission("Settings")
 
@@ -261,17 +255,8 @@ Gallery.Selected.Status <> "Archived"
 // Pattern 2.4: Feature Flag Visibility
 // -----------------------------------------------------------
 
-// Container_AdvancedSearch.Visible
-FeatureFlags.EnableAdvancedSearch
-
-// Button_BulkExport.Visible
-FeatureFlags.EnableExport && HasPermission("Export")
-
 // Container_DebugInfo.Visible
 FeatureFlags.ShowDebugInfo
-
-// Container_OfflineIndicator.Visible
-FeatureFlags.EnableOfflineMode && !AppState.IsOnline
 
 
 // ============================================================
@@ -556,30 +541,7 @@ If(
 
 
 // -----------------------------------------------------------
-// Pattern 6.3: Export with Permission Check
-// -----------------------------------------------------------
-
-// Button_Export.OnSelect
-If(
-    HasPermission("Export"),
-    Set(AppState, Patch(AppState, {IsLoading: true}));
-    'ExportToExcelFlow'.Run(
-        JSON(Filter(
-            Records,
-            CanAccessRecord(Owner.Email),
-            IsWithinDateRange('Created On', ActiveFilters.DateRangeName)
-        )),
-        "Export_" & Text(Now(), "yyyymmdd_hhmmss"),
-        UserProfile.Email
-    );
-    Set(AppState, Patch(AppState, {IsLoading: false}));
-    NotifySuccess("Export started - check your email shortly"),
-    NotifyPermissionDenied("export data")
-)
-
-
-// -----------------------------------------------------------
-// Pattern 6.4: Update Filter State
+// Pattern 6.3: Update Filter State
 // -----------------------------------------------------------
 
 // Dropdown_Status.OnChange
@@ -593,7 +555,7 @@ NotifyInfo("Filter applied: " & Self.Selected.DisplayName)
 
 
 // -----------------------------------------------------------
-// Pattern 6.5: Date Range Selection
+// Pattern 6.4: Date Range Selection
 // -----------------------------------------------------------
 
 // Dropdown_DateRange.OnChange
@@ -608,7 +570,7 @@ Set(ActiveFilters,
 
 
 // -----------------------------------------------------------
-// Pattern 6.6: Toggle Show All (Admin/Manager)
+// Pattern 6.5: Toggle Show All (Admin/Manager)
 // -----------------------------------------------------------
 
 // Toggle_ShowAll.OnChange
@@ -627,39 +589,7 @@ If(
 
 
 // -----------------------------------------------------------
-// Pattern 6.7: Bulk Delete with Confirmation
-// -----------------------------------------------------------
-
-// Button_BulkDelete.OnSelect
-If(
-    HasPermission("Bulk") && HasPermission("Delete"),
-    If(
-        CountRows(Gallery.SelectedItems) > 0,
-        Set(UIState, Patch(UIState, {
-            IsConfirmDialogOpen: true,
-            ConfirmDialogTitle: "Confirm Bulk Delete",
-            ConfirmDialogMessage: "Delete " & CountRows(Gallery.SelectedItems) & " selected items?",
-            ConfirmDialogAction: "bulkdelete"
-        })),
-        NotifyWarning("Please select items to delete")
-    ),
-    NotifyPermissionDenied("perform bulk delete")
-)
-
-// ConfirmDialog_Confirm.OnSelect (for bulk delete)
-If(
-    UIState.ConfirmDialogAction = "bulkdelete",
-    ForAll(
-        Filter(Gallery.SelectedItems, CanDeleteRecord(Owner.Email)),
-        Remove(Items, ThisRecord)
-    );
-    Set(UIState, Patch(UIState, {IsConfirmDialogOpen: false, ConfirmDialogAction: Blank()}));
-    NotifySuccess("Deleted " & CountRows(Gallery.SelectedItems) & " items")
-)
-
-
-// -----------------------------------------------------------
-// Pattern 6.8: Refresh Data
+// Pattern 6.6: Refresh Data
 // -----------------------------------------------------------
 
 // Button_Refresh.OnSelect
@@ -685,7 +615,7 @@ NotifySuccess("Data refreshed at " & Text(Now(), "h:mm AM/PM"))
 
 
 // -----------------------------------------------------------
-// Pattern 6.9: Reset All Filters
+// Pattern 6.7: Reset All Filters
 // -----------------------------------------------------------
 
 // Button_ResetFilters.OnSelect

@@ -227,9 +227,7 @@ UserPermissions = {
     CanViewDepartment: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsHR,
 
     // Feature Permissions
-    CanBulkOperations: UserRoles.IsAdmin,
     CanManageUsers: UserRoles.IsAdmin || UserRoles.IsHR,
-    CanViewAuditLog: UserRoles.IsAdmin,
     CanConfigureSettings: UserRoles.IsAdmin,
 
     // Special Permissions
@@ -261,29 +259,14 @@ RoleBadgeText = Switch(
 
 // Feature Flags - Control feature availability
 FeatureFlags = {
-    // Search Features
-    EnableAdvancedSearch: UserRoles.IsAdmin || UserRoles.IsManager,
-    EnableGlobalSearch: true,
-    EnableSavedFilters: UserRoles.IsAdmin || UserRoles.IsManager,
-
-    // Data Features
-    EnableBulkOperations: UserRoles.IsAdmin,
-    EnableOfflineMode: false,
-
     // UI Features
-    EnableDarkMode: false,
-    EnableCompactView: true,
     EnableKeyboardShortcuts: true,
     EnableNotifications: true,
 
     // Debug Features (Development only)
     ShowDebugInfo: Param("debug") = "true" && UserRoles.IsAdmin,
     ShowPerformanceMetrics: Param("perf") = "true" && UserRoles.IsAdmin,
-    EnableMockData: Param("mock") = "true" && AppConfig.IsDevelopment,
-
-    // Audit Features
-    EnableAuditLog: UserRoles.IsAdmin,
-    EnableActivityTracking: true
+    EnableMockData: Param("mock") = "true" && AppConfig.IsDevelopment
 };
 
 // Default Filter Configuration (reactive to permissions)
@@ -319,9 +302,7 @@ HasPermission(permissionName: Text): Boolean =
         "viewall", UserPermissions.CanViewAll,
         "viewown", UserPermissions.CanViewOwn,
         "viewdepartment", UserPermissions.CanViewDepartment,
-        "bulk", UserPermissions.CanBulkOperations,
         "manageusers", UserPermissions.CanManageUsers,
-        "audit", UserPermissions.CanViewAuditLog,
         "settings", UserPermissions.CanConfigureSettings,
         "approve", UserPermissions.CanApprove,
         "reject", UserPermissions.CanReject,

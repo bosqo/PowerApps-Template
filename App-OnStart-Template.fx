@@ -71,7 +71,6 @@ Set(App.User,
             CanCreate: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
             CanEdit: App.User.Roles.IsAdmin || App.User.Roles.IsManager || App.User.Roles.IsUser,
             CanDelete: App.User.Roles.IsAdmin,
-            CanExport: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
             CanViewAll: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
             CanViewOwn: true
         }
@@ -131,10 +130,6 @@ Set(App.Config, {
 
     // Feature Flags (role-based)
     Features: {
-        EnableAdvancedSearch: App.User.Roles.IsAdmin || App.User.Roles.IsManager,
-        EnableBulkOperations: App.User.Roles.IsAdmin,
-        EnableExport: App.User.Permissions.CanExport,
-        EnableAuditLog: App.User.Roles.IsAdmin,
         ShowDebugInfo: Param("debug") = "true" && App.User.Roles.IsAdmin
     },
 
@@ -254,22 +249,7 @@ If(
     Notify("No permission to delete", NotificationType.Error)
 )
 
-// EXAMPLE 5: Export Data via Power Automate (NO built-in Export() function exists!)
-// Button_Export.OnSelect
-If(
-    App.User.Permissions.CanExport,
-    // Trigger a Power Automate flow to export data
-    'YourExportFlow'.Run(
-        JSON(Filter(
-            Orders,
-            If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope)
-        ))
-    );
-    Notify("Export started - you'll receive an email with the file", NotificationType.Success),
-    Notify("Export permission required", NotificationType.Error)
-)
-
-// EXAMPLE 6: Screen-level Filter Override
+// EXAMPLE 5: Screen-level Filter Override
 // Screen.OnVisible
 Set(Screen.State, {
     SelectedItem: Blank(),
@@ -281,7 +261,7 @@ Set(Screen.State, {
     }
 })
 
-// EXAMPLE 7: Dynamic Filter Toggle
+// EXAMPLE 6: Dynamic Filter Toggle
 // Toggle_ShowAll.OnChange
 Set(Data.Filter,
     Patch(Data.Filter, {
