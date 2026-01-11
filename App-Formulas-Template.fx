@@ -660,8 +660,9 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
 
 
 // -----------------------------------------------------------
-// Timezone Conversion Functions (Berlin/UTC)
-// SharePoint stores dates in UTC, convert to Berlin timezone (CET/CEST)
+// Timezone Conversion Functions (MEZ/UTC)
+// MEZ = Mitteleuropäische Zeit (Central European Time)
+// SharePoint stores dates in UTC, convert to MEZ timezone (CET/CEST)
 // -----------------------------------------------------------
 
 // Check if given date is in daylight saving time (CEST)
@@ -672,12 +673,12 @@ IsDaylightSavingTime(checkDate: Date): Boolean =
         checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31)))
     );
 
-// Convert UTC DateTime to Berlin time (CET/CEST)
-ConvertUTCToBerlin(utcDateTime: DateTime): DateTime =
+// Convert UTC DateTime to MEZ time (CET/CEST)
+ConvertUTCToMEZ(utcDateTime: DateTime): DateTime =
     If(
         IsBlank(utcDateTime),
         Blank(),
-        // Berlin is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
+        // MEZ is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
         DateAdd(
             utcDateTime,
             1 + If(IsDaylightSavingTime(DateValue(utcDateTime)), 1, 0),
@@ -685,34 +686,34 @@ ConvertUTCToBerlin(utcDateTime: DateTime): DateTime =
         )
     );
 
-// Convert Berlin time to UTC DateTime
-ConvertBerlinToUTC(berlinDateTime: DateTime): DateTime =
+// Convert MEZ time to UTC DateTime
+ConvertMEZToUTC(mezDateTime: DateTime): DateTime =
     If(
-        IsBlank(berlinDateTime),
+        IsBlank(mezDateTime),
         Blank(),
-        // Subtract Berlin offset (1 or 2 hours depending on DST)
+        // Subtract MEZ offset (1 or 2 hours depending on DST)
         DateAdd(
-            berlinDateTime,
-            -(1 + If(IsDaylightSavingTime(DateValue(berlinDateTime)), 1, 0)),
+            mezDateTime,
+            -(1 + If(IsDaylightSavingTime(DateValue(mezDateTime)), 1, 0)),
             TimeUnit.Hours
         )
     );
 
-// Get current time in Berlin timezone
-GetBerlinTime(): DateTime =
-    ConvertUTCToBerlin(Now());
+// Get current time in MEZ timezone
+GetMEZTime(): DateTime =
+    ConvertUTCToMEZ(Now());
 
-// Get today's date in Berlin timezone
-GetBerlinToday(): Date =
-    DateValue(GetBerlinTime());
+// Get today's date in MEZ timezone
+GetMEZToday(): Date =
+    DateValue(GetMEZTime());
 
 
 // -----------------------------------------------------------
-// Date & Time Formatting Functions (German Format, Berlin Timezone)
+// Date & Time Formatting Functions (German Format, MEZ Timezone)
 // -----------------------------------------------------------
 
 // Format date as short format (e.g., "15.1.2025")
-// Optional: pass UTC date to auto-convert to Berlin time first
+// Optional: pass UTC date to auto-convert to MEZ time first
 FormatDateShort(inputDate: Date): Text =
     If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
 
@@ -721,7 +722,7 @@ FormatDateLong(inputDate: Date): Text =
     If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
 
 // Format date and time together (e.g., "15.1.2025 14:30")
-// For UTC datetimes from SharePoint, use FormatDateTimeBerlin instead
+// For UTC datetimes from SharePoint, use FormatDateTimeMEZ instead
 FormatDateTime(inputDateTime: DateTime): Text =
     If(
         IsBlank(inputDateTime),
@@ -729,37 +730,37 @@ FormatDateTime(inputDateTime: DateTime): Text =
         Text(inputDateTime, "d.m.yyyy hh:mm")
     );
 
-// Format UTC datetime from SharePoint in Berlin timezone
-// Example: SharePoint 'Modified' field (UTC) -> Berlin time
-FormatDateTimeBerlin(utcDateTime: DateTime): Text =
+// Format UTC datetime from SharePoint in MEZ timezone
+// Example: SharePoint 'Modified' field (UTC) -> MEZ time
+FormatDateTimeMEZ(utcDateTime: DateTime): Text =
     If(
         IsBlank(utcDateTime),
         "",
         Text(
-            ConvertUTCToBerlin(utcDateTime),
+            ConvertUTCToMEZ(utcDateTime),
             "d.m.yyyy hh:mm"
         )
     );
 
 // Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
-// Uses Berlin timezone for comparison
+// Uses MEZ timezone for comparison
 FormatDateRelative(inputDate: Date): Text =
     If(
         IsBlank(inputDate),
         "",
         If(
-            inputDate = GetBerlinToday(),
+            inputDate = GetMEZToday(),
             "Heute",
             If(
-                inputDate = GetBerlinToday() - 1,
+                inputDate = GetMEZToday() - 1,
                 "Gestern",
                 If(
-                    inputDate = GetBerlinToday() + 1,
+                    inputDate = GetMEZToday() + 1,
                     "Morgen",
                     If(
-                        inputDate < GetBerlinToday(),
-                        "vor " & Text(GetBerlinToday() - inputDate) & " Tagen",
-                        "in " & Text(inputDate - GetBerlinToday()) & " Tagen"
+                        inputDate < GetMEZToday(),
+                        "vor " & Text(GetMEZToday() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - GetMEZToday()) & " Tagen"
                     )
                 )
             )
