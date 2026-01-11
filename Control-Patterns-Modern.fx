@@ -23,20 +23,20 @@
 // SHAREPOINT TIMEZONE HANDLING
 // ============================================================
 // SharePoint stores all datetime fields in UTC
-// MEZ (Mitteleuropäische Zeit): CET (UTC+1) or CEST (UTC+2 during daylight saving)
+// CET (Central European Time): CET (UTC+1) or CEST (UTC+2 during daylight saving)
 //
 // Key Functions:
-// - ConvertUTCToMEZ(utcDateTime) - Convert SharePoint UTC to MEZ time
-// - GetMEZToday() - Get today's date in MEZ timezone
-// - FormatDateTimeMEZ(utcDateTime) - Format UTC datetime in MEZ time
+// - ConvertUTCToCET(utcDateTime) - Convert SharePoint UTC to MEZ time
+// - GetCETToday() - Get today's date in MEZ timezone
+// - FormatDateTimeCET(utcDateTime) - Format UTC datetime in MEZ time
 //
 // Example: SharePoint 'Modified' field is UTC, use:
-//   ConvertUTCToMEZ('Modified')  -> DateTime in MEZ time
-//   DateValue(ConvertUTCToMEZ('Modified'))  -> Date only
-//   FormatDateTimeMEZ('Modified')  -> Formatted string "d.m.yyyy hh:mm"
+//   ConvertUTCToCET('Modified')  -> DateTime in MEZ time
+//   DateValue(ConvertUTCToCET('Modified'))  -> Date only
+//   FormatDateTimeCET('Modified')  -> Formatted string "d.m.yyyy hh:mm"
 //
 // For filters comparing SharePoint dates with MEZ timezone:
-//   Filter(Items, DateValue(ConvertUTCToMEZ('Modified')) >= GetMEZToday())
+//   Filter(Items, DateValue(ConvertUTCToCET('Modified')) >= GetCETToday())
 // ============================================================
 
 
@@ -93,8 +93,8 @@ Filter(
     // Active status via conditional
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
     // Date range filter (manual date comparison)
-    // NOTE: For SharePoint UTC datetime fields, convert with ConvertUTCToMEZ() first
-    If(IsBlank(ActiveFilters.DateRangeStart), true, DateValue(ConvertUTCToMEZ('Modified')) >= ActiveFilters.DateRangeStart),
+    // NOTE: For SharePoint UTC datetime fields, convert with ConvertUTCToCET() first
+    If(IsBlank(ActiveFilters.DateRangeStart), true, DateValue(ConvertUTCToCET('Modified')) >= ActiveFilters.DateRangeStart),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -120,8 +120,8 @@ Filter(
         IsBlank('Due Date'),
         true,
         // For Date fields (stored locally): use Today()
-        // For DateTime fields (stored in UTC from SharePoint): use GetMEZToday()
-        'Due Date' >= GetMEZToday()
+        // For DateTime fields (stored in UTC from SharePoint): use GetCETToday()
+        'Due Date' >= GetCETToday()
     )
 )
 
@@ -146,12 +146,12 @@ Search(
 // -----------------------------------------------------------
 
 // Gallery_Invoices.Items
-// NOTE: 'Invoice Date' from SharePoint is in UTC, convert with ConvertUTCToMEZ()
+// NOTE: 'Invoice Date' from SharePoint is in UTC, convert with ConvertUTCToCET()
 Sort(
     Filter(
         Invoices,
         CanAccessRecord('Sales Rep'.Email),
-        DateValue(ConvertUTCToMEZ('Invoice Date')) >= GetMEZToday() - 90,
+        DateValue(ConvertUTCToCET('Invoice Date')) >= GetCETToday() - 90,
         If(ActiveFilters.ActiveOnly, Status <> "Void", true)
     ),
     'Invoice Date',
@@ -451,29 +451,29 @@ FormatDateShort(ThisItem.'Due Date')
 FormatDateLong(ThisItem.'Event Date')
 
 // For SharePoint DateTime fields (stored in UTC - most common):
-// Label_DateTime.Text (auto-converts UTC to MEZ time)
-FormatDateTimeMEZ(ThisItem.'Last Modified')
+// Label_DateTime.Text (auto-converts UTC to CET time)
+FormatDateTimeCET(ThisItem.'Last Modified')
 
 // Label_ModifiedTime.Text (another UTC datetime example)
-FormatDateTimeMEZ(ThisItem.'Created')
+FormatDateTimeCET(ThisItem.'Created')
 
 
 // -----------------------------------------------------------
-// Pattern 4.4: Status with Due Date Context (MEZ Timezone)
+// Pattern 4.4: Status with Due Date Context (CET Timezone)
 // -----------------------------------------------------------
 
 // Label_TaskStatus.Text
-// NOTE: If 'Due Date' is a SharePoint DateTime (UTC), compare with GetMEZToday()
+// NOTE: If 'Due Date' is a SharePoint DateTime (UTC), compare with GetCETToday()
 // If 'Due Date' is a SharePoint Date (local), use Today() instead
 If(
-    ThisItem.'Due Date' < GetMEZToday(),
-    "Überfällig: " & Text(GetMEZToday() - ThisItem.'Due Date') & " Tage",
+    ThisItem.'Due Date' < GetCETToday(),
+    "Überfällig: " & Text(GetCETToday() - ThisItem.'Due Date') & " Tage",
     If(
-        ThisItem.'Due Date' = GetMEZToday(),
+        ThisItem.'Due Date' = GetCETToday(),
         "Fällig heute",
         If(
-            ThisItem.'Due Date' > GetMEZToday() && !IsBlank(ThisItem.'Due Date'),
-            "Fällig in " & Text(ThisItem.'Due Date' - GetMEZToday()) & " Tagen",
+            ThisItem.'Due Date' > GetCETToday() && !IsBlank(ThisItem.'Due Date'),
+            "Fällig in " & Text(ThisItem.'Due Date' - GetCETToday()) & " Tagen",
             ThisItem.Status
         )
     )
@@ -533,17 +533,17 @@ GetStatusColor(ThisItem.Status)
 
 
 // -----------------------------------------------------------
-// Pattern 5.2: Conditional Icons (MEZ Timezone)
+// Pattern 5.2: Conditional Icons (CET Timezone)
 // -----------------------------------------------------------
 
 // Icon_OverdueWarning.Icon
-If(ThisItem.'Due Date' < GetMEZToday(), Icon.Warning, Icon.Clock)
+If(ThisItem.'Due Date' < GetCETToday(), Icon.Warning, Icon.Clock)
 
 // Icon_OverdueWarning.Visible
 !IsBlank(ThisItem.'Due Date')
 
 // Icon_OverdueWarning.Color
-If(ThisItem.'Due Date' < GetMEZToday(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
+If(ThisItem.'Due Date' < GetCETToday(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
 
 
 // ============================================================
@@ -905,7 +905,7 @@ FormatCurrency(
 
 
 // -----------------------------------------------------------
-// Pattern 9.3: Overdue Count (MEZ Timezone)
+// Pattern 9.3: Overdue Count (CET Timezone)
 // -----------------------------------------------------------
 
 // Label_OverdueCount.Text
@@ -914,7 +914,7 @@ Text(
         Filter(
             Tasks,
             CanAccessRecord('Assigned To'.Email),
-            'Due Date' < GetMEZToday(),
+            'Due Date' < GetCETToday(),
             Status in ["Active", "In Progress", "Pending"]
         )
     )

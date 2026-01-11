@@ -660,9 +660,9 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
 
 
 // -----------------------------------------------------------
-// Timezone Conversion Functions (MEZ/UTC)
-// MEZ = Mitteleuropäische Zeit (Central European Time)
-// SharePoint stores dates in UTC, convert to MEZ timezone (CET/CEST)
+// Timezone Conversion Functions (CET/UTC)
+// CET = Central European Time (Standard: UTC+1, Daylight: UTC+2)
+// SharePoint stores dates in UTC, convert to CET timezone (CET/CEST)
 // -----------------------------------------------------------
 
 // Check if given date is in daylight saving time (CEST)
@@ -674,7 +674,7 @@ IsDaylightSavingTime(checkDate: Date): Boolean =
     );
 
 // Convert UTC DateTime to MEZ time (CET/CEST)
-ConvertUTCToMEZ(utcDateTime: DateTime): DateTime =
+ConvertUTCToCET(utcDateTime: DateTime): DateTime =
     If(
         IsBlank(utcDateTime),
         Blank(),
@@ -687,7 +687,7 @@ ConvertUTCToMEZ(utcDateTime: DateTime): DateTime =
     );
 
 // Convert MEZ time to UTC DateTime
-ConvertMEZToUTC(mezDateTime: DateTime): DateTime =
+ConvertCETToUTC(mezDateTime: DateTime): DateTime =
     If(
         IsBlank(mezDateTime),
         Blank(),
@@ -700,16 +700,16 @@ ConvertMEZToUTC(mezDateTime: DateTime): DateTime =
     );
 
 // Get current time in MEZ timezone
-GetMEZTime(): DateTime =
-    ConvertUTCToMEZ(Now());
+GetCETTime(): DateTime =
+    ConvertUTCToCET(Now());
 
 // Get today's date in MEZ timezone
-GetMEZToday(): Date =
-    DateValue(GetMEZTime());
+GetCETToday(): Date =
+    DateValue(GetCETTime());
 
 
 // -----------------------------------------------------------
-// Date & Time Formatting Functions (German Format, MEZ Timezone)
+// Date & Time Formatting Functions (German Format, CET Timezone)
 // -----------------------------------------------------------
 
 // Format date as short format (e.g., "15.1.2025")
@@ -722,7 +722,7 @@ FormatDateLong(inputDate: Date): Text =
     If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
 
 // Format date and time together (e.g., "15.1.2025 14:30")
-// For UTC datetimes from SharePoint, use FormatDateTimeMEZ instead
+// For UTC datetimes from SharePoint, use FormatDateTimeCET instead
 FormatDateTime(inputDateTime: DateTime): Text =
     If(
         IsBlank(inputDateTime),
@@ -732,12 +732,12 @@ FormatDateTime(inputDateTime: DateTime): Text =
 
 // Format UTC datetime from SharePoint in MEZ timezone
 // Example: SharePoint 'Modified' field (UTC) -> MEZ time
-FormatDateTimeMEZ(utcDateTime: DateTime): Text =
+FormatDateTimeCET(utcDateTime: DateTime): Text =
     If(
         IsBlank(utcDateTime),
         "",
         Text(
-            ConvertUTCToMEZ(utcDateTime),
+            ConvertUTCToCET(utcDateTime),
             "d.m.yyyy hh:mm"
         )
     );
@@ -749,18 +749,18 @@ FormatDateRelative(inputDate: Date): Text =
         IsBlank(inputDate),
         "",
         If(
-            inputDate = GetMEZToday(),
+            inputDate = GetCETToday(),
             "Heute",
             If(
-                inputDate = GetMEZToday() - 1,
+                inputDate = GetCETToday() - 1,
                 "Gestern",
                 If(
-                    inputDate = GetMEZToday() + 1,
+                    inputDate = GetCETToday() + 1,
                     "Morgen",
                     If(
-                        inputDate < GetMEZToday(),
-                        "vor " & Text(GetMEZToday() - inputDate) & " Tagen",
-                        "in " & Text(inputDate - GetMEZToday()) & " Tagen"
+                        inputDate < GetCETToday(),
+                        "vor " & Text(GetCETToday() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - GetCETToday()) & " Tagen"
                     )
                 )
             )
