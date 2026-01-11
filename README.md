@@ -13,28 +13,48 @@ A modern, production-ready Canvas App template using **Named Formulas** and **Us
 - **Date Utilities** - Computed date ranges and relative formatting
 - **Notification Helpers** - Standardized user feedback
 
+## Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [File Structure](#file-structure)
+- [Architecture](#architecture)
+- [Named Formulas Reference](#named-formulas-reference)
+- [UDF Reference](#udf-reference)
+- [Configuration](#configuration)
+- [Migration](#migration-from-legacy-pattern)
+- [Common Patterns](#common-patterns)
+- [Requirements](#requirements)
+- [Contributing](#contributing)
+
 ## Quick Start
 
-1. Copy `App-Formulas-Template.fx` to your Canvas App's **App.Formulas** property
-2. Copy `App-OnStart-Minimal.fx` to your Canvas App's **App.OnStart** property
+1. Copy `src/App-Formulas-Template.fx` to your Canvas App's **App.Formulas** property
+2. Copy `src/App-OnStart-Minimal.fx` to your Canvas App's **App.OnStart** property
 3. Configure your Azure AD security group IDs
-4. Use patterns from `Control-Patterns-Modern.fx` in your controls
+4. Use patterns from `src/Control-Patterns-Modern.fx` in your controls
 
 ## File Structure
 
 ```
 PowerApps-Vibe-Claude/
-├── App-Formulas-Template.fx     # Named Formulas + UDFs (copy to App.Formulas)
-├── App-OnStart-Minimal.fx       # Minimal OnStart (copy to App.OnStart)
-├── Control-Patterns-Modern.fx   # Modern control formula patterns
-├── App-OnStart-Template.fx      # Legacy OnStart template (for reference)
-├── Datasource-Filter-Patterns.fx # Legacy filter patterns (for reference)
-├── MODERNIZATION-PLAN.md        # Architecture and implementation plan
-├── MIGRATION-GUIDE.md           # Step-by-step migration instructions
-├── App-Formulas-Design.md       # Original design documentation
-├── App-Formulas-README.md       # Original usage guide
-├── AUDIT-REPORT.md              # Formula validation and corrections
-└── CLAUDE.md                    # Project conventions
+├── src/
+│   ├── App-Formulas-Template.fx      # Named Formulas + UDFs (copy to App.Formulas)
+│   ├── App-OnStart-Minimal.fx        # Minimal OnStart (copy to App.OnStart)
+│   ├── App-OnStart-Template.fx       # Legacy OnStart template (for reference)
+│   ├── Control-Patterns-Modern.fx    # Modern control formula patterns
+│   └── Datasource-Filter-Patterns.fx # Legacy filter patterns (for reference)
+├── docs/
+│   ├── MODERNIZATION-PLAN.md         # Architecture and implementation plan
+│   ├── MIGRATION-GUIDE.md            # Step-by-step migration instructions
+│   ├── App-Formulas-Design.md        # Original design documentation
+│   ├── App-Formulas-README.md        # Original usage guide
+│   └── DATAVERSE-ITEM-SCHEMA.md      # Dataverse schema documentation
+├── log/
+│   ├── AUDIT-REPORT.md               # Formula validation and corrections
+│   ├── CODE-REFACTORING-SUMMARY-2025.md
+│   └── CODE-REVIEW-2025.md
+└── CLAUDE.md                         # Project conventions
 ```
 
 ## Architecture
@@ -111,7 +131,7 @@ NotifyPermissionDenied("delete items")  // Permission error
 
 ### Security Groups
 
-Update these Group IDs in `App-Formulas-Template.fx`:
+Update these Group IDs in `src/App-Formulas-Template.fx`:
 
 ```powerfx
 UserRoles = {
@@ -135,7 +155,7 @@ IsCorporate: EndsWith(Lower(User().Email), "@yourcompany.com"),
 
 If migrating from the old `App.OnStart` pattern:
 
-1. Read `MIGRATION-GUIDE.md` for step-by-step instructions
+1. Read `docs/MIGRATION-GUIDE.md` for step-by-step instructions
 2. Start with a development copy of your app
 3. Migrate one feature at a time
 4. Test with different user roles
@@ -180,8 +200,8 @@ GetStatusIcon(ThisItem.Status)
 
 1. Follow conventions in `CLAUDE.md`
 2. Test with Admin, Manager, and User roles
-3. Document new UDFs in `App-Formulas-Template.fx`
-4. Update patterns in `Control-Patterns-Modern.fx`
+3. Document new UDFs in `src/App-Formulas-Template.fx`
+4. Update patterns in `src/Control-Patterns-Modern.fx`
 
 ## License
 
