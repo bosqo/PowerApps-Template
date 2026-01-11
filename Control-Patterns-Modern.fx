@@ -356,14 +356,15 @@ GetThemeColor("ErrorLight")
 // -----------------------------------------------------------
 
 // Gallery Row Template - Rectangle_RowBackground.Fill
+// NOTE: This pattern assumes Gallery has a "RowIndex" column calculated in OnStart or data source
 If(
-    ThisItem.IsSelected,
+    ThisRecord = Gallery.Selected,
     GetThemeColor("PrimaryLight"),
     If(
         IsOverdue(ThisItem.'Due Date'),
         GetThemeColor("ErrorLight"),
         If(
-            Mod(ThisItem.RowIndex, 2) = 0,
+            Mod(Coalesce(ThisItem.RowIndex, 1), 2) = 0,
             GetThemeColor("Surface"),
             GetThemeColor("Background")
         )
@@ -927,7 +928,7 @@ If(
     If(
         !IsBlank(AppState.LastError),
         "Error: " & AppState.ErrorMessage,
-        "Data loaded: " & Text(CountRows(Gallery.AllItems)) & " items displayed"
+        "Data loaded: " & Text(CountRows(Gallery.Items)) & " items displayed"
     )
 )
 

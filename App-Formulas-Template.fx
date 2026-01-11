@@ -126,6 +126,38 @@ AppConfig = {
     MaxBulkOperationItems: 100
 };
 
+// Date Range Calculations - Auto-refresh when date changes
+DateRanges = {
+    // Today and Yesterday
+    Today: Today(),
+    Yesterday: Today() - 1,
+    Tomorrow: Today() + 1,
+
+    // Week Calculations
+    StartOfWeek: Today() - Weekday(Today()) + 1,
+    EndOfWeek: Today() - Weekday(Today()) + 7,
+    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+
+    // Month Calculations
+    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
+    EndOfMonth: Date(Year(Today()), Month(Today()) + 1, 1) - 1,
+    StartOfLastMonth: Date(Year(Today()), Month(Today()) - 1, 1),
+    EndOfLastMonth: Date(Year(Today()), Month(Today()), 1) - 1,
+
+    // Year Calculations
+    StartOfYear: Date(Year(Today()), 1, 1),
+    EndOfYear: Date(Year(Today()) + 1, 1, 1) - 1,
+    StartOfLastYear: Date(Year(Today()) - 1, 1, 1),
+    EndOfLastYear: Date(Year(Today()), 1, 1) - 1,
+
+    // Relative Ranges
+    Last7Days: Today() - 7,
+    Last30Days: Today() - 30,
+    Last90Days: Today() - 90,
+    Last365Days: Today() - 365
+};
+
 
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS
@@ -656,6 +688,131 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
             endItem: Min(GetSkipCount(currentPage, pageSize) + pageSize, totalItems)
         },
         Text(startItem) & "-" & Text(endItem) & " of " & Text(totalItems)
+    );
+
+
+// -----------------------------------------------------------
+// Date & Time Utility Functions
+// -----------------------------------------------------------
+
+// Check if a date is in the past (overdue)
+IsOverdue(checkDate: Date): Boolean =
+    !IsBlank(checkDate) && checkDate < Today();
+
+// Check if a date is today
+IsToday(checkDate: Date): Boolean =
+    !IsBlank(checkDate) && checkDate = Today();
+
+// Check if a date is in the future
+IsFutureDate(checkDate: Date): Boolean =
+    !IsBlank(checkDate) && checkDate > Today();
+
+// Get number of days between date and today (negative if past)
+GetDaysDifference(checkDate: Date): Number =
+    If(IsBlank(checkDate), 0, checkDate - Today());
+
+// Check if date falls within a named date range
+IsWithinDateRange(checkDate: Date, rangeName: Text): Boolean =
+    If(
+        IsBlank(checkDate),
+        false,
+        Switch(
+            Lower(rangeName),
+            "today", checkDate = Today(),
+            "yesterday", checkDate = Today() - 1,
+            "tomorrow", checkDate = Today() + 1,
+            "thisweek", And(checkDate >= DateRanges.StartOfWeek, checkDate <= Today()),
+            "lastweek", And(checkDate >= DateRanges.StartOfLastWeek, checkDate < DateRanges.StartOfWeek),
+            "thismonth", And(checkDate >= DateRanges.StartOfMonth, checkDate <= Today()),
+            "lastmonth", And(checkDate >= DateRanges.StartOfLastMonth, checkDate < DateRanges.StartOfMonth),
+            "last7days", checkDate >= Today() - 7,
+            "last30days", checkDate >= Today() - 30,
+            "last90days", checkDate >= Today() - 90,
+            "last365days", checkDate >= Today() - 365,
+            "thisyear", Year(checkDate) = Year(Today()),
+            "lastyear", Year(checkDate) = Year(Today()) - 1,
+            false
+        )
+    );
+
+// Get start date for a named date range
+GetDateRangeStart(rangeName: Text): Date =
+    Switch(
+        Lower(rangeName),
+        "today", DateRanges.Today,
+        "yesterday", DateRanges.Yesterday,
+        "tomorrow", DateRanges.Tomorrow,
+        "thisweek", DateRanges.StartOfWeek,
+        "lastweek", DateRanges.StartOfLastWeek,
+        "thismonth", DateRanges.StartOfMonth,
+        "lastmonth", DateRanges.StartOfLastMonth,
+        "last7days", Today() - 7,
+        "last30days", DateRanges.Last30Days,
+        "last90days", DateRanges.Last90Days,
+        "last365days", DateRanges.Last365Days,
+        "thisyear", DateRanges.StartOfYear,
+        "lastyear", DateRanges.StartOfLastYear,
+        DateRanges.Today
+    );
+
+// Get end date for a named date range
+GetDateRangeEnd(rangeName: Text): Date =
+    Switch(
+        Lower(rangeName),
+        "today", DateRanges.Today,
+        "yesterday", DateRanges.Yesterday,
+        "tomorrow", DateRanges.Tomorrow,
+        "thisweek", DateRanges.EndOfWeek,
+        "lastweek", DateRanges.EndOfLastWeek,
+        "thismonth", DateRanges.EndOfMonth,
+        "lastmonth", DateRanges.EndOfLastMonth,
+        "last7days", DateRanges.Today,
+        "last30days", DateRanges.Today,
+        "last90days", DateRanges.Today,
+        "last365days", DateRanges.Today,
+        "thisyear", DateRanges.EndOfYear,
+        "lastyear", DateRanges.EndOfLastYear,
+        DateRanges.Today
+    );
+
+// Format date as relative time (e.g., "2 days ago")
+FormatDateRelative(inputDate: Date): Text =
+    If(
+        IsBlank(inputDate),
+        "",
+        If(
+            IsToday(inputDate),
+            "Today",
+            If(
+                inputDate = Today() - 1,
+                "Yesterday",
+                If(
+                    inputDate = Today() + 1,
+                    "Tomorrow",
+                    If(
+                        GetDaysDifference(inputDate) < 0,
+                        Text(-GetDaysDifference(inputDate)) & " days ago",
+                        Text(GetDaysDifference(inputDate)) & " days from now"
+                    )
+                )
+            )
+        )
+    );
+
+// Format date as short format (e.g., "Jan 15, 2025")
+FormatDateShort(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "mmm d, yyyy"));
+
+// Format date as long format (e.g., "January 15, 2025")
+FormatDateLong(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "mmmm d, yyyy"));
+
+// Format date and time together (e.g., "Jan 15, 2025 2:30 PM")
+FormatDateTime(inputDateTime: DateTime): Text =
+    If(
+        IsBlank(inputDateTime),
+        "",
+        Text(inputDateTime, "mmm d, yyyy h:mm AM/PM")
     );
 
 
