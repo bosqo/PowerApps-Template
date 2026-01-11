@@ -126,6 +126,35 @@ AppConfig = {
     MaxBulkOperationItems: 100
 };
 
+// Date Range Calculations - Auto-refresh when date changes
+DateRanges = {
+    // Today and Yesterday
+    Today: Today(),
+    Yesterday: Today() - 1,
+    Tomorrow: Today() + 1,
+
+    // Week Calculations
+    StartOfWeek: Today() - Weekday(Today()) + 1,
+    EndOfWeek: Today() - Weekday(Today()) + 7,
+    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+
+    // Month Calculations
+    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
+    EndOfMonth: Date(Year(Today()), Month(Today()) + 1, 1) - 1,
+    StartOfLastMonth: Date(Year(Today()), Month(Today()) - 1, 1),
+    EndOfLastMonth: Date(Year(Today()), Month(Today()), 1) - 1,
+
+    // Year Calculations
+    StartOfYear: Date(Year(Today()), 1, 1),
+    EndOfYear: Date(Year(Today()) + 1, 1, 1) - 1,
+
+    // Relative Ranges
+    Last7Days: Today() - 7,
+    Last30Days: Today() - 30,
+    Last90Days: Today() - 90
+};
+
 
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS
@@ -228,6 +257,7 @@ UserPermissions = {
 
     // Feature Permissions
     CanBulkOperations: UserRoles.IsAdmin,
+    CanExport: UserRoles.IsAdmin || UserRoles.IsManager,
     CanManageUsers: UserRoles.IsAdmin || UserRoles.IsHR,
     CanViewAuditLog: UserRoles.IsAdmin,
     CanConfigureSettings: UserRoles.IsAdmin,
@@ -320,6 +350,7 @@ HasPermission(permissionName: Text): Boolean =
         "viewown", UserPermissions.CanViewOwn,
         "viewdepartment", UserPermissions.CanViewDepartment,
         "bulk", UserPermissions.CanBulkOperations,
+        "export", UserPermissions.CanExport,
         "manageusers", UserPermissions.CanManageUsers,
         "audit", UserPermissions.CanViewAuditLog,
         "settings", UserPermissions.CanConfigureSettings,

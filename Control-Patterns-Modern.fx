@@ -386,7 +386,7 @@ GetThemeColor("ErrorLight")
 
 // Gallery Row Template - Rectangle_RowBackground.Fill
 If(
-    ThisRecord = Gallery.Selected,
+    ThisItem = Gallery.Selected,
     GetThemeColor("PrimaryLight"),
     If(
         Mod(Coalesce(ThisItem.RowIndex, 1), 2) = 0,
@@ -439,7 +439,7 @@ GetRoleBadge()
 Text(ThisItem.'Created On', "mmm d, yyyy")
 */
 
-// AFTER (using German date formatting UDFs with Berlin timezone):
+// AFTER (using German date formatting UDFs with CET timezone):
 // For SharePoint Date-only fields (stored as local date):
 // Label_CreatedDate.Text (short format)
 FormatDateShort(ThisItem.'Created On')
