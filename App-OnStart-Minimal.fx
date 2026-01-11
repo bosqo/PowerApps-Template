@@ -112,72 +112,77 @@ Set(UIState, {
 // ============================================================
 // Load commonly used lookup/reference data once at startup
 // These are used for dropdowns, filters, and validation
+//
+// Refactored 2025: Using Concurrent() for parallel data loading
+// This improves app startup performance by fetching data simultaneously
 
-// Departments (for dropdowns)
-ClearCollect(
-    CachedDepartments,
-    Sort(
-        Filter(
-            Departments,
-            Status = "Active"
-        ),
-        Name,
-        SortOrder.Ascending
-    )
-);
+Concurrent(
+    // Departments (for dropdowns) - from Dataverse
+    ClearCollect(
+        CachedDepartments,
+        Sort(
+            Filter(
+                Departments,
+                Status = "Active"
+            ),
+            Name,
+            SortOrder.Ascending
+        )
+    ),
 
-// Categories (for dropdowns)
-ClearCollect(
-    CachedCategories,
-    Sort(
-        Filter(
-            Categories,
-            Status = "Active"
-        ),
-        Name,
-        SortOrder.Ascending
-    )
-);
+    // Categories (for dropdowns) - from Dataverse
+    ClearCollect(
+        CachedCategories,
+        Sort(
+            Filter(
+                Categories,
+                Status = "Active"
+            ),
+            Name,
+            SortOrder.Ascending
+        )
+    ),
 
-// Statuses (for dropdowns)
-ClearCollect(
-    CachedStatuses,
-    Table(
-        {Value: "Active", DisplayName: "Active", SortOrder: 1},
-        {Value: "Pending", DisplayName: "Pending", SortOrder: 2},
-        {Value: "In Progress", DisplayName: "In Progress", SortOrder: 3},
-        {Value: "On Hold", DisplayName: "On Hold", SortOrder: 4},
-        {Value: "Completed", DisplayName: "Completed", SortOrder: 5},
-        {Value: "Cancelled", DisplayName: "Cancelled", SortOrder: 6},
-        {Value: "Archived", DisplayName: "Archived", SortOrder: 7}
-    )
-);
+    // Statuses (for dropdowns) - static table
+    ClearCollect(
+        CachedStatuses,
+        Table(
+            {Value: "Active", DisplayName: "Active", SortOrder: 1},
+            {Value: "Pending", DisplayName: "Pending", SortOrder: 2},
+            {Value: "In Progress", DisplayName: "In Progress", SortOrder: 3},
+            {Value: "On Hold", DisplayName: "On Hold", SortOrder: 4},
+            {Value: "Completed", DisplayName: "Completed", SortOrder: 5},
+            {Value: "Cancelled", DisplayName: "Cancelled", SortOrder: 6},
+            {Value: "Archived", DisplayName: "Archived", SortOrder: 7}
+        )
+    ),
 
-// Priorities (for dropdowns)
-ClearCollect(
-    CachedPriorities,
-    Table(
-        {Value: "Critical", DisplayName: "Critical", SortOrder: 1},
-        {Value: "High", DisplayName: "High", SortOrder: 2},
-        {Value: "Medium", DisplayName: "Medium", SortOrder: 3},
-        {Value: "Low", DisplayName: "Low", SortOrder: 4},
-        {Value: "None", DisplayName: "None", SortOrder: 5}
-    )
-);
+    // Priorities (for dropdowns) - static table
+    ClearCollect(
+        CachedPriorities,
+        Table(
+            {Value: "Critical", DisplayName: "Critical", SortOrder: 1},
+            {Value: "High", DisplayName: "High", SortOrder: 2},
+            {Value: "Medium", DisplayName: "Medium", SortOrder: 3},
+            {Value: "Low", DisplayName: "Low", SortOrder: 4},
+            {Value: "None", DisplayName: "None", SortOrder: 5}
+        )
+    ),
 
-// Date Range Options (for dropdowns)
-ClearCollect(
-    CachedDateRanges,
-    Table(
-        {Value: "today", DisplayName: "Today", SortOrder: 1},
-        {Value: "thisweek", DisplayName: "This Week", SortOrder: 2},
-        {Value: "thismonth", DisplayName: "This Month", SortOrder: 3},
-        {Value: "thisquarter", DisplayName: "This Quarter", SortOrder: 4},
-        {Value: "thisyear", DisplayName: "This Year", SortOrder: 5},
-        {Value: "last7days", DisplayName: "Last 7 Days", SortOrder: 6},
-        {Value: "last30days", DisplayName: "Last 30 Days", SortOrder: 7},
-        {Value: "last90days", DisplayName: "Last 90 Days", SortOrder: 8},
-        {Value: "custom", DisplayName: "Custom Range", SortOrder: 9}
+    // Date Range Options (for dropdowns) - static table
+    ClearCollect(
+        CachedDateRanges,
+        Table(
+            {Value: "today", DisplayName: "Today", SortOrder: 1},
+            {Value: "thisweek", DisplayName: "This Week", SortOrder: 2},
+            {Value: "thismonth", DisplayName: "This Month", SortOrder: 3},
+            {Value: "thisquarter", DisplayName: "This Quarter", SortOrder: 4},
+            {Value: "thisyear", DisplayName: "This Year", SortOrder: 5},
+            {Value: "last7days", DisplayName: "Last 7 Days", SortOrder: 6},
+            {Value: "last30days", DisplayName: "Last 30 Days", SortOrder: 7},
+            {Value: "last90days", DisplayName: "Last 90 Days", SortOrder: 8},
+            {Value: "custom", DisplayName: "Custom Range", SortOrder: 9}
+        )
     )
 );
 

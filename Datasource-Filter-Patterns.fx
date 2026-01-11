@@ -2,6 +2,24 @@
 // DATASOURCE PREFILTERING PATTERNS
 // Reusable filter formulas for Canvas App controls
 // ============================================================
+//
+// ⚠️ DEPRECATION NOTICE (2025-01-11):
+// This file uses the LEGACY variable pattern (Data.Filter.*, App.User.*).
+// For new development, use the MODERN UDF pattern in:
+// - App-Formulas-Template.fx (UDFs like CanAccessRecord(), HasPermission())
+// - Control-Patterns-Modern.fx (examples using ActiveFilters.*, UserPermissions.*)
+//
+// MIGRATION:
+// | Old Pattern (this file)         | New Pattern (Modern)           |
+// |---------------------------------|--------------------------------|
+// | Data.Filter.UserScope           | ActiveFilters.UserScope        |
+// | Data.Filter.DepartmentScope     | ActiveFilters.DepartmentScope  |
+// | App.User.Permissions.CanDelete  | HasPermission("Delete")        |
+// | App.User.Roles.IsAdmin          | HasRole("Admin")               |
+// | Data.Filter.DateRange.ThisMonth | DateRanges.StartOfMonth        |
+//
+// This file is retained for reference and backward compatibility.
+// ============================================================
 
 // ============================================================
 // PATTERN 1: BASIC GALLERY WITH USER SCOPE

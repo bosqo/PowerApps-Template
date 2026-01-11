@@ -426,10 +426,24 @@ HasRole(roleName: Text): Boolean =
     );
 
 // Check if user has any of the specified roles (comma-separated)
+// Refactored 2025: Now properly handles unlimited roles instead of hardcoded 3
 HasAnyRole(roleNames: Text): Boolean =
-    HasRole(First(Split(roleNames, ",")).Value) ||
-    HasRole(Last(FirstN(Split(roleNames, ","), 2)).Value) ||
-    HasRole(Last(FirstN(Split(roleNames, ","), 3)).Value);
+    CountRows(
+        Filter(
+            Split(roleNames, ","),
+            HasRole(Trim(Value))
+        )
+    ) > 0;
+
+// Check if user has ALL of the specified roles (comma-separated)
+// Added 2025: Complement to HasAnyRole for AND logic
+HasAllRoles(roleNames: Text): Boolean =
+    CountRows(
+        Filter(
+            Split(roleNames, ","),
+            !HasRole(Trim(Value))
+        )
+    ) = 0;
 
 // Get user's highest role as display label
 GetRoleLabel(): Text =
@@ -747,12 +761,22 @@ NotifyValidationError(fieldName: Text, message: Text): Boolean =
 // Validation Functions
 // -----------------------------------------------------------
 
+// Check if text is blank or empty (whitespace only)
+// Added 2025: Common helper for null/empty string checks
+IsBlankOrEmpty(input: Text): Boolean =
+    IsBlank(input) || Len(Trim(input)) = 0;
+
 // Validate email format
+// Refactored 2025: Stronger validation with additional checks
 IsValidEmail(email: Text): Boolean =
-    !IsBlank(email) &&
+    !IsBlankOrEmpty(email) &&
+    !Contains(email, " ") &&
     CountRows(Split(email, "@")) = 2 &&
+    Len(First(Split(email, "@")).Value) >= 1 &&
     Len(Last(Split(email, "@")).Value) > 3 &&
-    Contains(Last(Split(email, "@")).Value, ".");
+    Contains(Last(Split(email, "@")).Value, ".") &&
+    !StartsWith(Last(Split(email, "@")).Value, ".") &&
+    !EndsWith(Last(Split(email, "@")).Value, ".");
 
 // Check if text is within length limits
 IsValidLength(input: Text, minLen: Number, maxLen: Number): Boolean =
@@ -760,9 +784,14 @@ IsValidLength(input: Text, minLen: Number, maxLen: Number): Boolean =
     Len(Coalesce(input, "")) <= maxLen;
 
 // Check if a value is in a set of allowed values (comma-separated)
+// Refactored 2025: Fixed incorrect ForAll/in pattern
 IsOneOf(value: Text, allowedValues: Text): Boolean =
-    Lower(Coalesce(value, "")) in
-    ForAll(Split(allowedValues, ","), Lower(Trim(Value)));
+    CountRows(
+        Filter(
+            Split(allowedValues, ","),
+            Lower(Trim(Value)) = Lower(Coalesce(value, ""))
+        )
+    ) > 0;
 
 // Check if text contains only alphanumeric characters
 IsAlphanumeric(input: Text): Boolean =
@@ -784,6 +813,37 @@ IsNotPastDate(inputDate: Date): Boolean =
 // Validate date is within acceptable range
 IsDateInRange(inputDate: Date, minDate: Date, maxDate: Date): Boolean =
     inputDate >= minDate && inputDate <= maxDate;
+
+
+// -----------------------------------------------------------
+// Pagination Functions (Added 2025)
+// -----------------------------------------------------------
+
+// Calculate total number of pages
+GetTotalPages(totalItems: Number, pageSize: Number): Number =
+    RoundUp(totalItems / Max(1, pageSize), 0);
+
+// Calculate number of items to skip for current page
+GetSkipCount(currentPage: Number, pageSize: Number): Number =
+    (Max(1, currentPage) - 1) * pageSize;
+
+// Check if can navigate to previous page
+CanGoToPreviousPage(currentPage: Number): Boolean =
+    currentPage > 1;
+
+// Check if can navigate to next page
+CanGoToNextPage(currentPage: Number, totalItems: Number, pageSize: Number): Boolean =
+    currentPage < GetTotalPages(totalItems, pageSize);
+
+// Get page range display text (e.g., "1-50 of 1234")
+GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Text =
+    With(
+        {
+            startItem: GetSkipCount(currentPage, pageSize) + 1,
+            endItem: Min(GetSkipCount(currentPage, pageSize) + pageSize, totalItems)
+        },
+        Text(startItem) & "-" & Text(endItem) & " of " & Text(totalItems)
+    );
 
 
 // -----------------------------------------------------------
