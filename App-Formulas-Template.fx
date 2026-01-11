@@ -388,6 +388,7 @@ GetRoleLabel(): Text =
     Switch(
         true,
         UserRoles.IsAdmin, "Administrator",
+        UserRoles.IsGF, "Geschäftsführer",
         UserRoles.IsManager, "Manager",
         UserRoles.IsHR, "HR",
         UserRoles.IsSachbearbeiter, "Sachbearbeiter",
@@ -488,17 +489,20 @@ GetStatusColor(status: Text): Color =
         "active", ThemeColors.Success,
         "open", ThemeColors.Success,
         "approved", ThemeColors.Success,
+        "genehmigt", ThemeColors.Success,         // German: approved
         "completed", ThemeColors.Success,
         "done", ThemeColors.Success,
         "published", ThemeColors.Success,
         "resolved", ThemeColors.Success,
         // In Progress
         "in progress", ThemeColors.Primary,
+        "in bearbeitung", ThemeColors.Primary,    // German: in progress
         "processing", ThemeColors.Primary,
         "reviewing", ThemeColors.Primary,
         "pending review", ThemeColors.Primary,
         // Warning/Pending
         "pending", ThemeColors.Warning,
+        "beantragt", ThemeColors.Warning,         // German: requested/applied
         "on hold", ThemeColors.Warning,
         "waiting", ThemeColors.Warning,
         "draft", ThemeColors.Warning,
@@ -511,6 +515,7 @@ GetStatusColor(status: Text): Color =
         // Error/Negative
         "cancelled", ThemeColors.Error,
         "rejected", ThemeColors.Error,
+        "abgelehnt", ThemeColors.Error,           // German: rejected
         "failed", ThemeColors.Error,
         "error", ThemeColors.Error,
         "overdue", ThemeColors.Error,
@@ -526,11 +531,15 @@ GetStatusIcon(status: Text): Icon =
         "active", Icon.CheckmarkCircle,
         "completed", Icon.CheckmarkCircle,
         "approved", Icon.CheckmarkCircle,
+        "genehmigt", Icon.CheckmarkCircle,        // German: approved
         "in progress", Icon.Clock,
+        "in bearbeitung", Icon.Clock,             // German: in progress
         "pending", Icon.Clock,
+        "beantragt", Icon.Clock,                  // German: requested/applied
         "draft", Icon.Edit,
         "cancelled", Icon.CancelBadge,
         "rejected", Icon.CancelBadge,
+        "abgelehnt", Icon.CancelBadge,            // German: rejected
         "error", Icon.Warning,
         "archived", Icon.DocumentSet,
         Icon.CircleHollow
@@ -677,6 +686,115 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
             endItem: Min(GetSkipCount(currentPage, pageSize) + pageSize, totalItems)
         },
         Text(startItem) & "-" & Text(endItem) & " of " & Text(totalItems)
+    );
+
+
+// -----------------------------------------------------------
+// Timezone Conversion Functions (CET/UTC)
+// CET = Central European Time (Standard: UTC+1, Daylight: UTC+2)
+// SharePoint stores dates in UTC, convert to CET timezone (CET/CEST)
+// -----------------------------------------------------------
+
+// Check if given date is in daylight saving time (CEST)
+// Germany: Last Sunday of March to Last Sunday of October
+IsDaylightSavingTime(checkDate: Date): Boolean =
+    And(
+        checkDate >= Date(Year(checkDate), 3, 31 - Weekday(Date(Year(checkDate), 3, 31))),
+        checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31)))
+    );
+
+// Convert UTC DateTime to MEZ time (CET/CEST)
+ConvertUTCToCET(utcDateTime: DateTime): DateTime =
+    If(
+        IsBlank(utcDateTime),
+        Blank(),
+        // MEZ is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
+        DateAdd(
+            utcDateTime,
+            1 + If(IsDaylightSavingTime(DateValue(utcDateTime)), 1, 0),
+            TimeUnit.Hours
+        )
+    );
+
+// Convert MEZ time to UTC DateTime
+ConvertCETToUTC(mezDateTime: DateTime): DateTime =
+    If(
+        IsBlank(mezDateTime),
+        Blank(),
+        // Subtract MEZ offset (1 or 2 hours depending on DST)
+        DateAdd(
+            mezDateTime,
+            -(1 + If(IsDaylightSavingTime(DateValue(mezDateTime)), 1, 0)),
+            TimeUnit.Hours
+        )
+    );
+
+// Get current time in MEZ timezone
+GetCETTime(): DateTime =
+    ConvertUTCToCET(Now());
+
+// Get today's date in MEZ timezone
+GetCETToday(): Date =
+    DateValue(GetCETTime());
+
+
+// -----------------------------------------------------------
+// Date & Time Formatting Functions (German Format, CET Timezone)
+// -----------------------------------------------------------
+
+// Format date as short format (e.g., "15.1.2025")
+// Optional: pass UTC date to auto-convert to MEZ time first
+FormatDateShort(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
+
+// Format date as long format (e.g., "15. Januar 2025")
+FormatDateLong(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
+
+// Format date and time together (e.g., "15.1.2025 14:30")
+// For UTC datetimes from SharePoint, use FormatDateTimeCET instead
+FormatDateTime(inputDateTime: DateTime): Text =
+    If(
+        IsBlank(inputDateTime),
+        "",
+        Text(inputDateTime, "d.m.yyyy hh:mm")
+    );
+
+// Format UTC datetime from SharePoint in MEZ timezone
+// Example: SharePoint 'Modified' field (UTC) -> MEZ time
+FormatDateTimeCET(utcDateTime: DateTime): Text =
+    If(
+        IsBlank(utcDateTime),
+        "",
+        Text(
+            ConvertUTCToCET(utcDateTime),
+            "d.m.yyyy hh:mm"
+        )
+    );
+
+// Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
+// Uses MEZ timezone for comparison
+FormatDateRelative(inputDate: Date): Text =
+    If(
+        IsBlank(inputDate),
+        "",
+        If(
+            inputDate = GetCETToday(),
+            "Heute",
+            If(
+                inputDate = GetCETToday() - 1,
+                "Gestern",
+                If(
+                    inputDate = GetCETToday() + 1,
+                    "Morgen",
+                    If(
+                        inputDate < GetCETToday(),
+                        "vor " & Text(GetCETToday() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - GetCETToday()) & " Tagen"
+                    )
+                )
+            )
+        )
     );
 
 
