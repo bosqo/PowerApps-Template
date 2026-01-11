@@ -276,7 +276,13 @@ UserRoles = {
 
     IsSupervisor: Contains(Lower(UserProfile.JobTitle), "lead") ||
                   Contains(Lower(UserProfile.JobTitle), "supervisor") ||
-                  Contains(Lower(UserProfile.JobTitle), "team lead")
+                  Contains(Lower(UserProfile.JobTitle), "team lead"),
+
+    // German: Geschäftsführer (Managing Director/CEO)
+    IsGF: Contains(Lower(UserProfile.JobTitle), "geschäftsführer") ||
+          Contains(Lower(UserProfile.JobTitle), "geschäftsführung") ||
+          Contains(Lower(UserProfile.JobTitle), "ceo") ||
+          Contains(Lower(UserProfile.JobTitle), "managing director")
 };
 
 // User Permissions - Derived from Roles
@@ -312,6 +318,7 @@ UserPermissions = {
 RoleColor = Switch(
     true,
     UserRoles.IsAdmin, ThemeColors.Error,        // Red for Admin
+    UserRoles.IsGF, ThemeColors.PrimaryDark,     // Dark Blue for GF
     UserRoles.IsManager, ThemeColors.Primary,     // Blue for Manager
     UserRoles.IsSupervisor, ThemeColors.Warning,  // Amber for Supervisor
     ThemeColors.Success                           // Green for User
@@ -321,6 +328,7 @@ RoleColor = Switch(
 RoleBadgeText = Switch(
     true,
     UserRoles.IsAdmin, "Admin",
+    UserRoles.IsGF, "GF",
     UserRoles.IsManager, "Manager",
     UserRoles.IsSupervisor, "Lead",
     UserRoles.IsExecutive, "Executive",
@@ -413,6 +421,7 @@ HasRole(roleName: Text): Boolean =
         "user", UserRoles.IsUser,
         "supervisor", UserRoles.IsSupervisor,
         "executive", UserRoles.IsExecutive,
+        "gf", UserRoles.IsGF,
         "corporate", UserRoles.IsCorporate,
         "external", UserRoles.IsExternal,
         "guest", UserRoles.IsGuest,
@@ -436,6 +445,7 @@ GetRoleLabel(): Text =
     Switch(
         true,
         UserRoles.IsAdmin, "Administrator",
+        UserRoles.IsGF, "Geschäftsführer",
         UserRoles.IsManager, "Manager",
         UserRoles.IsSupervisor, "Team Lead",
         UserRoles.IsExecutive, "Executive",
@@ -540,17 +550,20 @@ GetStatusColor(status: Text): Color =
         "active", ThemeColors.Success,
         "open", ThemeColors.Success,
         "approved", ThemeColors.Success,
+        "genehmigt", ThemeColors.Success,         // German: approved
         "completed", ThemeColors.Success,
         "done", ThemeColors.Success,
         "published", ThemeColors.Success,
         "resolved", ThemeColors.Success,
         // In Progress
         "in progress", ThemeColors.Primary,
+        "in bearbeitung", ThemeColors.Primary,    // German: in progress
         "processing", ThemeColors.Primary,
         "reviewing", ThemeColors.Primary,
         "pending review", ThemeColors.Primary,
         // Warning/Pending
         "pending", ThemeColors.Warning,
+        "beantragt", ThemeColors.Warning,         // German: requested/applied
         "on hold", ThemeColors.Warning,
         "waiting", ThemeColors.Warning,
         "draft", ThemeColors.Warning,
@@ -563,6 +576,7 @@ GetStatusColor(status: Text): Color =
         // Error/Negative
         "cancelled", ThemeColors.Error,
         "rejected", ThemeColors.Error,
+        "abgelehnt", ThemeColors.Error,           // German: rejected
         "failed", ThemeColors.Error,
         "error", ThemeColors.Error,
         "overdue", ThemeColors.Error,
@@ -578,11 +592,15 @@ GetStatusIcon(status: Text): Icon =
         "active", Icon.CheckmarkCircle,
         "completed", Icon.CheckmarkCircle,
         "approved", Icon.CheckmarkCircle,
+        "genehmigt", Icon.CheckmarkCircle,        // German: approved
         "in progress", Icon.Clock,
+        "in bearbeitung", Icon.Clock,             // German: in progress
         "pending", Icon.Clock,
+        "beantragt", Icon.Clock,                  // German: requested/applied
         "draft", Icon.Edit,
         "cancelled", Icon.CancelBadge,
         "rejected", Icon.CancelBadge,
+        "abgelehnt", Icon.CancelBadge,            // German: rejected
         "error", Icon.Warning,
         "archived", Icon.DocumentSet,
         Icon.CircleHollow
