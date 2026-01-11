@@ -126,6 +126,35 @@ AppConfig = {
     MaxBulkOperationItems: 100
 };
 
+// Date Range Calculations - Auto-refresh when date changes
+DateRanges = {
+    // Today and Yesterday
+    Today: Today(),
+    Yesterday: Today() - 1,
+    Tomorrow: Today() + 1,
+
+    // Week Calculations
+    StartOfWeek: Today() - Weekday(Today()) + 1,
+    EndOfWeek: Today() - Weekday(Today()) + 7,
+    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+
+    // Month Calculations
+    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
+    EndOfMonth: Date(Year(Today()), Month(Today()) + 1, 1) - 1,
+    StartOfLastMonth: Date(Year(Today()), Month(Today()) - 1, 1),
+    EndOfLastMonth: Date(Year(Today()), Month(Today()), 1) - 1,
+
+    // Year Calculations
+    StartOfYear: Date(Year(Today()), 1, 1),
+    EndOfYear: Date(Year(Today()) + 1, 1, 1) - 1,
+
+    // Relative Ranges
+    Last7Days: Today() - 7,
+    Last30Days: Today() - 30,
+    Last90Days: Today() - 90
+};
+
 
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS
@@ -228,6 +257,7 @@ UserPermissions = {
 
     // Feature Permissions
     CanBulkOperations: UserRoles.IsAdmin,
+    CanExport: UserRoles.IsAdmin || UserRoles.IsManager,
     CanManageUsers: UserRoles.IsAdmin || UserRoles.IsHR,
     CanViewAuditLog: UserRoles.IsAdmin,
     CanConfigureSettings: UserRoles.IsAdmin,
@@ -320,6 +350,7 @@ HasPermission(permissionName: Text): Boolean =
         "viewown", UserPermissions.CanViewOwn,
         "viewdepartment", UserPermissions.CanViewDepartment,
         "bulk", UserPermissions.CanBulkOperations,
+        "export", UserPermissions.CanExport,
         "manageusers", UserPermissions.CanManageUsers,
         "audit", UserPermissions.CanViewAuditLog,
         "settings", UserPermissions.CanConfigureSettings,
@@ -656,6 +687,115 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
             endItem: Min(GetSkipCount(currentPage, pageSize) + pageSize, totalItems)
         },
         Text(startItem) & "-" & Text(endItem) & " of " & Text(totalItems)
+    );
+
+
+// -----------------------------------------------------------
+// Timezone Conversion Functions (CET/UTC)
+// CET = Central European Time (Standard: UTC+1, Daylight: UTC+2)
+// SharePoint stores dates in UTC, convert to CET timezone (CET/CEST)
+// -----------------------------------------------------------
+
+// Check if given date is in daylight saving time (CEST)
+// Germany: Last Sunday of March to Last Sunday of October
+IsDaylightSavingTime(checkDate: Date): Boolean =
+    And(
+        checkDate >= Date(Year(checkDate), 3, 31 - Weekday(Date(Year(checkDate), 3, 31))),
+        checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31)))
+    );
+
+// Convert UTC DateTime to MEZ time (CET/CEST)
+ConvertUTCToCET(utcDateTime: DateTime): DateTime =
+    If(
+        IsBlank(utcDateTime),
+        Blank(),
+        // MEZ is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
+        DateAdd(
+            utcDateTime,
+            1 + If(IsDaylightSavingTime(DateValue(utcDateTime)), 1, 0),
+            TimeUnit.Hours
+        )
+    );
+
+// Convert MEZ time to UTC DateTime
+ConvertCETToUTC(mezDateTime: DateTime): DateTime =
+    If(
+        IsBlank(mezDateTime),
+        Blank(),
+        // Subtract MEZ offset (1 or 2 hours depending on DST)
+        DateAdd(
+            mezDateTime,
+            -(1 + If(IsDaylightSavingTime(DateValue(mezDateTime)), 1, 0)),
+            TimeUnit.Hours
+        )
+    );
+
+// Get current time in MEZ timezone
+GetCETTime(): DateTime =
+    ConvertUTCToCET(Now());
+
+// Get today's date in MEZ timezone
+GetCETToday(): Date =
+    DateValue(GetCETTime());
+
+
+// -----------------------------------------------------------
+// Date & Time Formatting Functions (German Format, CET Timezone)
+// -----------------------------------------------------------
+
+// Format date as short format (e.g., "15.1.2025")
+// Optional: pass UTC date to auto-convert to MEZ time first
+FormatDateShort(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
+
+// Format date as long format (e.g., "15. Januar 2025")
+FormatDateLong(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
+
+// Format date and time together (e.g., "15.1.2025 14:30")
+// For UTC datetimes from SharePoint, use FormatDateTimeCET instead
+FormatDateTime(inputDateTime: DateTime): Text =
+    If(
+        IsBlank(inputDateTime),
+        "",
+        Text(inputDateTime, "d.m.yyyy hh:mm")
+    );
+
+// Format UTC datetime from SharePoint in MEZ timezone
+// Example: SharePoint 'Modified' field (UTC) -> MEZ time
+FormatDateTimeCET(utcDateTime: DateTime): Text =
+    If(
+        IsBlank(utcDateTime),
+        "",
+        Text(
+            ConvertUTCToCET(utcDateTime),
+            "d.m.yyyy hh:mm"
+        )
+    );
+
+// Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
+// Uses MEZ timezone for comparison
+FormatDateRelative(inputDate: Date): Text =
+    If(
+        IsBlank(inputDate),
+        "",
+        If(
+            inputDate = GetCETToday(),
+            "Heute",
+            If(
+                inputDate = GetCETToday() - 1,
+                "Gestern",
+                If(
+                    inputDate = GetCETToday() + 1,
+                    "Morgen",
+                    If(
+                        inputDate < GetCETToday(),
+                        "vor " & Text(GetCETToday() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - GetCETToday()) & " Tagen"
+                    )
+                )
+            )
+        )
     );
 
 

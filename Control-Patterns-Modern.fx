@@ -20,6 +20,27 @@
 
 
 // ============================================================
+// SHAREPOINT TIMEZONE HANDLING
+// ============================================================
+// SharePoint stores all datetime fields in UTC
+// CET (Central European Time): CET (UTC+1) or CEST (UTC+2 during daylight saving)
+//
+// Key Functions:
+// - ConvertUTCToCET(utcDateTime) - Convert SharePoint UTC to MEZ time
+// - GetCETToday() - Get today's date in MEZ timezone
+// - FormatDateTimeCET(utcDateTime) - Format UTC datetime in MEZ time
+//
+// Example: SharePoint 'Modified' field is UTC, use:
+//   ConvertUTCToCET('Modified')  -> DateTime in MEZ time
+//   DateValue(ConvertUTCToCET('Modified'))  -> Date only
+//   FormatDateTimeCET('Modified')  -> Formatted string "d.m.yyyy hh:mm"
+//
+// For filters comparing SharePoint dates with MEZ timezone:
+//   Filter(Items, DateValue(ConvertUTCToCET('Modified')) >= GetCETToday())
+// ============================================================
+
+
+// ============================================================
 // SECTION 1: GALLERY PATTERNS
 // ============================================================
 
@@ -48,7 +69,7 @@ Filter(
 
 
 // -----------------------------------------------------------
-// Pattern 1.2: Gallery with Multiple Filters
+// Pattern 1.2: Gallery with Multiple Filters (including SharePoint UTC dates)
 // -----------------------------------------------------------
 
 // BEFORE (complex inline logic):
@@ -71,8 +92,9 @@ Filter(
     CanAccessItem(Owner.Email, Department),
     // Active status via conditional
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
-    // Date range via UDF
-    IsWithinDateRange('Created On', ActiveFilters.DateRangeName),
+    // Date range filter (manual date comparison)
+    // NOTE: For SharePoint UTC datetime fields, convert with ConvertUTCToCET() first
+    If(IsBlank(ActiveFilters.DateRangeStart), true, DateValue(ConvertUTCToCET('Modified')) >= ActiveFilters.DateRangeStart),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -93,8 +115,14 @@ Filter(
     If(IsBlank(ActiveFilters.PriorityFilter), true, Priority = ActiveFilters.PriorityFilter),
     // Active only
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
-    // Due in future or today
-    'Due Date' >= DateRanges.Today || IsBlank('Due Date')
+    // Due in future or today (handles both Date and UTC DateTime fields)
+    If(
+        IsBlank('Due Date'),
+        true,
+        // For Date fields (stored locally): use Today()
+        // For DateTime fields (stored in UTC from SharePoint): use GetCETToday()
+        'Due Date' >= GetCETToday()
+    )
 )
 
 
@@ -118,11 +146,12 @@ Search(
 // -----------------------------------------------------------
 
 // Gallery_Invoices.Items
+// NOTE: 'Invoice Date' from SharePoint is in UTC, convert with ConvertUTCToCET()
 Sort(
     Filter(
         Invoices,
         CanAccessRecord('Sales Rep'.Email),
-        IsWithinDateRange('Invoice Date', "last90days"),
+        DateValue(ConvertUTCToCET('Invoice Date')) >= GetCETToday() - 90,
         If(ActiveFilters.ActiveOnly, Status <> "Void", true)
     ),
     'Invoice Date',
@@ -357,16 +386,12 @@ GetThemeColor("ErrorLight")
 
 // Gallery Row Template - Rectangle_RowBackground.Fill
 If(
-    ThisItem.IsSelected,
+    ThisItem = Gallery.Selected,
     GetThemeColor("PrimaryLight"),
     If(
-        IsOverdue(ThisItem.'Due Date'),
-        GetThemeColor("ErrorLight"),
-        If(
-            Mod(ThisItem.RowIndex, 2) = 0,
-            GetThemeColor("Surface"),
-            GetThemeColor("Background")
-        )
+        Mod(Coalesce(ThisItem.RowIndex, 1), 2) = 0,
+        GetThemeColor("Surface"),
+        GetThemeColor("Background")
     )
 )
 
@@ -414,9 +439,10 @@ GetRoleBadge()
 Text(ThisItem.'Created On', "mmm d, yyyy")
 */
 
-// AFTER:
-// Label_CreatedDate.Text (relative)
-FormatDateRelative(ThisItem.'Created On')
+// AFTER (using German date formatting UDFs with CET timezone):
+// For SharePoint Date-only fields (stored as local date):
+// Label_CreatedDate.Text (short format)
+FormatDateShort(ThisItem.'Created On')
 
 // Label_DateShort.Text
 FormatDateShort(ThisItem.'Due Date')
@@ -424,24 +450,30 @@ FormatDateShort(ThisItem.'Due Date')
 // Label_DateLong.Text
 FormatDateLong(ThisItem.'Event Date')
 
-// Label_DateTime.Text
-FormatDateTime(ThisItem.'Last Modified')
+// For SharePoint DateTime fields (stored in UTC - most common):
+// Label_DateTime.Text (auto-converts UTC to CET time)
+FormatDateTimeCET(ThisItem.'Last Modified')
+
+// Label_ModifiedTime.Text (another UTC datetime example)
+FormatDateTimeCET(ThisItem.'Created')
 
 
 // -----------------------------------------------------------
-// Pattern 4.4: Status with Due Date Context
+// Pattern 4.4: Status with Due Date Context (CET Timezone)
 // -----------------------------------------------------------
 
 // Label_TaskStatus.Text
+// NOTE: If 'Due Date' is a SharePoint DateTime (UTC), compare with GetCETToday()
+// If 'Due Date' is a SharePoint Date (local), use Today() instead
 If(
-    IsOverdue(ThisItem.'Due Date'),
-    "Overdue by " & Text(-GetDaysDifference(ThisItem.'Due Date')) & " days",
+    ThisItem.'Due Date' < GetCETToday(),
+    "Überfällig: " & Text(GetCETToday() - ThisItem.'Due Date') & " Tage",
     If(
-        IsToday(ThisItem.'Due Date'),
-        "Due Today",
+        ThisItem.'Due Date' = GetCETToday(),
+        "Fällig heute",
         If(
-            IsFutureDate(ThisItem.'Due Date'),
-            "Due in " & Text(GetDaysDifference(ThisItem.'Due Date')) & " days",
+            ThisItem.'Due Date' > GetCETToday() && !IsBlank(ThisItem.'Due Date'),
+            "Fällig in " & Text(ThisItem.'Due Date' - GetCETToday()) & " Tagen",
             ThisItem.Status
         )
     )
@@ -453,7 +485,11 @@ If(
 // -----------------------------------------------------------
 
 // Label_Description.Text
-TruncateText(ThisItem.Description, 100)
+If(
+    Len(Coalesce(ThisItem.Description, "")) > 100,
+    Left(ThisItem.Description, 97) & "...",
+    Coalesce(ThisItem.Description, "")
+)
 
 // Tooltip on Label_Description.Tooltip
 ThisItem.Description
@@ -497,17 +533,17 @@ GetStatusColor(ThisItem.Status)
 
 
 // -----------------------------------------------------------
-// Pattern 5.2: Conditional Icons
+// Pattern 5.2: Conditional Icons (CET Timezone)
 // -----------------------------------------------------------
 
 // Icon_OverdueWarning.Icon
-If(IsOverdue(ThisItem.'Due Date'), Icon.Warning, Icon.Clock)
+If(ThisItem.'Due Date' < GetCETToday(), Icon.Warning, Icon.Clock)
 
 // Icon_OverdueWarning.Visible
 !IsBlank(ThisItem.'Due Date')
 
 // Icon_OverdueWarning.Color
-If(IsOverdue(ThisItem.'Due Date'), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
+If(ThisItem.'Due Date' < GetCETToday(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
 
 
 // ============================================================
@@ -566,8 +602,7 @@ If(
     'ExportToExcelFlow'.Run(
         JSON(Filter(
             Records,
-            CanAccessRecord(Owner.Email),
-            IsWithinDateRange('Created On', ActiveFilters.DateRangeName)
+            CanAccessRecord(Owner.Email)
         )),
         "Export_" & Text(Now(), "yyyymmdd_hhmmss"),
         UserProfile.Email
@@ -600,8 +635,6 @@ NotifyInfo("Filter applied: " & Self.Selected.DisplayName)
 Set(ActiveFilters,
     Patch(ActiveFilters, {
         DateRangeName: Self.Selected.Value,
-        DateRangeStart: GetDateRangeStart(Self.Selected.Value),
-        DateRangeEnd: GetDateRangeEnd(Self.Selected.Value),
         CurrentPage: 1
     })
 )
@@ -863,8 +896,7 @@ FormatCurrency(
     Sum(
         Filter(
             Invoices,
-            CanAccessRecord('Sales Rep'.Email),
-            IsWithinDateRange('Invoice Date', ActiveFilters.DateRangeName)
+            CanAccessRecord('Sales Rep'.Email)
         ),
         'Total Amount'
     ),
@@ -873,7 +905,7 @@ FormatCurrency(
 
 
 // -----------------------------------------------------------
-// Pattern 9.3: Overdue Count
+// Pattern 9.3: Overdue Count (CET Timezone)
 // -----------------------------------------------------------
 
 // Label_OverdueCount.Text
@@ -882,7 +914,7 @@ Text(
         Filter(
             Tasks,
             CanAccessRecord('Assigned To'.Email),
-            IsOverdue('Due Date'),
+            'Due Date' < GetCETToday(),
             Status in ["Active", "In Progress", "Pending"]
         )
     )
@@ -927,7 +959,7 @@ If(
     If(
         !IsBlank(AppState.LastError),
         "Error: " & AppState.ErrorMessage,
-        "Data loaded: " & Text(CountRows(Gallery.AllItems)) & " items displayed"
+        "Data loaded: " & Text(CountRows(Gallery.Items)) & " items displayed"
     )
 )
 
