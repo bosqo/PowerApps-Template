@@ -272,7 +272,8 @@ UserPermissions = {
 // Dynamic Role-Based Color
 RoleColor = Switch(
     true,
-    UserRoles.IsAdmin, ThemeColors.Error,         // Red for Admin
+    UserRoles.IsAdmin, ThemeColors.Error,        // Red for Admin
+    UserRoles.IsGF, ThemeColors.PrimaryDark,     // Dark Blue for GF
     UserRoles.IsManager, ThemeColors.Primary,     // Blue for Manager
     UserRoles.IsHR, ThemeColors.Warning,          // Amber for HR
     UserRoles.IsSachbearbeiter, ThemeColors.Info, // Blue for Sachbearbeiter
@@ -283,6 +284,7 @@ RoleColor = Switch(
 RoleBadgeText = Switch(
     true,
     UserRoles.IsAdmin, "Admin",
+    UserRoles.IsGF, "GF",
     UserRoles.IsManager, "Manager",
     UserRoles.IsHR, "HR",
     UserRoles.IsSachbearbeiter, "Sachbearbeiter",
@@ -398,6 +400,7 @@ GetRoleLabel(): Text =
     Switch(
         true,
         UserRoles.IsAdmin, "Administrator",
+        UserRoles.IsGF, "Geschäftsführer",
         UserRoles.IsManager, "Manager",
         UserRoles.IsHR, "HR",
         UserRoles.IsSachbearbeiter, "Sachbearbeiter",
@@ -498,17 +501,20 @@ GetStatusColor(status: Text): Color =
         "active", ThemeColors.Success,
         "open", ThemeColors.Success,
         "approved", ThemeColors.Success,
+        "genehmigt", ThemeColors.Success,         // German: approved
         "completed", ThemeColors.Success,
         "done", ThemeColors.Success,
         "published", ThemeColors.Success,
         "resolved", ThemeColors.Success,
         // In Progress
         "in progress", ThemeColors.Primary,
+        "in bearbeitung", ThemeColors.Primary,    // German: in progress
         "processing", ThemeColors.Primary,
         "reviewing", ThemeColors.Primary,
         "pending review", ThemeColors.Primary,
         // Warning/Pending
         "pending", ThemeColors.Warning,
+        "beantragt", ThemeColors.Warning,         // German: requested/applied
         "on hold", ThemeColors.Warning,
         "waiting", ThemeColors.Warning,
         "draft", ThemeColors.Warning,
@@ -521,6 +527,7 @@ GetStatusColor(status: Text): Color =
         // Error/Negative
         "cancelled", ThemeColors.Error,
         "rejected", ThemeColors.Error,
+        "abgelehnt", ThemeColors.Error,           // German: rejected
         "failed", ThemeColors.Error,
         "error", ThemeColors.Error,
         "overdue", ThemeColors.Error,
@@ -536,11 +543,15 @@ GetStatusIcon(status: Text): Icon =
         "active", Icon.CheckmarkCircle,
         "completed", Icon.CheckmarkCircle,
         "approved", Icon.CheckmarkCircle,
+        "genehmigt", Icon.CheckmarkCircle,        // German: approved
         "in progress", Icon.Clock,
+        "in bearbeitung", Icon.Clock,             // German: in progress
         "pending", Icon.Clock,
+        "beantragt", Icon.Clock,                  // German: requested/applied
         "draft", Icon.Edit,
         "cancelled", Icon.CancelBadge,
         "rejected", Icon.CancelBadge,
+        "abgelehnt", Icon.CancelBadge,            // German: rejected
         "error", Icon.Warning,
         "archived", Icon.DocumentSet,
         Icon.CircleHollow
