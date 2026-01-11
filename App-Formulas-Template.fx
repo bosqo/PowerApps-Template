@@ -123,8 +123,36 @@ AppConfig = {
 
     // Feature Limits
     MaxFileUploadMB: 10,
-    MaxBulkOperationItems: 100,
-    MaxExportRecords: 5000
+    MaxBulkOperationItems: 100
+};
+
+// Date Range Calculations - Auto-refresh when date changes
+DateRanges = {
+    // Today and Yesterday
+    Today: Today(),
+    Yesterday: Today() - 1,
+    Tomorrow: Today() + 1,
+
+    // Week Calculations
+    StartOfWeek: Today() - Weekday(Today()) + 1,
+    EndOfWeek: Today() - Weekday(Today()) + 7,
+    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+
+    // Month Calculations
+    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
+    EndOfMonth: Date(Year(Today()), Month(Today()) + 1, 1) - 1,
+    StartOfLastMonth: Date(Year(Today()), Month(Today()) - 1, 1),
+    EndOfLastMonth: Date(Year(Today()), Month(Today()), 1) - 1,
+
+    // Year Calculations
+    StartOfYear: Date(Year(Today()), 1, 1),
+    EndOfYear: Date(Year(Today()) + 1, 1, 1) - 1,
+
+    // Relative Ranges
+    Last7Days: Today() - 7,
+    Last30Days: Today() - 30,
+    Last90Days: Today() - 90
 };
 
 
@@ -132,59 +160,6 @@ AppConfig = {
 // SECTION 2: COMPUTED NAMED FORMULAS
 // These auto-refresh when their dependencies change
 // ============================================================
-
-// Date Range Calculations - Recomputed daily
-DateRanges = {
-    // Current Date References
-    Today: Today(),
-    Now: Now(),
-    CurrentYear: Year(Today()),
-    CurrentMonth: Month(Today()),
-    CurrentQuarter: RoundUp(Month(Today()) / 3, 0),
-
-    // Period Starts
-    StartOfWeek: DateAdd(Today(), -(Weekday(Today()) - 1), TimeUnit.Days),
-    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
-    StartOfQuarter: Date(
-        Year(Today()),
-        (RoundUp(Month(Today()) / 3, 0) - 1) * 3 + 1,
-        1
-    ),
-    StartOfYear: Date(Year(Today()), 1, 1),
-
-    // Period Ends
-    EndOfWeek: DateAdd(Today(), 7 - Weekday(Today()), TimeUnit.Days),
-    EndOfMonth: DateAdd(
-        DateAdd(Date(Year(Today()), Month(Today()), 1), 1, TimeUnit.Months),
-        -1,
-        TimeUnit.Days
-    ),
-    EndOfQuarter: DateAdd(
-        DateAdd(
-            Date(Year(Today()), (RoundUp(Month(Today()) / 3, 0) - 1) * 3 + 1, 1),
-            3,
-            TimeUnit.Months
-        ),
-        -1,
-        TimeUnit.Days
-    ),
-    EndOfYear: Date(Year(Today()), 12, 31),
-
-    // Rolling Periods
-    Last7Days: DateAdd(Today(), -7, TimeUnit.Days),
-    Last14Days: DateAdd(Today(), -14, TimeUnit.Days),
-    Last30Days: DateAdd(Today(), -30, TimeUnit.Days),
-    Last60Days: DateAdd(Today(), -60, TimeUnit.Days),
-    Last90Days: DateAdd(Today(), -90, TimeUnit.Days),
-    Last180Days: DateAdd(Today(), -180, TimeUnit.Days),
-    Last365Days: DateAdd(Today(), -365, TimeUnit.Days),
-
-    // Future Periods
-    Next7Days: DateAdd(Today(), 7, TimeUnit.Days),
-    Next14Days: DateAdd(Today(), 14, TimeUnit.Days),
-    Next30Days: DateAdd(Today(), 30, TimeUnit.Days),
-    Next90Days: DateAdd(Today(), 90, TimeUnit.Days)
-};
 
 // User Profile - Lazy-loaded from Office365Users connector
 // This is fetched ONCE when first accessed and cached
@@ -222,13 +197,15 @@ UserProfile = With(
     }
 );
 
-// User Roles - Determined from Security Groups and Profile
+// User Roles - Determined from Security Groups
 // Update the Group IDs to match your Azure AD configuration
 UserRoles = {
     // ===========================================
-    // Method 1: Security Group Membership (RECOMMENDED)
+    // Security Group Membership (RECOMMENDED)
     // Replace with your actual Azure AD Security Group GUIDs
     // ===========================================
+
+    // Administrator - Full system access
     IsAdmin: CountRows(
         Filter(
             Office365Groups.ListGroupMembers("YOUR-ADMIN-GROUP-ID"),
@@ -236,6 +213,7 @@ UserRoles = {
         )
     ) > 0,
 
+    // Manager - Team/department management
     IsManager: CountRows(
         Filter(
             Office365Groups.ListGroupMembers("YOUR-MANAGER-GROUP-ID"),
@@ -243,67 +221,44 @@ UserRoles = {
         )
     ) > 0,
 
-    // All authenticated users are Users
-    IsUser: true,
+    // HR - Human Resources department
+    IsHR: CountRows(
+        Filter(
+            Office365Groups.ListGroupMembers("YOUR-HR-GROUP-ID"),
+            mail = User().Email
+        )
+    ) > 0,
 
-    // ===========================================
-    // Method 2: Email Domain-Based Roles
-    // Useful for distinguishing internal vs external users
-    // ===========================================
-    IsCorporate: EndsWith(Lower(User().Email), "@yourcompany.com"),
-    IsExternal: !EndsWith(Lower(User().Email), "@yourcompany.com"),
-    IsGuest: Contains(Lower(User().Email), "#ext#"),
+    // Sachbearbeiter - Case worker / Clerk
+    IsSachbearbeiter: CountRows(
+        Filter(
+            Office365Groups.ListGroupMembers("YOUR-SACHBEARBEITER-GROUP-ID"),
+            mail = User().Email
+        )
+    ) > 0,
 
-    // ===========================================
-    // Method 3: Department-Based Roles
-    // Auto-populated from Office365 profile
-    // ===========================================
-    IsSales: UserProfile.Department = "Sales",
-    IsFinance: UserProfile.Department = "Finance",
-    IsIT: UserProfile.Department = "IT",
-    IsHR: UserProfile.Department = "Human Resources",
-    IsOperations: UserProfile.Department = "Operations",
-    IsMarketing: UserProfile.Department = "Marketing",
-
-    // ===========================================
-    // Method 4: Job Title-Based Roles
-    // For title-specific permissions
-    // ===========================================
-    IsExecutive: Contains(Lower(UserProfile.JobTitle), "director") ||
-                 Contains(Lower(UserProfile.JobTitle), "vp") ||
-                 Contains(Lower(UserProfile.JobTitle), "chief") ||
-                 Contains(Lower(UserProfile.JobTitle), "president"),
-
-    IsSupervisor: Contains(Lower(UserProfile.JobTitle), "lead") ||
-                  Contains(Lower(UserProfile.JobTitle), "supervisor") ||
-                  Contains(Lower(UserProfile.JobTitle), "team lead"),
-
-    // German: Geschäftsführer (Managing Director/CEO)
-    IsGF: Contains(Lower(UserProfile.JobTitle), "geschäftsführer") ||
-          Contains(Lower(UserProfile.JobTitle), "geschäftsführung") ||
-          Contains(Lower(UserProfile.JobTitle), "ceo") ||
-          Contains(Lower(UserProfile.JobTitle), "managing director")
+    // User - Default role for all authenticated users
+    IsUser: true
 };
 
 // User Permissions - Derived from Roles
 // Automatically updates when UserRoles changes
 UserPermissions = {
     // CRUD Permissions
-    CanCreate: UserRoles.IsAdmin || UserRoles.IsManager,
+    CanCreate: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsSachbearbeiter,
     CanRead: true,  // All users can read (filtered by scope)
-    CanEdit: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsUser,
+    CanEdit: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsSachbearbeiter,
     CanDelete: UserRoles.IsAdmin,
 
     // Scope Permissions
-    CanViewAll: UserRoles.IsAdmin || UserRoles.IsManager,
+    CanViewAll: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsHR,
     CanViewOwn: true,
-    CanViewDepartment: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsSupervisor,
+    CanViewDepartment: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsHR,
 
     // Feature Permissions
-    CanExport: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanImport: UserRoles.IsAdmin,
     CanBulkOperations: UserRoles.IsAdmin,
-    CanManageUsers: UserRoles.IsAdmin,
+    CanExport: UserRoles.IsAdmin || UserRoles.IsManager,
+    CanManageUsers: UserRoles.IsAdmin || UserRoles.IsHR,
     CanViewAuditLog: UserRoles.IsAdmin,
     CanConfigureSettings: UserRoles.IsAdmin,
 
@@ -320,7 +275,8 @@ RoleColor = Switch(
     UserRoles.IsAdmin, ThemeColors.Error,        // Red for Admin
     UserRoles.IsGF, ThemeColors.PrimaryDark,     // Dark Blue for GF
     UserRoles.IsManager, ThemeColors.Primary,     // Blue for Manager
-    UserRoles.IsSupervisor, ThemeColors.Warning,  // Amber for Supervisor
+    UserRoles.IsHR, ThemeColors.Warning,          // Amber for HR
+    UserRoles.IsSachbearbeiter, ThemeColors.Info, // Blue for Sachbearbeiter
     ThemeColors.Success                           // Green for User
 );
 
@@ -330,8 +286,8 @@ RoleBadgeText = Switch(
     UserRoles.IsAdmin, "Admin",
     UserRoles.IsGF, "GF",
     UserRoles.IsManager, "Manager",
-    UserRoles.IsSupervisor, "Lead",
-    UserRoles.IsExecutive, "Executive",
+    UserRoles.IsHR, "HR",
+    UserRoles.IsSachbearbeiter, "Sachbearbeiter",
     "User"
 );
 
@@ -344,8 +300,6 @@ FeatureFlags = {
 
     // Data Features
     EnableBulkOperations: UserRoles.IsAdmin,
-    EnableExport: UserPermissions.CanExport,
-    EnableImport: UserPermissions.CanImport,
     EnableOfflineMode: false,
 
     // UI Features
@@ -372,8 +326,6 @@ DefaultFilters = {
         Blank(),
         UserProfile.Department
     ),
-    DateRangeStart: DateRanges.StartOfMonth,
-    DateRangeEnd: DateRanges.Today,
     ActiveOnly: true,
     IncludeArchived: false
 };
@@ -399,9 +351,8 @@ HasPermission(permissionName: Text): Boolean =
         "viewall", UserPermissions.CanViewAll,
         "viewown", UserPermissions.CanViewOwn,
         "viewdepartment", UserPermissions.CanViewDepartment,
-        "export", UserPermissions.CanExport,
-        "import", UserPermissions.CanImport,
         "bulk", UserPermissions.CanBulkOperations,
+        "export", UserPermissions.CanExport,
         "manageusers", UserPermissions.CanManageUsers,
         "audit", UserPermissions.CanViewAuditLog,
         "settings", UserPermissions.CanConfigureSettings,
@@ -418,27 +369,31 @@ HasRole(roleName: Text): Boolean =
         Lower(roleName),
         "admin", UserRoles.IsAdmin,
         "manager", UserRoles.IsManager,
-        "user", UserRoles.IsUser,
-        "supervisor", UserRoles.IsSupervisor,
-        "executive", UserRoles.IsExecutive,
-        "gf", UserRoles.IsGF,
-        "corporate", UserRoles.IsCorporate,
-        "external", UserRoles.IsExternal,
-        "guest", UserRoles.IsGuest,
-        "sales", UserRoles.IsSales,
-        "finance", UserRoles.IsFinance,
-        "it", UserRoles.IsIT,
         "hr", UserRoles.IsHR,
-        "operations", UserRoles.IsOperations,
-        "marketing", UserRoles.IsMarketing,
+        "sachbearbeiter", UserRoles.IsSachbearbeiter,
+        "user", UserRoles.IsUser,
         false
     );
 
 // Check if user has any of the specified roles (comma-separated)
+// Refactored 2025: Now properly handles unlimited roles instead of hardcoded 3
 HasAnyRole(roleNames: Text): Boolean =
-    HasRole(First(Split(roleNames, ",")).Value) ||
-    HasRole(Last(FirstN(Split(roleNames, ","), 2)).Value) ||
-    HasRole(Last(FirstN(Split(roleNames, ","), 3)).Value);
+    CountRows(
+        Filter(
+            Split(roleNames, ","),
+            HasRole(Trim(Value))
+        )
+    ) > 0;
+
+// Check if user has ALL of the specified roles (comma-separated)
+// Added 2025: Complement to HasAnyRole for AND logic
+HasAllRoles(roleNames: Text): Boolean =
+    CountRows(
+        Filter(
+            Split(roleNames, ","),
+            !HasRole(Trim(Value))
+        )
+    ) = 0;
 
 // Get user's highest role as display label
 GetRoleLabel(): Text =
@@ -447,13 +402,9 @@ GetRoleLabel(): Text =
         UserRoles.IsAdmin, "Administrator",
         UserRoles.IsGF, "Geschäftsführer",
         UserRoles.IsManager, "Manager",
-        UserRoles.IsSupervisor, "Team Lead",
-        UserRoles.IsExecutive, "Executive",
-        UserRoles.IsSales, "Sales Rep",
-        UserRoles.IsFinance, "Finance Analyst",
-        UserRoles.IsIT, "IT Specialist",
-        UserRoles.IsHR, "HR Specialist",
-        "Team Member"
+        UserRoles.IsHR, "HR",
+        UserRoles.IsSachbearbeiter, "Sachbearbeiter",
+        "Benutzer"
     );
 
 // Get role badge color for display
@@ -620,106 +571,6 @@ GetPriorityColor(priority: Text): Color =
 
 
 // -----------------------------------------------------------
-// Date Functions
-// -----------------------------------------------------------
-
-// Get date range start by name
-GetDateRangeStart(rangeName: Text): Date =
-    Switch(
-        Lower(rangeName),
-        "today", DateRanges.Today,
-        "thisweek", DateRanges.StartOfWeek,
-        "thismonth", DateRanges.StartOfMonth,
-        "thisquarter", DateRanges.StartOfQuarter,
-        "thisyear", DateRanges.StartOfYear,
-        "last7days", DateRanges.Last7Days,
-        "last14days", DateRanges.Last14Days,
-        "last30days", DateRanges.Last30Days,
-        "last60days", DateRanges.Last60Days,
-        "last90days", DateRanges.Last90Days,
-        "last180days", DateRanges.Last180Days,
-        "last365days", DateRanges.Last365Days,
-        "lastyear", DateRanges.Last365Days,
-        DateRanges.StartOfMonth
-    );
-
-// Get date range end by name
-GetDateRangeEnd(rangeName: Text): Date =
-    Switch(
-        Lower(rangeName),
-        "today", DateRanges.Today,
-        "thisweek", DateRanges.EndOfWeek,
-        "thismonth", DateRanges.EndOfMonth,
-        "thisquarter", DateRanges.EndOfQuarter,
-        "thisyear", DateRanges.EndOfYear,
-        "next7days", DateRanges.Next7Days,
-        "next14days", DateRanges.Next14Days,
-        "next30days", DateRanges.Next30Days,
-        "next90days", DateRanges.Next90Days,
-        DateRanges.Today
-    );
-
-// Check if a date is within a named range
-IsWithinDateRange(checkDate: Date, rangeName: Text): Boolean =
-    checkDate >= GetDateRangeStart(rangeName) &&
-    checkDate <= GetDateRangeEnd(rangeName);
-
-// Check if a date is today
-IsToday(checkDate: Date): Boolean =
-    checkDate = Today();
-
-// Check if a date is in the past
-IsPastDate(checkDate: Date): Boolean =
-    checkDate < Today();
-
-// Check if a date is in the future
-IsFutureDate(checkDate: Date): Boolean =
-    checkDate > Today();
-
-// Check if a date is overdue (past due date)
-IsOverdue(dueDate: Date): Boolean =
-    !IsBlank(dueDate) && dueDate < Today();
-
-// Get days until/since a date (negative = past, positive = future)
-GetDaysDifference(targetDate: Date): Number =
-    DateDiff(Today(), targetDate, TimeUnit.Days);
-
-// Format date as relative text (Today, Yesterday, X days ago, etc.)
-FormatDateRelative(inputDate: DateTime): Text =
-    With(
-        { daysDiff: DateDiff(DateValue(inputDate), Today(), TimeUnit.Days) },
-        Switch(
-            true,
-            daysDiff = 0, "Today",
-            daysDiff = 1, "Yesterday",
-            daysDiff = -1, "Tomorrow",
-            daysDiff > 1 && daysDiff < 7, Text(daysDiff) & " days ago",
-            daysDiff < -1 && daysDiff > -7, "In " & Text(-daysDiff) & " days",
-            daysDiff >= 7 && daysDiff < 14, "Last week",
-            daysDiff >= 14 && daysDiff < 30, Text(RoundDown(daysDiff / 7, 0)) & " weeks ago",
-            daysDiff >= 30 && daysDiff < 60, "Last month",
-            daysDiff >= 60 && daysDiff < 365, Text(RoundDown(daysDiff / 30, 0)) & " months ago",
-            daysDiff >= 365, Text(RoundDown(daysDiff / 365, 0)) & " year(s) ago",
-            daysDiff <= -7 && daysDiff > -14, "Next week",
-            daysDiff <= -14 && daysDiff > -30, "In " & Text(RoundDown(-daysDiff / 7, 0)) & " weeks",
-            Text(inputDate, "[$-en-US]mmm d, yyyy")
-        )
-    );
-
-// Format date for display (short format)
-FormatDateShort(inputDate: Date): Text =
-    Text(inputDate, "[$-en-US]mm/dd/yyyy");
-
-// Format date for display (long format)
-FormatDateLong(inputDate: Date): Text =
-    Text(inputDate, "[$-en-US]mmmm d, yyyy");
-
-// Format datetime for display
-FormatDateTime(inputDateTime: DateTime): Text =
-    Text(inputDateTime, "[$-en-US]mmm d, yyyy h:mm AM/PM");
-
-
-// -----------------------------------------------------------
 // Notification Functions
 // -----------------------------------------------------------
 
@@ -765,12 +616,22 @@ NotifyValidationError(fieldName: Text, message: Text): Boolean =
 // Validation Functions
 // -----------------------------------------------------------
 
+// Check if text is blank or empty (whitespace only)
+// Added 2025: Common helper for null/empty string checks
+IsBlankOrEmpty(input: Text): Boolean =
+    IsBlank(input) || Len(Trim(input)) = 0;
+
 // Validate email format
+// Refactored 2025: Stronger validation with additional checks
 IsValidEmail(email: Text): Boolean =
-    !IsBlank(email) &&
+    !IsBlankOrEmpty(email) &&
+    !Contains(email, " ") &&
     CountRows(Split(email, "@")) = 2 &&
+    Len(First(Split(email, "@")).Value) >= 1 &&
     Len(Last(Split(email, "@")).Value) > 3 &&
-    Contains(Last(Split(email, "@")).Value, ".");
+    Contains(Last(Split(email, "@")).Value, ".") &&
+    !StartsWith(Last(Split(email, "@")).Value, ".") &&
+    !EndsWith(Last(Split(email, "@")).Value, ".");
 
 // Check if text is within length limits
 IsValidLength(input: Text, minLen: Number, maxLen: Number): Boolean =
@@ -778,9 +639,14 @@ IsValidLength(input: Text, minLen: Number, maxLen: Number): Boolean =
     Len(Coalesce(input, "")) <= maxLen;
 
 // Check if a value is in a set of allowed values (comma-separated)
+// Refactored 2025: Fixed incorrect ForAll/in pattern
 IsOneOf(value: Text, allowedValues: Text): Boolean =
-    Lower(Coalesce(value, "")) in
-    ForAll(Split(allowedValues, ","), Lower(Trim(Value)));
+    CountRows(
+        Filter(
+            Split(allowedValues, ","),
+            Lower(Trim(Value)) = Lower(Coalesce(value, ""))
+        )
+    ) > 0;
 
 // Check if text contains only alphanumeric characters
 IsAlphanumeric(input: Text): Boolean =
@@ -802,6 +668,146 @@ IsNotPastDate(inputDate: Date): Boolean =
 // Validate date is within acceptable range
 IsDateInRange(inputDate: Date, minDate: Date, maxDate: Date): Boolean =
     inputDate >= minDate && inputDate <= maxDate;
+
+
+// -----------------------------------------------------------
+// Pagination Functions (Added 2025)
+// -----------------------------------------------------------
+
+// Calculate total number of pages
+GetTotalPages(totalItems: Number, pageSize: Number): Number =
+    RoundUp(totalItems / Max(1, pageSize), 0);
+
+// Calculate number of items to skip for current page
+GetSkipCount(currentPage: Number, pageSize: Number): Number =
+    (Max(1, currentPage) - 1) * pageSize;
+
+// Check if can navigate to previous page
+CanGoToPreviousPage(currentPage: Number): Boolean =
+    currentPage > 1;
+
+// Check if can navigate to next page
+CanGoToNextPage(currentPage: Number, totalItems: Number, pageSize: Number): Boolean =
+    currentPage < GetTotalPages(totalItems, pageSize);
+
+// Get page range display text (e.g., "1-50 of 1234")
+GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Text =
+    With(
+        {
+            startItem: GetSkipCount(currentPage, pageSize) + 1,
+            endItem: Min(GetSkipCount(currentPage, pageSize) + pageSize, totalItems)
+        },
+        Text(startItem) & "-" & Text(endItem) & " of " & Text(totalItems)
+    );
+
+
+// -----------------------------------------------------------
+// Timezone Conversion Functions (CET/UTC)
+// CET = Central European Time (Standard: UTC+1, Daylight: UTC+2)
+// SharePoint stores dates in UTC, convert to CET timezone (CET/CEST)
+// -----------------------------------------------------------
+
+// Check if given date is in daylight saving time (CEST)
+// Germany: Last Sunday of March to Last Sunday of October
+IsDaylightSavingTime(checkDate: Date): Boolean =
+    And(
+        checkDate >= Date(Year(checkDate), 3, 31 - Weekday(Date(Year(checkDate), 3, 31))),
+        checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31)))
+    );
+
+// Convert UTC DateTime to MEZ time (CET/CEST)
+ConvertUTCToCET(utcDateTime: DateTime): DateTime =
+    If(
+        IsBlank(utcDateTime),
+        Blank(),
+        // MEZ is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
+        DateAdd(
+            utcDateTime,
+            1 + If(IsDaylightSavingTime(DateValue(utcDateTime)), 1, 0),
+            TimeUnit.Hours
+        )
+    );
+
+// Convert MEZ time to UTC DateTime
+ConvertCETToUTC(mezDateTime: DateTime): DateTime =
+    If(
+        IsBlank(mezDateTime),
+        Blank(),
+        // Subtract MEZ offset (1 or 2 hours depending on DST)
+        DateAdd(
+            mezDateTime,
+            -(1 + If(IsDaylightSavingTime(DateValue(mezDateTime)), 1, 0)),
+            TimeUnit.Hours
+        )
+    );
+
+// Get current time in MEZ timezone
+GetCETTime(): DateTime =
+    ConvertUTCToCET(Now());
+
+// Get today's date in MEZ timezone
+GetCETToday(): Date =
+    DateValue(GetCETTime());
+
+
+// -----------------------------------------------------------
+// Date & Time Formatting Functions (German Format, CET Timezone)
+// -----------------------------------------------------------
+
+// Format date as short format (e.g., "15.1.2025")
+// Optional: pass UTC date to auto-convert to MEZ time first
+FormatDateShort(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
+
+// Format date as long format (e.g., "15. Januar 2025")
+FormatDateLong(inputDate: Date): Text =
+    If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
+
+// Format date and time together (e.g., "15.1.2025 14:30")
+// For UTC datetimes from SharePoint, use FormatDateTimeCET instead
+FormatDateTime(inputDateTime: DateTime): Text =
+    If(
+        IsBlank(inputDateTime),
+        "",
+        Text(inputDateTime, "d.m.yyyy hh:mm")
+    );
+
+// Format UTC datetime from SharePoint in MEZ timezone
+// Example: SharePoint 'Modified' field (UTC) -> MEZ time
+FormatDateTimeCET(utcDateTime: DateTime): Text =
+    If(
+        IsBlank(utcDateTime),
+        "",
+        Text(
+            ConvertUTCToCET(utcDateTime),
+            "d.m.yyyy hh:mm"
+        )
+    );
+
+// Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
+// Uses MEZ timezone for comparison
+FormatDateRelative(inputDate: Date): Text =
+    If(
+        IsBlank(inputDate),
+        "",
+        If(
+            inputDate = GetCETToday(),
+            "Heute",
+            If(
+                inputDate = GetCETToday() - 1,
+                "Gestern",
+                If(
+                    inputDate = GetCETToday() + 1,
+                    "Morgen",
+                    If(
+                        inputDate < GetCETToday(),
+                        "vor " & Text(GetCETToday() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - GetCETToday()) & " Tagen"
+                    )
+                )
+            )
+        )
+    );
 
 
 // -----------------------------------------------------------
