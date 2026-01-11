@@ -16,7 +16,9 @@
 // | Data.Filter.DepartmentScope     | ActiveFilters.DepartmentScope  |
 // | App.User.Permissions.CanDelete  | HasPermission("Delete")        |
 // | App.User.Roles.IsAdmin          | HasRole("Admin")               |
-// | Data.Filter.DateRange.ThisMonth | DateRanges.StartOfMonth        |
+// | App.User.Roles.IsManager        | HasRole("Manager")             |
+// | App.User.Roles.IsHR             | HasRole("HR")                  |
+// | App.User.Roles.IsSachbearbeiter | HasRole("Sachbearbeiter")      |
 //
 // This file is retained for reference and backward compatibility.
 // ============================================================
@@ -48,8 +50,6 @@ Filter(
     If(IsBlank(Data.Filter.DepartmentScope), true, Department = Data.Filter.DepartmentScope),
     // Active Only
     If(Data.Filter.ActiveOnly, Status <> "Archived", true),
-    // Date Range
-    'Created On' >= Data.Filter.DateRange.ThisMonth,
     // Custom Search
     StartsWith(Lower('Project Name'), Lower(Data.Filter.Custom.SearchTerm))
 )
@@ -94,9 +94,7 @@ Filter(
     // Status filter (if selected)
     If(IsBlank(Data.Filter.Custom.Status), true, Status = Data.Filter.Custom.Status),
     // Priority filter (if selected)
-    If(IsBlank(Data.Filter.Custom.Priority), true, Priority = Data.Filter.Custom.Priority),
-    // Date range
-    'Due Date' >= Data.Filter.DateRange.Today
+    If(IsBlank(Data.Filter.Custom.Priority), true, Priority = Data.Filter.Custom.Priority)
 )
 
 
@@ -132,21 +130,7 @@ Search(
 
 
 // ============================================================
-// PATTERN 8: DATE-FILTERED GALLERY
-// ============================================================
-// Gallery.Items
-Filter(
-    Appointments,
-    // User scope
-    If(IsBlank(Data.Filter.UserScope), true, Attendee.Email = Data.Filter.UserScope),
-    // Date range selection
-    'Appointment Date' >= DateValue(Dropdown_DateFrom.Selected.Value) &&
-    'Appointment Date' <= DateValue(Dropdown_DateTo.Selected.Value)
-)
-
-
-// ============================================================
-// PATTERN 9: COLLECTION WITH PREFILTERING (OnVisible)
+// PATTERN 8: COLLECTION WITH PREFILTERING (OnVisible)
 // ============================================================
 // Screen.OnVisible
 ClearCollect(
@@ -155,8 +139,6 @@ ClearCollect(
         'Sales Orders',
         // User scope
         If(IsBlank(Data.Filter.UserScope), true, 'Sales Rep'.Email = Data.Filter.UserScope),
-        // Date scope
-        'Order Date' >= Data.Filter.DateRange.ThisMonth,
         // Active only
         Status = "Open" || Status = "Pending"
     )
@@ -164,7 +146,7 @@ ClearCollect(
 
 
 // ============================================================
-// PATTERN 10: AGGREGATED DATA WITH FILTERS
+// PATTERN 9: AGGREGATED DATA WITH FILTERS
 // ============================================================
 // Label showing count
 CountRows(
@@ -179,15 +161,14 @@ CountRows(
 Sum(
     Filter(
         Invoices,
-        If(IsBlank(Data.Filter.UserScope), true, 'Sales Rep'.Email = Data.Filter.UserScope),
-        'Invoice Date' >= Data.Filter.DateRange.ThisMonth
+        If(IsBlank(Data.Filter.UserScope), true, 'Sales Rep'.Email = Data.Filter.UserScope)
     ),
     'Total Amount'
 )
 
 
 // ============================================================
-// PATTERN 11: NESTED GALLERIES WITH INHERITED FILTERS
+// PATTERN 10: NESTED GALLERIES WITH INHERITED FILTERS
 // ============================================================
 // Parent Gallery.Items
 Filter(
@@ -205,7 +186,7 @@ Filter(
 
 
 // ============================================================
-// PATTERN 12: FORM DEFAULTS WITH USER CONTEXT
+// PATTERN 11: FORM DEFAULTS WITH USER CONTEXT
 // ============================================================
 // Form DataCard Default Value
 DataCardValue_Owner.DefaultSelectedItems = If(
@@ -223,7 +204,7 @@ DataCardValue_Department.Default = If(
 
 
 // ============================================================
-// PATTERN 13: BUTTON ONSELECT WITH PERMISSION & FILTER
+// PATTERN 12: BUTTON ONSELECT WITH PERMISSION & FILTER
 // ============================================================
 // Button_BulkDelete.OnSelect
 If(
@@ -238,14 +219,14 @@ If(
             'Assigned To'.Email = Data.Filter.UserScope
         )
     );
-    Notify("Deleted successfully", NotificationType.Success),
+    Notify("Erfolgreich gelöscht", NotificationType.Success),
     // No permission
-    Notify("Delete permission required", NotificationType.Error)
+    Notify("Löschberechtigung erforderlich", NotificationType.Error)
 )
 
 
 // ============================================================
-// PATTERN 14: DYNAMIC FILTER UPDATE (Button/Toggle OnSelect)
+// PATTERN 13: DYNAMIC FILTER UPDATE (Button/Toggle OnSelect)
 // ============================================================
 // Toggle_ShowAll.OnChange
 Set(Data.Filter,
@@ -260,73 +241,11 @@ Set(Data.Filter,
         }
     )
 );
-Notify("Filter updated", NotificationType.Information)
+Notify("Filter aktualisiert", NotificationType.Information)
 
 
 // ============================================================
-// PATTERN 15: EXPORT WITH FILTERED DATA (via Power Automate)
-// ============================================================
-// ⚠️ NOTE: There is NO built-in Export() function in Canvas Apps!
-// You must use Power Automate flow to export data to Excel/CSV
-
-// Button_Export.OnSelect - Method 1: Power Automate Flow
-If(
-    App.User.Permissions.CanExport,
-    // Trigger a Power Automate flow to export filtered data
-    'ExportToExcelFlow'.Run(
-        // Pass filtered data as JSON to the flow
-        JSON(Filter(
-            Orders,
-            If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope),
-            'Order Date' >= Data.Filter.DateRange.ThisMonth
-        )),
-        // Additional parameters
-        "Orders_Export_" & Text(Now(), "yyyymmdd_hhmmss"),  // filename
-        User().Email  // send to user's email
-    );
-    Notify("Export started - check your email in a few minutes", NotificationType.Success),
-    Notify("Export permission required", NotificationType.Error)
-)
-
-// Alternative Method 2: Save to SharePoint/OneDrive (if connector available)
-/*
-If(
-    App.User.Permissions.CanExport,
-    // Create a table and save to SharePoint
-    Patch('SharePoint List',
-        Defaults('SharePoint List'),
-        {
-            Title: "Export_" & Text(Now(), "yyyymmdd_hhmmss"),
-            ExportData: JSON(Gallery.AllItems),
-            RequestedBy: User().Email,
-            Status: "Pending"
-        }
-    );
-    Notify("Export request created", NotificationType.Success),
-    Notify("Export permission required", NotificationType.Error)
-)
-*/
-
-// Alternative Method 3: Copy to collection for manual review/copy
-/*
-If(
-    App.User.Permissions.CanExport,
-    ClearCollect(colExportData,
-        Filter(
-            Orders,
-            If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope),
-            'Order Date' >= Data.Filter.DateRange.ThisMonth
-        )
-    );
-    Navigate(ExportScreen, ScreenTransition.None);
-    Notify("Data prepared for export - " & CountRows(colExportData) & " records", NotificationType.Success),
-    Notify("Export permission required", NotificationType.Error)
-)
-*/
-
-
-// ============================================================
-// PATTERN 16: REFRESH DATA WITH FILTERS
+// PATTERN 14: REFRESH DATA WITH FILTERS
 // ============================================================
 // Button_Refresh.OnSelect
 Set(App.State.IsLoading, true);
@@ -335,17 +254,16 @@ ClearCollect(
     Filter(
         Items,
         If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope),
-        Status <> "Archived",
-        'Modified On' >= Data.Filter.DateRange.Last30Days
+        Status <> "Archived"
     )
 );
 Set(App.State.IsLoading, false);
 Set(App.State.LastRefresh, Now());
-Notify("Data refreshed", NotificationType.Success)
+Notify("Daten aktualisiert", NotificationType.Success)
 
 
 // ============================================================
-// PATTERN 17: CONDITIONAL FORM MODE BASED ON PERMISSIONS
+// PATTERN 15: CONDITIONAL FORM MODE BASED ON PERMISSIONS
 // ============================================================
 // Form.DefaultMode
 If(
@@ -364,7 +282,7 @@ If(
 
 
 // ============================================================
-// PATTERN 18: FILTER RESET (Button OnSelect)
+// PATTERN 16: FILTER RESET (Button OnSelect)
 // ============================================================
 // Button_ResetFilters.OnSelect
 Set(Data.Filter,
@@ -383,7 +301,7 @@ Set(Data.Filter,
         }
     )
 );
-Notify("Filters reset", NotificationType.Information)
+Notify("Filter zurückgesetzt", NotificationType.Information)
 
 
 // ============================================================
@@ -399,15 +317,6 @@ DEPARTMENT SCOPE:
 - Data.Filter.DepartmentScope (Blank() or Department Name)
   If(IsBlank(Data.Filter.DepartmentScope), true, Department = Data.Filter.DepartmentScope)
 
-DATE RANGES:
-- Data.Filter.DateRange.Today
-- Data.Filter.DateRange.ThisWeek
-- Data.Filter.DateRange.ThisMonth
-- Data.Filter.DateRange.ThisQuarter
-- Data.Filter.DateRange.ThisYear
-- Data.Filter.DateRange.Last30Days
-- Data.Filter.DateRange.Last90Days
-
 ACTIVE/STATUS:
 - Data.Filter.ActiveOnly (Boolean)
   If(Data.Filter.ActiveOnly, Status <> "Archived", true)
@@ -422,11 +331,12 @@ PERMISSIONS:
 - App.User.Permissions.CanCreate
 - App.User.Permissions.CanEdit
 - App.User.Permissions.CanDelete
-- App.User.Permissions.CanExport
 - App.User.Permissions.CanViewAll
 
 ROLES:
 - App.User.Roles.IsAdmin
 - App.User.Roles.IsManager
+- App.User.Roles.IsHR
+- App.User.Roles.IsSachbearbeiter
 - App.User.Roles.IsUser
 */

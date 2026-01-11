@@ -57,11 +57,6 @@ Set(ActiveFilters, {
     UserScope: GetUserScope(),
     DepartmentScope: GetDepartmentScope(),
 
-    // Date Filters
-    DateRangeStart: DateRanges.StartOfMonth,
-    DateRangeEnd: DateRanges.Today,
-    DateRangeName: "thismonth",
-
     // Status Filters
     ActiveOnly: true,
     IncludeArchived: false,
@@ -147,13 +142,13 @@ Concurrent(
     ClearCollect(
         CachedStatuses,
         Table(
-            {Value: "Active", DisplayName: "Active", SortOrder: 1},
-            {Value: "Pending", DisplayName: "Pending", SortOrder: 2},
-            {Value: "In Progress", DisplayName: "In Progress", SortOrder: 3},
-            {Value: "On Hold", DisplayName: "On Hold", SortOrder: 4},
-            {Value: "Completed", DisplayName: "Completed", SortOrder: 5},
-            {Value: "Cancelled", DisplayName: "Cancelled", SortOrder: 6},
-            {Value: "Archived", DisplayName: "Archived", SortOrder: 7}
+            {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
+            {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
+            {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
+            {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
+            {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
+            {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
+            {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
         )
     ),
 
@@ -161,27 +156,11 @@ Concurrent(
     ClearCollect(
         CachedPriorities,
         Table(
-            {Value: "Critical", DisplayName: "Critical", SortOrder: 1},
-            {Value: "High", DisplayName: "High", SortOrder: 2},
-            {Value: "Medium", DisplayName: "Medium", SortOrder: 3},
-            {Value: "Low", DisplayName: "Low", SortOrder: 4},
-            {Value: "None", DisplayName: "None", SortOrder: 5}
-        )
-    ),
-
-    // Date Range Options (for dropdowns) - static table
-    ClearCollect(
-        CachedDateRanges,
-        Table(
-            {Value: "today", DisplayName: "Today", SortOrder: 1},
-            {Value: "thisweek", DisplayName: "This Week", SortOrder: 2},
-            {Value: "thismonth", DisplayName: "This Month", SortOrder: 3},
-            {Value: "thisquarter", DisplayName: "This Quarter", SortOrder: 4},
-            {Value: "thisyear", DisplayName: "This Year", SortOrder: 5},
-            {Value: "last7days", DisplayName: "Last 7 Days", SortOrder: 6},
-            {Value: "last30days", DisplayName: "Last 30 Days", SortOrder: 7},
-            {Value: "last90days", DisplayName: "Last 90 Days", SortOrder: 8},
-            {Value: "custom", DisplayName: "Custom Range", SortOrder: 9}
+            {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
+            {Value: "High", DisplayName: "Hoch", SortOrder: 2},
+            {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
+            {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
+            {Value: "None", DisplayName: "Keine", SortOrder: 5}
         )
     )
 );
@@ -203,9 +182,7 @@ ClearCollect(
                 // Use UDF for access control
                 CanAccessRecord(Owner.Email),
                 // Active records only
-                Status <> "Archived",
-                // Recent records
-                'Modified On' >= DateRanges.Last30Days
+                Status <> "Archived"
             ),
             'Modified On',
             SortOrder.Descending
@@ -223,9 +200,7 @@ ClearCollect(
             // Assigned to current user
             'Assigned To'.Email = User().Email,
             // Not completed
-            Status in ["Active", "Pending", "In Progress"],
-            // Due within next 30 days or overdue
-            'Due Date' <= DateRanges.Next30Days
+            Status in ["Active", "Pending", "In Progress"]
         ),
         'Due Date',
         SortOrder.Ascending
@@ -252,7 +227,7 @@ Set(DashboardCounts, {
     OverdueTasks: CountRows(
         Filter(
             MyPendingTasks,
-            IsOverdue('Due Date')
+            'Due Date' < Today()
         )
     )
 });
@@ -284,24 +259,13 @@ ClearCollect(
     MyRecentItems,
     FirstN(
         Sort(
-            Filter(Items, CanAccessRecord(Owner.Email), Status <> "Archived", 'Modified On' >= DateRanges.Last30Days),
+            Filter(Items, CanAccessRecord(Owner.Email), Status <> "Archived"),
             'Modified On', SortOrder.Descending
         ), 50
     )
 );
 Set(AppState, Patch(AppState, {IsLoading: false, LastRefresh: Now()}));
-NotifySuccess("Data refreshed");
-
-
-// --- UPDATE FILTERS ---
-// Dropdown_DateRange.OnChange
-Set(ActiveFilters,
-    Patch(ActiveFilters, {
-        DateRangeName: Self.Selected.Value,
-        DateRangeStart: GetDateRangeStart(Self.Selected.Value),
-        DateRangeEnd: GetDateRangeEnd(Self.Selected.Value)
-    })
-);
+NotifySuccess("Daten aktualisiert");
 
 
 // --- TOGGLE SHOW ALL ---
@@ -315,7 +279,7 @@ Set(ActiveFilters,
         )
     })
 );
-NotifyInfo("Filter updated");
+NotifyInfo("Filter aktualisiert");
 
 
 // --- RESET FILTERS ---
@@ -323,9 +287,6 @@ NotifyInfo("Filter updated");
 Set(ActiveFilters, {
     UserScope: GetUserScope(),
     DepartmentScope: GetDepartmentScope(),
-    DateRangeStart: DateRanges.StartOfMonth,
-    DateRangeEnd: DateRanges.Today,
-    DateRangeName: "thismonth",
     ActiveOnly: true,
     IncludeArchived: false,
     StatusFilter: Blank(),
@@ -336,7 +297,7 @@ Set(ActiveFilters, {
     CurrentPage: 1,
     PageSize: AppConfig.ItemsPerPage
 });
-NotifyInfo("Filters reset to defaults");
+NotifyInfo("Filter zurückgesetzt");
 
 
 // --- NAVIGATE WITH STATE ---
@@ -352,18 +313,18 @@ If(
     HasPermission("Delete") && CanDeleteRecord(Gallery.Selected.Owner.Email),
     Set(UIState, Patch(UIState, {
         IsConfirmDialogOpen: true,
-        ConfirmDialogTitle: "Confirm Delete",
-        ConfirmDialogMessage: "Are you sure you want to delete this item?",
+        ConfirmDialogTitle: "Löschen bestätigen",
+        ConfirmDialogMessage: "Möchten Sie diesen Eintrag wirklich löschen?",
         ConfirmDialogAction: "delete"
     })),
-    NotifyPermissionDenied("delete items")
+    NotifyPermissionDenied("Einträge löschen")
 );
 
 // ConfirmDialog_Yes.OnSelect
 If(
     UIState.ConfirmDialogAction = "delete",
     Remove(Items, UIState.SelectedItem);
-    NotifyActionCompleted("Delete", UIState.SelectedItem.Name);
+    NotifyActionCompleted("Löschen", UIState.SelectedItem.Name);
     Set(UIState, Patch(UIState, {
         IsConfirmDialogOpen: false,
         SelectedItem: Blank()
