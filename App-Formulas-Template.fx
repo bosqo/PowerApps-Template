@@ -126,6 +126,35 @@ AppConfig = {
     MaxBulkOperationItems: 100
 };
 
+// Date Range Calculations - Auto-refresh when date changes
+DateRanges = {
+    // Today and Yesterday
+    Today: Today(),
+    Yesterday: Today() - 1,
+    Tomorrow: Today() + 1,
+
+    // Week Calculations
+    StartOfWeek: Today() - Weekday(Today()) + 1,
+    EndOfWeek: Today() - Weekday(Today()) + 7,
+    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+
+    // Month Calculations
+    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
+    EndOfMonth: Date(Year(Today()), Month(Today()) + 1, 1) - 1,
+    StartOfLastMonth: Date(Year(Today()), Month(Today()) - 1, 1),
+    EndOfLastMonth: Date(Year(Today()), Month(Today()), 1) - 1,
+
+    // Year Calculations
+    StartOfYear: Date(Year(Today()), 1, 1),
+    EndOfYear: Date(Year(Today()) + 1, 1, 1) - 1,
+
+    // Relative Ranges
+    Last7Days: Today() - 7,
+    Last30Days: Today() - 30,
+    Last90Days: Today() - 90
+};
+
 
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS
@@ -200,6 +229,14 @@ UserRoles = {
         )
     ) > 0,
 
+    // GF - Geschäftsführung (Management/Executive)
+    IsGF: CountRows(
+        Filter(
+            Office365Groups.ListGroupMembers("YOUR-GF-GROUP-ID"),
+            mail = User().Email
+        )
+    ) > 0,
+
     // Sachbearbeiter - Case worker / Clerk
     IsSachbearbeiter: CountRows(
         Filter(
@@ -240,7 +277,8 @@ UserPermissions = {
 // Dynamic Role-Based Color
 RoleColor = Switch(
     true,
-    UserRoles.IsAdmin, ThemeColors.Error,         // Red for Admin
+    UserRoles.IsAdmin, ThemeColors.Error,        // Red for Admin
+    UserRoles.IsGF, ThemeColors.PrimaryDark,     // Dark Blue for GF
     UserRoles.IsManager, ThemeColors.Primary,     // Blue for Manager
     UserRoles.IsHR, ThemeColors.Warning,          // Amber for HR
     UserRoles.IsSachbearbeiter, ThemeColors.Info, // Blue for Sachbearbeiter
@@ -251,6 +289,7 @@ RoleColor = Switch(
 RoleBadgeText = Switch(
     true,
     UserRoles.IsAdmin, "Admin",
+    UserRoles.IsGF, "GF",
     UserRoles.IsManager, "Manager",
     UserRoles.IsHR, "HR",
     UserRoles.IsSachbearbeiter, "Sachbearbeiter",
@@ -316,6 +355,7 @@ HasRole(roleName: Text): Boolean =
     Switch(
         Lower(roleName),
         "admin", UserRoles.IsAdmin,
+        "gf", UserRoles.IsGF,
         "manager", UserRoles.IsManager,
         "hr", UserRoles.IsHR,
         "sachbearbeiter", UserRoles.IsSachbearbeiter,
