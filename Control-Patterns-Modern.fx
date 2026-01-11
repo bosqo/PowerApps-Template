@@ -20,6 +20,27 @@
 
 
 // ============================================================
+// SHAREPOINT TIMEZONE HANDLING
+// ============================================================
+// SharePoint stores all datetime fields in UTC
+// Berlin timezone: CET (UTC+1) or CEST (UTC+2 during daylight saving)
+//
+// Key Functions:
+// - ConvertUTCToBerlin(utcDateTime) - Convert SharePoint UTC to Berlin time
+// - GetBerlinToday() - Get today's date in Berlin timezone
+// - FormatDateTimeBerlin(utcDateTime) - Format UTC datetime in Berlin time
+//
+// Example: SharePoint 'Modified' field is UTC, use:
+//   ConvertUTCToBerlin('Modified')  -> DateTime in Berlin time
+//   DateValue(ConvertUTCToBerlin('Modified'))  -> Date only
+//   FormatDateTimeBerlin('Modified')  -> Formatted string "d.m.yyyy hh:mm"
+//
+// For filters comparing SharePoint dates with Berlin timezone:
+//   Filter(Items, DateValue(ConvertUTCToBerlin('Modified')) >= GetBerlinToday())
+// ============================================================
+
+
+// ============================================================
 // SECTION 1: GALLERY PATTERNS
 // ============================================================
 
@@ -48,7 +69,7 @@ Filter(
 
 
 // -----------------------------------------------------------
-// Pattern 1.2: Gallery with Multiple Filters
+// Pattern 1.2: Gallery with Multiple Filters (including SharePoint UTC dates)
 // -----------------------------------------------------------
 
 // BEFORE (complex inline logic):
@@ -72,7 +93,8 @@ Filter(
     // Active status via conditional
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
     // Date range filter (manual date comparison)
-    If(IsBlank(ActiveFilters.DateRangeStart), true, 'Created On' >= ActiveFilters.DateRangeStart),
+    // NOTE: For SharePoint UTC datetime fields, compare with ConvertUTCToBerlin()
+    If(IsBlank(ActiveFilters.DateRangeStart), true, DateValue(ConvertUTCToBerlin('Modified')) >= ActiveFilters.DateRangeStart),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -93,8 +115,14 @@ Filter(
     If(IsBlank(ActiveFilters.PriorityFilter), true, Priority = ActiveFilters.PriorityFilter),
     // Active only
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
-    // Due in future or today
-    'Due Date' >= Today() || IsBlank('Due Date')
+    // Due in future or today (handles both Date and UTC DateTime fields)
+    If(
+        IsBlank('Due Date'),
+        true,
+        // For Date fields (stored locally): use Today()
+        // For DateTime fields (stored in UTC): use GetBerlinToday()
+        'Due Date' >= GetBerlinToday()
+    )
 )
 
 
@@ -118,11 +146,12 @@ Search(
 // -----------------------------------------------------------
 
 // Gallery_Invoices.Items
+// NOTE: 'Invoice Date' from SharePoint is in UTC, use GetBerlinToday() for comparison
 Sort(
     Filter(
         Invoices,
         CanAccessRecord('Sales Rep'.Email),
-        'Invoice Date' >= Today() - 90,
+        DateValue(ConvertUTCToBerlin('Invoice Date')) >= GetBerlinToday() - 90,
         If(ActiveFilters.ActiveOnly, Status <> "Void", true)
     ),
     'Invoice Date',
@@ -410,7 +439,8 @@ GetRoleBadge()
 Text(ThisItem.'Created On', "mmm d, yyyy")
 */
 
-// AFTER (using German date formatting UDFs):
+// AFTER (using German date formatting UDFs with Berlin timezone):
+// For SharePoint Date-only fields (stored as local date):
 // Label_CreatedDate.Text (short format)
 FormatDateShort(ThisItem.'Created On')
 
@@ -420,24 +450,30 @@ FormatDateShort(ThisItem.'Due Date')
 // Label_DateLong.Text
 FormatDateLong(ThisItem.'Event Date')
 
-// Label_DateTime.Text
-FormatDateTime(ThisItem.'Last Modified')
+// For SharePoint DateTime fields (stored in UTC - most common):
+// Label_DateTime.Text (auto-converts UTC to Berlin time)
+FormatDateTimeBerlin(ThisItem.'Last Modified')
+
+// Label_ModifiedTime.Text (another UTC datetime example)
+FormatDateTimeBerlin(ThisItem.'Created')
 
 
 // -----------------------------------------------------------
-// Pattern 4.4: Status with Due Date Context
+// Pattern 4.4: Status with Due Date Context (Berlin Timezone)
 // -----------------------------------------------------------
 
 // Label_TaskStatus.Text
+// NOTE: If 'Due Date' is a SharePoint DateTime (UTC), compare with GetBerlinToday()
+// If 'Due Date' is a SharePoint Date (local), use Today()
 If(
-    ThisItem.'Due Date' < Today(),
-    "Überfällig: " & Text(Today() - ThisItem.'Due Date') & " Tage",
+    ThisItem.'Due Date' < GetBerlinToday(),
+    "Überfällig: " & Text(GetBerlinToday() - ThisItem.'Due Date') & " Tage",
     If(
-        ThisItem.'Due Date' = Today(),
+        ThisItem.'Due Date' = GetBerlinToday(),
         "Fällig heute",
         If(
-            ThisItem.'Due Date' > Today() && !IsBlank(ThisItem.'Due Date'),
-            "Fällig in " & Text(ThisItem.'Due Date' - Today()) & " Tagen",
+            ThisItem.'Due Date' > GetBerlinToday() && !IsBlank(ThisItem.'Due Date'),
+            "Fällig in " & Text(ThisItem.'Due Date' - GetBerlinToday()) & " Tagen",
             ThisItem.Status
         )
     )
@@ -497,17 +533,17 @@ GetStatusColor(ThisItem.Status)
 
 
 // -----------------------------------------------------------
-// Pattern 5.2: Conditional Icons
+// Pattern 5.2: Conditional Icons (Berlin Timezone)
 // -----------------------------------------------------------
 
 // Icon_OverdueWarning.Icon
-If(ThisItem.'Due Date' < Today(), Icon.Warning, Icon.Clock)
+If(ThisItem.'Due Date' < GetBerlinToday(), Icon.Warning, Icon.Clock)
 
 // Icon_OverdueWarning.Visible
 !IsBlank(ThisItem.'Due Date')
 
 // Icon_OverdueWarning.Color
-If(ThisItem.'Due Date' < Today(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
+If(ThisItem.'Due Date' < GetBerlinToday(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
 
 
 // ============================================================
@@ -869,7 +905,7 @@ FormatCurrency(
 
 
 // -----------------------------------------------------------
-// Pattern 9.3: Overdue Count
+// Pattern 9.3: Overdue Count (Berlin Timezone)
 // -----------------------------------------------------------
 
 // Label_OverdueCount.Text
@@ -878,7 +914,7 @@ Text(
         Filter(
             Tasks,
             CanAccessRecord('Assigned To'.Email),
-            'Due Date' < Today(),
+            'Due Date' < GetBerlinToday(),
             Status in ["Active", "In Progress", "Pending"]
         )
     )

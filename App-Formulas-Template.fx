@@ -660,10 +660,59 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
 
 
 // -----------------------------------------------------------
-// Date & Time Formatting Functions (German Format)
+// Timezone Conversion Functions (Berlin/UTC)
+// SharePoint stores dates in UTC, convert to Berlin timezone (CET/CEST)
+// -----------------------------------------------------------
+
+// Check if given date is in daylight saving time (CEST)
+// Germany: Last Sunday of March to Last Sunday of October
+IsDaylightSavingTime(checkDate: Date): Boolean =
+    And(
+        checkDate >= Date(Year(checkDate), 3, 31 - Weekday(Date(Year(checkDate), 3, 31))),
+        checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31)))
+    );
+
+// Convert UTC DateTime to Berlin time (CET/CEST)
+ConvertUTCToBerlin(utcDateTime: DateTime): DateTime =
+    If(
+        IsBlank(utcDateTime),
+        Blank(),
+        // Berlin is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
+        DateAdd(
+            utcDateTime,
+            1 + If(IsDaylightSavingTime(DateValue(utcDateTime)), 1, 0),
+            TimeUnit.Hours
+        )
+    );
+
+// Convert Berlin time to UTC DateTime
+ConvertBerlinToUTC(berlinDateTime: DateTime): DateTime =
+    If(
+        IsBlank(berlinDateTime),
+        Blank(),
+        // Subtract Berlin offset (1 or 2 hours depending on DST)
+        DateAdd(
+            berlinDateTime,
+            -(1 + If(IsDaylightSavingTime(DateValue(berlinDateTime)), 1, 0)),
+            TimeUnit.Hours
+        )
+    );
+
+// Get current time in Berlin timezone
+GetBerlinTime(): DateTime =
+    ConvertUTCToBerlin(Now());
+
+// Get today's date in Berlin timezone
+GetBerlinToday(): Date =
+    DateValue(GetBerlinTime());
+
+
+// -----------------------------------------------------------
+// Date & Time Formatting Functions (German Format, Berlin Timezone)
 // -----------------------------------------------------------
 
 // Format date as short format (e.g., "15.1.2025")
+// Optional: pass UTC date to auto-convert to Berlin time first
 FormatDateShort(inputDate: Date): Text =
     If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
 
@@ -672,6 +721,7 @@ FormatDateLong(inputDate: Date): Text =
     If(IsBlank(inputDate), "", Text(inputDate, "d. mmmm yyyy"));
 
 // Format date and time together (e.g., "15.1.2025 14:30")
+// For UTC datetimes from SharePoint, use FormatDateTimeBerlin instead
 FormatDateTime(inputDateTime: DateTime): Text =
     If(
         IsBlank(inputDateTime),
@@ -679,24 +729,37 @@ FormatDateTime(inputDateTime: DateTime): Text =
         Text(inputDateTime, "d.m.yyyy hh:mm")
     );
 
+// Format UTC datetime from SharePoint in Berlin timezone
+// Example: SharePoint 'Modified' field (UTC) -> Berlin time
+FormatDateTimeBerlin(utcDateTime: DateTime): Text =
+    If(
+        IsBlank(utcDateTime),
+        "",
+        Text(
+            ConvertUTCToBerlin(utcDateTime),
+            "d.m.yyyy hh:mm"
+        )
+    );
+
 // Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
+// Uses Berlin timezone for comparison
 FormatDateRelative(inputDate: Date): Text =
     If(
         IsBlank(inputDate),
         "",
         If(
-            inputDate = Today(),
+            inputDate = GetBerlinToday(),
             "Heute",
             If(
-                inputDate = Today() - 1,
+                inputDate = GetBerlinToday() - 1,
                 "Gestern",
                 If(
-                    inputDate = Today() + 1,
+                    inputDate = GetBerlinToday() + 1,
                     "Morgen",
                     If(
-                        inputDate < Today(),
-                        "vor " & Text(Today() - inputDate) & " Tagen",
-                        "in " & Text(inputDate - Today()) & " Tagen"
+                        inputDate < GetBerlinToday(),
+                        "vor " & Text(GetBerlinToday() - inputDate) & " Tagen",
+                        "in " & Text(inputDate - GetBerlinToday()) & " Tagen"
                     )
                 )
             )
