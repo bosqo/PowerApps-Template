@@ -66,9 +66,7 @@ Typography = {
     Size3XL: 32,
 
     // Font Weights (use in Font property)
-    WeightRegular: Font.'Segoe UI',
-    WeightSemibold: Font.'Segoe UI Semibold',
-    WeightBold: Font.'Segoe UI Bold',
+    Font: Font.'Segoe UI',
 
     // Line Heights
     LineHeightTight: 1.25,
@@ -104,15 +102,8 @@ AppConfig = {
         "Production",
         "Development"
     ),
-    IsProduction: Param("environment") = "prod",
-    IsDevelopment: Param("environment") <> "prod",
-
-    // API Configuration
-    ApiBaseUrl: If(
-        Param("environment") = "prod",
-        "https://api.yourcompany.com/prod",
-        "https://api.yourcompany.com/dev"
-    ),
+    IsProduction: Lower(Coalesce(Param("environment"), "")) = "prod",
+    IsDevelopment: Lower(Coalesce(Param("environment"), "")) <> "prod",
 
     // Data Settings
     ItemsPerPage: 50,
@@ -172,14 +163,7 @@ UserProfile = With(
         Id: Lower(User().Email),  // Use email as unique ID
 
         // Office365 Profile Data
-        JobTitle: Coalesce(profile.jobTitle, ""),
         Department: Coalesce(profile.department, ""),
-        OfficeLocation: Coalesce(profile.officeLocation, ""),
-        City: Coalesce(profile.city, ""),
-        Country: Coalesce(profile.country, ""),
-        MobilePhone: Coalesce(profile.mobilePhone, ""),
-        BusinessPhone: Coalesce(profile.businessPhones, ""),
-        Manager: Coalesce(profile.manager, ""),
 
         // Computed Display Values
         DisplayName: Coalesce(
@@ -201,49 +185,32 @@ UserProfile = With(
 // Update the Group IDs to match your Azure AD configuration
 UserRoles = {
     // ===========================================
-    // Security Group Membership (RECOMMENDED)
-    // Replace with your actual Azure AD Security Group GUIDs
+    // Security Group Membership
     // ===========================================
 
     // Administrator - Full system access
-    IsAdmin: CountRows(
+    IsAdmin: false,
+        /*
+        CountRows(
+
         Filter(
-            Office365Groups.ListGroupMembers("YOUR-ADMIN-GROUP-ID"),
+            Office365Groups.ListGroupMembers("GROUP_ID"),
             mail = User().Email
         )
     ) > 0,
+    */
 
     // Manager - Team/department management
-    IsManager: CountRows(
-        Filter(
-            Office365Groups.ListGroupMembers("YOUR-MANAGER-GROUP-ID"),
-            mail = User().Email
-        )
-    ) > 0,
+    IsManager: false,
 
     // HR - Human Resources department
-    IsHR: CountRows(
-        Filter(
-            Office365Groups.ListGroupMembers("YOUR-HR-GROUP-ID"),
-            mail = User().Email
-        )
-    ) > 0,
+    IsHR: false,
 
-    // GF - Geschäftsführung (Management/Executive)
-    IsGF: CountRows(
-        Filter(
-            Office365Groups.ListGroupMembers("YOUR-GF-GROUP-ID"),
-            mail = User().Email
-        )
-    ) > 0,
+    // GF - Geschäftsführung
+    IsGF: false,
 
-    // Sachbearbeiter - Case worker / Clerk
-    IsSachbearbeiter: CountRows(
-        Filter(
-            Office365Groups.ListGroupMembers("YOUR-SACHBEARBEITER-GROUP-ID"),
-            mail = User().Email
-        )
-    ) > 0,
+    // Sachbearbeiter
+    IsSachbearbeiter: false,
 
     // User - Default role for all authenticated users
     IsUser: true
@@ -261,17 +228,11 @@ UserPermissions = {
     // Scope Permissions
     CanViewAll: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsHR,
     CanViewOwn: true,
-    CanViewDepartment: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsHR,
-
-    // Feature Permissions
-    CanManageUsers: UserRoles.IsAdmin || UserRoles.IsHR,
-    CanConfigureSettings: UserRoles.IsAdmin,
 
     // Special Permissions
     CanApprove: UserRoles.IsAdmin || UserRoles.IsManager,
     CanReject: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanArchive: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanRestore: UserRoles.IsAdmin
+    CanArchive: UserRoles.IsAdmin || UserRoles.IsManager
 };
 
 // Dynamic Role-Based Color
@@ -340,13 +301,9 @@ HasPermission(permissionName: Text): Boolean =
         "delete", UserPermissions.CanDelete,
         "viewall", UserPermissions.CanViewAll,
         "viewown", UserPermissions.CanViewOwn,
-        "viewdepartment", UserPermissions.CanViewDepartment,
-        "manageusers", UserPermissions.CanManageUsers,
-        "settings", UserPermissions.CanConfigureSettings,
         "approve", UserPermissions.CanApprove,
         "reject", UserPermissions.CanReject,
         "archive", UserPermissions.CanArchive,
-        "restore", UserPermissions.CanRestore,
         false
     );
 
@@ -364,7 +321,6 @@ HasRole(roleName: Text): Boolean =
     );
 
 // Check if user has any of the specified roles (comma-separated)
-// Refactored 2025: Now properly handles unlimited roles instead of hardcoded 3
 HasAnyRole(roleNames: Text): Boolean =
     CountRows(
         Filter(
@@ -374,7 +330,7 @@ HasAnyRole(roleNames: Text): Boolean =
     ) > 0;
 
 // Check if user has ALL of the specified roles (comma-separated)
-// Added 2025: Complement to HasAnyRole for AND logic
+// Complement to HasAnyRole for AND logic
 HasAllRoles(roleNames: Text): Boolean =
     CountRows(
         Filter(
@@ -525,24 +481,18 @@ GetStatusColor(status: Text): Color =
     );
 
 // Get status icon name (for use with Icon control)
-GetStatusIcon(status: Text): Icon =
+GetStatusIcon(status: Text): Text =
     Switch(
         Lower(status),
-        "active", Icon.CheckmarkCircle,
-        "completed", Icon.CheckmarkCircle,
-        "approved", Icon.CheckmarkCircle,
-        "genehmigt", Icon.CheckmarkCircle,        // German: approved
-        "in progress", Icon.Clock,
-        "in bearbeitung", Icon.Clock,             // German: in progress
-        "pending", Icon.Clock,
-        "beantragt", Icon.Clock,                  // German: requested/applied
-        "draft", Icon.Edit,
-        "cancelled", Icon.CancelBadge,
-        "rejected", Icon.CancelBadge,
-        "abgelehnt", Icon.CancelBadge,            // German: rejected
-        "error", Icon.Warning,
-        "archived", Icon.DocumentSet,
-        Icon.CircleHollow
+        "active", "buildinicon:Cancel",
+        "completed", "builtinicon:Check",
+        "genehmigt", "builtinicon:Check",
+        "in bearbeitung", "builtinicon:Clock",
+        "beantragt", "builtinicon:Clock",
+        "gespeichert", "builtinicon:Edit",
+        "abgebrochen", "builtinicon:Cancel",
+        "abgelehnt", "builtinicon:Cancel",
+        "builtinicon:CircleHollow"
     );
 
 // Get priority color
@@ -561,7 +511,7 @@ GetPriorityColor(priority: Text): Color =
 // -----------------------------------------------------------
 // Notification Functions
 // -----------------------------------------------------------
-
+/*
 // Standard success notification
 NotifySuccess(message: Text): Boolean =
     Notify(message, NotificationType.Success);
@@ -599,35 +549,23 @@ NotifyValidationError(fieldName: Text, message: Text): Boolean =
         NotificationType.Warning
     );
 
-
+*/
 // -----------------------------------------------------------
 // Validation Functions
 // -----------------------------------------------------------
 
-// Check if text is blank or empty (whitespace only)
-// Added 2025: Common helper for null/empty string checks
-IsBlankOrEmpty(input: Text): Boolean =
-    IsBlank(input) || Len(Trim(input)) = 0;
-
 // Validate email format
-// Refactored 2025: Stronger validation with additional checks
 IsValidEmail(email: Text): Boolean =
-    !IsBlankOrEmpty(email) &&
-    !Contains(email, " ") &&
+    !IsBlank(email) &&
+    !IsMatch(email, " ") &&
     CountRows(Split(email, "@")) = 2 &&
     Len(First(Split(email, "@")).Value) >= 1 &&
     Len(Last(Split(email, "@")).Value) > 3 &&
-    Contains(Last(Split(email, "@")).Value, ".") &&
+    IsMatch(Last(Split(email, "@")).Value, ".") &&
     !StartsWith(Last(Split(email, "@")).Value, ".") &&
     !EndsWith(Last(Split(email, "@")).Value, ".");
 
-// Check if text is within length limits
-IsValidLength(input: Text, minLen: Number, maxLen: Number): Boolean =
-    Len(Coalesce(input, "")) >= minLen &&
-    Len(Coalesce(input, "")) <= maxLen;
-
 // Check if a value is in a set of allowed values (comma-separated)
-// Refactored 2025: Fixed incorrect ForAll/in pattern
 IsOneOf(value: Text, allowedValues: Text): Boolean =
     CountRows(
         Filter(
@@ -640,15 +578,6 @@ IsOneOf(value: Text, allowedValues: Text): Boolean =
 IsAlphanumeric(input: Text): Boolean =
     IsMatch(input, "^[a-zA-Z0-9]+$");
 
-// Check if text is a valid phone number (basic check)
-IsValidPhone(phone: Text): Boolean =
-    !IsBlank(phone) &&
-    Len(Substitute(Substitute(Substitute(Substitute(phone, " ", ""), "-", ""), "(", ""), ")", "")) >= 10;
-
-// Check if a required field has a value
-IsRequired(value: Text): Boolean =
-    !IsBlank(Trim(Coalesce(value, "")));
-
 // Validate date is not in the past
 IsNotPastDate(inputDate: Date): Boolean =
     IsBlank(inputDate) || inputDate >= Today();
@@ -659,7 +588,7 @@ IsDateInRange(inputDate: Date, minDate: Date, maxDate: Date): Boolean =
 
 
 // -----------------------------------------------------------
-// Pagination Functions (Added 2025)
+// Pagination Functions
 // -----------------------------------------------------------
 
 // Calculate total number of pages
@@ -699,8 +628,8 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
 // Germany: Last Sunday of March to Last Sunday of October
 IsDaylightSavingTime(checkDate: Date): Boolean =
     And(
-        checkDate >= Date(Year(checkDate), 3, 31 - Weekday(Date(Year(checkDate), 3, 31))),
-        checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31)))
+        checkDate >= Date(Year(checkDate), 3, 31 - Weekday(Date(Year(checkDate), 3, 31), StartOfWeek.Sunday)),
+        checkDate < Date(Year(checkDate), 10, 31 - Weekday(Date(Year(checkDate), 10, 31), StartOfWeek.Sunday))
     );
 
 // Convert UTC DateTime to MEZ time (CET/CEST)
@@ -708,7 +637,7 @@ ConvertUTCToCET(utcDateTime: DateTime): DateTime =
     If(
         IsBlank(utcDateTime),
         Blank(),
-        // MEZ is UTC+1 (CET) or UTC+2 (CEST during daylight saving)
+        // UTC+1 (CET) or UTC+2 (CEST during daylight saving)
         DateAdd(
             utcDateTime,
             1 + If(IsDaylightSavingTime(DateValue(utcDateTime)), 1, 0),
@@ -716,12 +645,12 @@ ConvertUTCToCET(utcDateTime: DateTime): DateTime =
         )
     );
 
-// Convert MEZ time to UTC DateTime
+// Convert CET/CEST time to UTC DateTime
 ConvertCETToUTC(mezDateTime: DateTime): DateTime =
     If(
         IsBlank(mezDateTime),
         Blank(),
-        // Subtract MEZ offset (1 or 2 hours depending on DST)
+        // Subtract CET offset (1 or 2 hours depending on DST)
         DateAdd(
             mezDateTime,
             -(1 + If(IsDaylightSavingTime(DateValue(mezDateTime)), 1, 0)),
@@ -729,11 +658,11 @@ ConvertCETToUTC(mezDateTime: DateTime): DateTime =
         )
     );
 
-// Get current time in MEZ timezone
+// Get current time in CET timezone
 GetCETTime(): DateTime =
     ConvertUTCToCET(Now());
 
-// Get today's date in MEZ timezone
+// Get today's date in CET timezone
 GetCETToday(): Date =
     DateValue(GetCETTime());
 
@@ -743,7 +672,6 @@ GetCETToday(): Date =
 // -----------------------------------------------------------
 
 // Format date as short format (e.g., "15.1.2025")
-// Optional: pass UTC date to auto-convert to MEZ time first
 FormatDateShort(inputDate: Date): Text =
     If(IsBlank(inputDate), "", Text(inputDate, "d.m.yyyy"));
 
@@ -760,8 +688,8 @@ FormatDateTime(inputDateTime: DateTime): Text =
         Text(inputDateTime, "d.m.yyyy hh:mm")
     );
 
-// Format UTC datetime from SharePoint in MEZ timezone
-// Example: SharePoint 'Modified' field (UTC) -> MEZ time
+// Format UTC datetime from SharePoint in CET timezone
+// Example: SharePoint 'Modified' field (UTC) -> CET time
 FormatDateTimeCET(utcDateTime: DateTime): Text =
     If(
         IsBlank(utcDateTime),
@@ -773,7 +701,7 @@ FormatDateTimeCET(utcDateTime: DateTime): Text =
     );
 
 // Format date as relative time (e.g., "vor 2 Tagen", "in 3 Tagen")
-// Uses MEZ timezone for comparison
+// Uses CET timezone for comparison
 FormatDateRelative(inputDate: Date): Text =
     If(
         IsBlank(inputDate),
@@ -802,14 +730,6 @@ FormatDateRelative(inputDate: Date): Text =
 // Text Formatting Functions
 // -----------------------------------------------------------
 
-// Truncate text with ellipsis
-TruncateText(input: Text, maxLength: Number): Text =
-    If(
-        Len(Coalesce(input, "")) > maxLength,
-        Left(input, maxLength - 3) & "...",
-        Coalesce(input, "")
-    );
-
 // Format number as currency
 FormatCurrency(amount: Number, currencySymbol: Text): Text =
     Coalesce(currencySymbol, "$") & Text(amount, "#,##0.00");
@@ -818,29 +738,16 @@ FormatCurrency(amount: Number, currencySymbol: Text): Text =
 FormatPercent(value: Number, decimals: Number): Text =
     Text(value * 100, "#,##0." & Left("000000", decimals)) & "%";
 
-// Format number with thousand separators
-FormatNumber(value: Number): Text =
-    Text(value, "#,##0");
-
 // Get initials from full name
 GetInitials(fullName: Text): Text =
     Upper(
         Left(Coalesce(fullName, "?"), 1) &
         If(
-            Contains(fullName, " "),
+            IsMatch(fullName, " "),
             Mid(fullName, Find(" ", fullName) + 1, 1),
             ""
         )
     );
-
-// Convert text to title case (first letter of each word capitalized)
-ToTitleCase(input: Text): Text =
-    Concat(
-        Split(Lower(Coalesce(input, "")), " "),
-        Upper(Left(Value, 1)) & Mid(Value, 2, Len(Value)),
-        " "
-    );
-
 
 // ============================================================
 // END OF APP.FORMULAS
