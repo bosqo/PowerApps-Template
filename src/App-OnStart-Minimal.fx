@@ -15,6 +15,15 @@
 // should be in App.Formulas as Named Formulas or UDFs
 //
 // ============================================================
+//
+// REQUIRED DATA SOURCES:
+// Connect these tables before using this template:
+// 1. Departments (Dataverse/SharePoint) - columns: Name, Status
+// 2. Categories (Dataverse/SharePoint) - columns: Name, Status
+// 3. Items (Dataverse/SharePoint) - columns: Owner, Status, 'Modified On'
+// 4. Tasks (Dataverse/SharePoint) - columns: 'Assigned To', Status, 'Due Date'
+//
+// ============================================================
 
 
 // ============================================================

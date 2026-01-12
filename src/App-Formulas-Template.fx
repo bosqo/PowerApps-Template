@@ -484,7 +484,7 @@ GetStatusColor(status: Text): Color =
 GetStatusIcon(status: Text): Text =
     Switch(
         Lower(status),
-        "active", "buildinicon:Cancel",
+        "active", "builtinicon:Cancel",
         "completed", "builtinicon:Check",
         "genehmigt", "builtinicon:Check",
         "in bearbeitung", "builtinicon:Clock",

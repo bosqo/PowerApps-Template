@@ -92,9 +92,6 @@ Filter(
     CanAccessItem(Owner.Email, Department),
     // Active status via conditional
     If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
-    // Date range filter (manual date comparison)
-    // NOTE: For SharePoint UTC datetime fields, convert with ConvertUTCToCET() first
-    If(IsBlank(ActiveFilters.DateRangeStart), true, DateValue(ConvertUTCToCET('Modified')) >= ActiveFilters.DateRangeStart),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -491,7 +488,7 @@ FormatCurrency(ThisItem.Amount, "$")
 FormatPercent(ThisItem.CompletionRate, 1)
 
 // Label_Count.Text
-FormatNumber(ThisItem.Quantity)
+Text(ThisItem.Quantity, "#,##0")
 
 
 // -----------------------------------------------------------
@@ -554,8 +551,8 @@ If(
 If(
     HasPermission("Delete") && CanDeleteRecord(Gallery.Selected.Owner.Email),
     Remove(Items, Gallery.Selected);
-    NotifyActionCompleted("Delete", Gallery.Selected.Name),
-    NotifyPermissionDenied("delete this item")
+    Notify("Delete completed: " & Gallery.Selected.Name, NotificationType.Success),
+    Notify("Permission denied: You do not have access to delete this item", NotificationType.Error)
 )
 
 
@@ -572,7 +569,7 @@ If(
         FormMode: FormMode.Edit
     }));
     Navigate(EditScreen, ScreenTransition.None),
-    NotifyPermissionDenied("edit this record")
+    Notify("Permission denied: You do not have access to edit this record", NotificationType.Error)
 )
 
 
@@ -587,24 +584,11 @@ Set(ActiveFilters,
         CurrentPage: 1  // Reset to first page
     })
 );
-NotifyInfo("Filter applied: " & Self.Selected.DisplayName)
+Notify("Filter applied: " & Self.Selected.DisplayName, NotificationType.Information)
 
 
 // -----------------------------------------------------------
-// Pattern 6.4: Date Range Selection
-// -----------------------------------------------------------
-
-// Dropdown_DateRange.OnChange
-Set(ActiveFilters,
-    Patch(ActiveFilters, {
-        DateRangeName: Self.Selected.Value,
-        CurrentPage: 1
-    })
-)
-
-
-// -----------------------------------------------------------
-// Pattern 6.5: Toggle Show All (Admin/Manager)
+// Pattern 6.4: Toggle Show All (Admin/Manager)
 // -----------------------------------------------------------
 
 // Toggle_ShowAll.OnChange
@@ -615,10 +599,10 @@ If(
             UserScope: If(Self.Value, Blank(), User().Email)
         })
     );
-    NotifyInfo(If(Self.Value, "Showing all records", "Showing my records")),
+    Notify(If(Self.Value, "Showing all records", "Showing my records"), NotificationType.Information),
     // Reset toggle if no permission
     Reset(Self);
-    NotifyPermissionDenied("view all records")
+    Notify("Permission denied: You do not have access to view all records", NotificationType.Error)
 )
 
 
@@ -645,7 +629,7 @@ ClearCollect(
     )
 );
 Set(AppState, Patch(AppState, {IsLoading: false, LastRefresh: Now()}));
-NotifySuccess("Data refreshed at " & Text(Now(), "h:mm AM/PM"))
+Notify("Data refreshed at " & Text(Now(), "h:mm AM/PM"), NotificationType.Success)
 
 
 // -----------------------------------------------------------
@@ -656,9 +640,6 @@ NotifySuccess("Data refreshed at " & Text(Now(), "h:mm AM/PM"))
 Set(ActiveFilters, {
     UserScope: GetUserScope(),
     DepartmentScope: GetDepartmentScope(),
-    DateRangeStart: DateRanges.StartOfMonth,
-    DateRangeEnd: DateRanges.Today,
-    DateRangeName: "thismonth",
     ActiveOnly: true,
     IncludeArchived: false,
     StatusFilter: Blank(),
@@ -672,8 +653,7 @@ Set(ActiveFilters, {
 Reset(TextInput_Search);
 Reset(Dropdown_Status);
 Reset(Dropdown_Category);
-Reset(Dropdown_DateRange);
-NotifyInfo("All filters reset")
+Notify("All filters reset", NotificationType.Information)
 
 
 // ============================================================
@@ -745,13 +725,13 @@ HasPermission("Audit")
 If(
     Form.Valid,
     SubmitForm(Form_Details);
-    NotifyActionCompleted(
-        If(Form.Mode = FormMode.New, "Created", "Updated"),
-        DataCardValue_Name.Value
+    Notify(
+        If(Form.Mode = FormMode.New, "Created", "Updated") & " completed: " & DataCardValue_Name.Value,
+        NotificationType.Success
     );
     Set(UIState, Patch(UIState, {IsEditMode: false, UnsavedChanges: false}));
     Back(),
-    NotifyValidationError("Form", "Please correct the errors before submitting")
+    Notify("Form: Please correct the errors before submitting", NotificationType.Warning)
 )
 
 
@@ -767,7 +747,7 @@ If(
 Set(AppState, Patch(AppState, {CurrentScreen: "Details"}));
 If(
     !CanAccessRecord(UIState.SelectedItem.Owner.Email),
-    NotifyPermissionDenied("view this record");
+    Notify("Permission denied: You do not have access to view this record", NotificationType.Error);
     Navigate(HomeScreen, ScreenTransition.None)
 )
 
@@ -792,7 +772,7 @@ Set(ActiveFilters,
 // AdminScreen.OnVisible
 If(
     !HasRole("Admin"),
-    NotifyPermissionDenied("access admin area");
+    Notify("Permission denied: You do not have access to the admin area", NotificationType.Error);
     Navigate(HomeScreen, ScreenTransition.None),
     Set(AppState, Patch(AppState, {CurrentScreen: "Admin"}))
 )
