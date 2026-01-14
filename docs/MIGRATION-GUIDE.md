@@ -1,569 +1,333 @@
-# Migration Guide: Modernizing Canvas Apps with UDFs and Named Formulas
+# Migration Guide: Modern Template Architecture
 
-## Quick Start
+## Übersicht
 
-This guide walks you through migrating an existing Canvas App from the traditional `App.OnStart` pattern to the modern `App.Formulas` pattern using Named Formulas and User Defined Functions (UDFs).
+Dieser Guide erklärt die neue **Core + Modules** Architektur und wie man sie in neuen oder bestehenden PowerApps Apps verwendet.
 
----
+### Neue Architektur
 
-## Prerequisites
-
-- Power Apps version with App.Formulas support (2024+)
-- Familiarity with existing Canvas App structure
-- Access to Azure AD for security group configuration
-
----
-
-## Migration Steps Overview
-
-| Step | Task | Time Estimate |
-|------|------|---------------|
-| 1 | Enable App.Formulas | 5 min |
-| 2 | Copy Named Formulas | 10 min |
-| 3 | Configure Security Groups | 15 min |
-| 4 | Copy UDFs | 10 min |
-| 5 | Simplify App.OnStart | 20 min |
-| 6 | Update Control Formulas | 30-60 min |
-| 7 | Test and Validate | 30 min |
-
----
-
-## Step 1: Enable App.Formulas
-
-1. Open your Canvas App in Power Apps Studio
-2. Go to **Settings** (gear icon)
-3. Navigate to **Upcoming features** > **Experimental** or **Preview**
-4. Enable **Named formulas** if not already enabled
-5. Enable **User-defined functions** if not already enabled
-6. Save the app
-
-> Note: As of 2025, these features are generally available and enabled by default.
-
----
-
-## Step 2: Copy Named Formulas
-
-1. In Power Apps Studio, select **App** in the Tree View
-2. In the properties panel, find **Formulas** property
-3. Copy the contents from `App-Formulas-Template.fx` (Sections 1-2)
-
-### Minimal Named Formulas to Start
-
-```powerfx
-// Start with these essential Named Formulas:
-
-// Theme Colors
-ThemeColors = {
-    Primary: ColorValue("#0078D4"),
-    Success: ColorValue("#107C10"),
-    Warning: ColorValue("#FFB900"),
-    Error: ColorValue("#D13438"),
-    Background: ColorValue("#F3F2F1"),
-    Surface: ColorValue("#FFFFFF"),
-    Text: ColorValue("#201F1E"),
-    TextSecondary: ColorValue("#605E5C"),
-    Border: ColorValue("#EDEBE9")
-};
-
-// Date Ranges
-DateRanges = {
-    Today: Today(),
-    StartOfMonth: Date(Year(Today()), Month(Today()), 1),
-    Last30Days: DateAdd(Today(), -30, TimeUnit.Days),
-    Last90Days: DateAdd(Today(), -90, TimeUnit.Days)
-};
-
-// User Profile
-UserProfile = With(
-    { profile: Office365Users.MyProfileV2() },
-    {
-        Email: User().Email,
-        FullName: User().FullName,
-        Department: Coalesce(profile.department, "")
-    }
-);
-
-// User Roles (configure your group IDs)
-UserRoles = {
-    IsAdmin: false, // Replace with actual security group check
-    IsManager: false,
-    IsUser: true
-};
-
-// User Permissions
-UserPermissions = {
-    CanCreate: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanEdit: true,
-    CanDelete: UserRoles.IsAdmin,
-    CanExport: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanViewAll: UserRoles.IsAdmin || UserRoles.IsManager
-};
+```
+Core Bootstrap (PAC)          Optional Modules (Copy-Paste)
+├─ App-Formulas-Core.fx       ├─ Notifications-Module.fx
+├─ App-OnStart-Core.fx        ├─ Filtering-Module.fx
+└─ Essenzielle UDFs           ├─ AuditLog-Module.fx
+                              ├─ Export-Module.fx
+                              └─ Forms-Module.fx
 ```
 
 ---
 
-## Step 3: Configure Security Groups
+## Quick Start: Neue App erstellen
 
-### Find Your Azure AD Group IDs
+### Schritt 1: Core Bootstrap mit PAC CLI deployen
 
-1. Go to [Azure Portal](https://portal.azure.com)
-2. Navigate to **Azure Active Directory** > **Groups**
-3. Search for your admin/manager groups
-4. Copy the **Object ID** for each group
+```bash
+# Login zu Ihrem Environment
+pac auth select --index 1
 
-### Update Group IDs in App.Formulas
-
-Replace the placeholder IDs in the `UserRoles` Named Formula:
-
-```powerfx
-UserRoles = {
-    IsAdmin: CountRows(
-        Filter(
-            Office365Groups.ListGroupMembers("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"), // Your Admin Group ID
-            mail = User().Email
-        )
-    ) > 0,
-    IsManager: CountRows(
-        Filter(
-            Office365Groups.ListGroupMembers("yyyyyyyy-yyyy-yyyy-yyyy-yyyyyyyyyyyy"), // Your Manager Group ID
-            mail = User().Email
-        )
-    ) > 0,
-    IsUser: true
-};
+# Core Bootstrap in Ihre neue App deployen
+# (Future: PAC deployment script)
+# Aktuell: Manuell kopieren (siehe Schritt 2)
 ```
 
-### Alternative: Email Domain-Based Roles
+### Schritt 2: Core Bootstrap (Copy-Paste)
 
-If you don't have security groups, use email-based detection:
+**In Power Apps Studio:**
+
+1. **App.Formulas** öffnen (Settings → Display → App.Formulas)
+2. Gesamten Inhalt aus `src/core/App-Formulas-Core.fx` kopieren
+3. Einfügen
+
+**In App.OnStart:**
+
+1. **App.OnStart** öffnen
+2. Gesamten Inhalt aus `src/core/App-OnStart-Core.fx` kopieren
+3. Einfügen
+4. Datenquellen anpassen (Items, Tasks, etc.)
+
+### Schritt 3: Optional Modules hinzufügen
+
+Je nach Anforderung Module aus `src/modules/` kopieren:
 
 ```powerfx
-UserRoles = {
-    IsAdmin: User().Email in ["admin1@company.com", "admin2@company.com"],
-    IsManager: Contains(Lower(UserProfile.JobTitle), "manager"),
-    IsUser: true,
-    IsCorporate: EndsWith(Lower(User().Email), "@yourcompany.com")
-};
+// MODULE: [Name] - OPTIONAL: kann gelöscht werden
+// In App.Formulas oder App.OnStart einfügen
+// Siehe Modul-Dokumentation für Nutzung
 ```
 
 ---
 
-## Step 4: Copy UDFs
+## Module Auswählen
 
-Add the User Defined Functions from `App-Formulas-Template.fx` (Section 3) to your App.Formulas.
+### Notifications Module (OPTIONAL)
 
-### Essential UDFs to Start
+**Wann brauchen Sie es?**
+- Toast-Nachrichten für Benutzer anzeigen
+- Error-Dialoge mit Details
+- Bestätigungsdialoge
 
+**Wann NICHT nötig?**
+- Sie nutzen nur die native `Notify()` Funktion
+- Keine Custom Error Handling nötig
+
+**UDFs:**
 ```powerfx
-// Permission check
-HasPermission(permissionName: Text): Boolean =
-    Switch(Lower(permissionName),
-        "create", UserPermissions.CanCreate,
-        "edit", UserPermissions.CanEdit,
-        "delete", UserPermissions.CanDelete,
-        "export", UserPermissions.CanExport,
-        "viewall", UserPermissions.CanViewAll,
-        false
-    );
-
-// Role check
-HasRole(roleName: Text): Boolean =
-    Switch(Lower(roleName),
-        "admin", UserRoles.IsAdmin,
-        "manager", UserRoles.IsManager,
-        "user", UserRoles.IsUser,
-        false
-    );
-
-// Access control
-CanAccessRecord(ownerEmail: Text): Boolean =
-    UserPermissions.CanViewAll || Lower(ownerEmail) = Lower(User().Email);
-
-// Role display
-GetRoleLabel(): Text =
-    Switch(true, UserRoles.IsAdmin, "Admin", UserRoles.IsManager, "Manager", "User");
-
-// Status colors
-GetStatusColor(status: Text): Color =
-    Switch(Lower(status),
-        "active", ThemeColors.Success,
-        "pending", ThemeColors.Warning,
-        "error", ThemeColors.Error,
-        ThemeColors.Text
-    );
-
-// Notifications
-NotifySuccess(message: Text): Boolean = Notify(message, NotificationType.Success);
-NotifyError(message: Text): Boolean = Notify(message, NotificationType.Error);
-NotifyPermissionDenied(action: Text): Boolean =
-    Notify("Permission denied: " & action, NotificationType.Error);
+ShowSuccess(message)           // Grüne Toast
+ShowError(message)             // Rote Toast
+ShowConfirm(message, onYes)    // Bestigung
 ```
 
 ---
 
-## Step 5: Simplify App.OnStart
+### Filtering Module (OPTIONAL)
 
-### Before (Old Pattern)
+**Wann brauchen Sie es?**
+- Multi-field Suche & Filterung
+- Saved Filter Kombinationen
+- Pagination mit Search
 
+**Wann NICHT nötig?**
+- Nur einfache Gallery mit Filter()
+- Keine Advanced Search nötig
+
+**UDFs:**
 ```powerfx
-// App.OnStart - BEFORE
-Set(App.User, {...});  // Profile
-Set(App.User, Patch(App.User, {...}));  // Permissions
-Set(App.Themes, {...});  // Static colors
-Set(App.Config, {...});  // Config
-Set(Data.Filter, {...});  // Filters
-ClearCollect(...);  // Data loading
-```
-
-### After (Modern Pattern)
-
-```powerfx
-// App.OnStart - AFTER (minimal)
-
-// Only mutable state
-Set(AppState, {
-    IsLoading: false,
-    CurrentScreen: "Home",
-    LastRefresh: Now()
-});
-
-// User-modifiable filters
-Set(ActiveFilters, {
-    UserScope: If(UserPermissions.CanViewAll, Blank(), User().Email),
-    DateRangeStart: DateRanges.StartOfMonth,
-    DateRangeEnd: DateRanges.Today,
-    ActiveOnly: true,
-    SearchTerm: ""
-});
-
-// Data loading
-ClearCollect(
-    CachedDepartments,
-    Filter(Departments, Status = "Active")
-);
-
-ClearCollect(
-    MyItems,
-    Filter(
-        Items,
-        CanAccessRecord(Owner.Email),
-        Status <> "Archived"
-    )
-);
-```
-
-### What to Remove from App.OnStart
-
-| Remove | Replace With |
-|--------|--------------|
-| `Set(App.Themes, {...})` | `ThemeColors` Named Formula |
-| `Set(App.User.Email, ...)` | `UserProfile` Named Formula |
-| `Set(App.User.Roles, ...)` | `UserRoles` Named Formula |
-| `Set(App.User.Permissions, ...)` | `UserPermissions` Named Formula |
-| Static date calculations | `DateRanges` Named Formula |
-| Feature flag definitions | `FeatureFlags` Named Formula |
-
----
-
-## Step 6: Update Control Formulas
-
-### Button Visibility
-
-**Before:**
-```powerfx
-// Button.Visible
-App.User.Permissions.CanDelete
-```
-
-**After:**
-```powerfx
-// Button.Visible
-HasPermission("Delete")
-```
-
-### Gallery Items
-
-**Before:**
-```powerfx
-// Gallery.Items
-Filter(
-    Orders,
-    If(IsBlank(Data.Filter.UserScope), true, Owner.Email = Data.Filter.UserScope)
-)
-```
-
-**After:**
-```powerfx
-// Gallery.Items
-Filter(
-    Orders,
-    CanAccessRecord(Owner.Email)
-)
-```
-
-### Theme Colors
-
-**Before:**
-```powerfx
-// Button.Fill
-App.Themes.Primary
-```
-
-**After:**
-```powerfx
-// Button.Fill
-ThemeColors.Primary
-// or
-GetThemeColor("Primary")
-```
-
-### Status Colors
-
-**Before:**
-```powerfx
-// Icon.Color
-Switch(ThisItem.Status,
-    "Active", App.Themes.Success,
-    "Pending", App.Themes.Warning,
-    App.Themes.Text
-)
-```
-
-**After:**
-```powerfx
-// Icon.Color
-GetStatusColor(ThisItem.Status)
-```
-
-### Role Labels
-
-**Before:**
-```powerfx
-// Label.Text
-Switch(true,
-    App.User.Roles.IsAdmin, "Administrator",
-    App.User.Roles.IsManager, "Manager",
-    "User"
-)
-```
-
-**After:**
-```powerfx
-// Label.Text
-GetRoleLabel()
-```
-
-### Permission-Guarded Actions
-
-**Before:**
-```powerfx
-// Button.OnSelect
-If(
-    App.User.Permissions.CanDelete,
-    Remove(Items, Gallery.Selected);
-    Notify("Deleted", NotificationType.Success),
-    Notify("No permission", NotificationType.Error)
-)
-```
-
-**After:**
-```powerfx
-// Button.OnSelect
-If(
-    HasPermission("Delete") && CanAccessRecord(Gallery.Selected.Owner.Email),
-    Remove(Items, Gallery.Selected);
-    NotifySuccess("Item deleted"),
-    NotifyPermissionDenied("delete items")
-)
+GetFilteredItems(filter)       // Gefilterte Items
+ApplyFilter(field, value)      // Filter aktualisieren
+ResetFilters()                 // Alle Filter zurücksetzen
 ```
 
 ---
 
-## Step 7: Test and Validate
+### Audit Log Module (OPTIONAL)
 
-### Test Checklist
+**Wann brauchen Sie es?**
+- Benutzer-Aktionen tracken (Create, Edit, Delete)
+- Compliance/Audit Requirements
+- Änderungshistorie anzeigen
 
-- [ ] App loads without errors
-- [ ] User profile displays correctly
-- [ ] Role is detected correctly
-- [ ] Permissions work as expected
-- [ ] Gallery filters by user scope
-- [ ] Delete button visible only for admins
-- [ ] Export button visible only for admins/managers
-- [ ] Theme colors render correctly
-- [ ] Status colors display properly
-- [ ] Date formatting works
-- [ ] Notifications display correctly
+**Wann NICHT nötig?**
+- Keine Audit Requirements
+- Keine Änderungshistorie nötig
 
-### Test Different User Roles
-
-1. **Test as Admin:**
-   - All buttons visible
-   - All records visible
-   - Can delete and export
-
-2. **Test as Manager:**
-   - Create/Edit/Export visible
-   - Delete hidden
-   - All records visible
-
-3. **Test as Regular User:**
-   - Only own records visible
-   - Edit visible, Delete/Export hidden
-
-### Debug Parameters
-
-Add these URL parameters for testing:
-
-```
-?debug=true&role=admin    // Test as admin
-?debug=true&role=manager  // Test as manager
-?debug=true&role=user     // Test as regular user
-```
-
-Handle in App.Formulas:
-
+**UDFs:**
 ```powerfx
-// Add to UserRoles (development only!)
-IsAdmin: If(
-    Param("debug") = "true" && AppConfig.IsDevelopment,
-    Param("role") = "admin",
-    // Normal security group check
-    CountRows(Filter(Office365Groups.ListGroupMembers("..."), mail = User().Email)) > 0
-);
+LogAction(action, details)     // Aktion protokollieren
+GetAuditLog(itemId)            // Änderungshistorie abrufen
 ```
 
 ---
 
-## Common Migration Issues
+### Export Module (OPTIONAL)
 
-### Issue 1: Circular Reference Error
+**Wann brauchen Sie es?**
+- CSV/Excel Export Funktionalität
+- Daten exportieren & herunterladen
 
-**Problem:** Named Formulas reference each other in a loop.
+**Wann NICHT nötig?**
+- Kein Export nötig
+- Power Automate Flow reicht aus
 
-**Solution:** Ensure dependency chain is linear:
-```
-UserProfile → UserRoles → UserPermissions → FeatureFlags
-```
-
-### Issue 2: Office365Users.MyProfileV2() Not Working
-
-**Problem:** Different environments may use different API versions.
-
-**Solution:** Try alternatives:
+**UDFs:**
 ```powerfx
-// Try these in order:
-Office365Users.MyProfileV2()
-Office365Users.MyProfile()
-Office365Users.MyProfile().DisplayName
-```
-
-### Issue 3: Security Group Check is Slow
-
-**Problem:** Group membership check adds load time.
-
-**Solution:** Cache the result in a collection on first access:
-```powerfx
-// In App.OnStart
-Set(UserIsAdmin,
-    CountRows(Filter(Office365Groups.ListGroupMembers("..."), mail = User().Email)) > 0
-);
-```
-
-### Issue 4: UDF Not Recognized
-
-**Problem:** Function shows as error in editor.
-
-**Solution:**
-1. Check UDF syntax (no trailing semicolons)
-2. Ensure function is defined before use
-3. Save and reload the app
-
-### Issue 5: Theme Colors Not Updating
-
-**Problem:** Old variable references still in controls.
-
-**Solution:** Use Find & Replace:
-- Find: `App.Themes.`
-- Replace: `ThemeColors.`
-
----
-
-## Performance Comparison
-
-| Metric | Before (OnStart) | After (Formulas) |
-|--------|-----------------|------------------|
-| Initial Load | 3-5 seconds | 1-2 seconds |
-| Permission Check | Instant (cached) | Instant (computed) |
-| Theme Access | Variable lookup | Named Formula |
-| Memory Usage | All loaded upfront | Lazy evaluation |
-| Refresh Required | Manual Set() | Automatic |
-
----
-
-## Quick Reference Card
-
-### Named Formulas (direct access)
-
-```powerfx
-ThemeColors.Primary          // Color
-DateRanges.Today             // Date
-UserProfile.Email            // Text
-UserRoles.IsAdmin            // Boolean
-UserPermissions.CanDelete    // Boolean
-FeatureFlags.EnableExport    // Boolean
-```
-
-### UDFs (function calls)
-
-```powerfx
-HasPermission("Delete")      // Boolean
-HasRole("Admin")             // Boolean
-CanAccessRecord(email)       // Boolean
-GetRoleLabel()               // Text
-GetStatusColor(status)       // Color
-GetThemeColor("Primary")     // Color
-FormatDateRelative(date)     // Text
-NotifySuccess(message)       // Boolean
-```
-
-### Variables (mutable state)
-
-```powerfx
-AppState.IsLoading           // Boolean
-AppState.CurrentScreen       // Text
-ActiveFilters.SearchTerm     // Text
-ActiveFilters.UserScope      // Text
-UIState.SelectedItem         // Record
+ExportToCSV(collection)        // CSV generieren
+ExportToExcel(collection)      // Excel-Format
 ```
 
 ---
 
-## Files Reference
+### Forms Module (OPTIONAL)
 
-| File | Purpose |
-|------|---------|
-| `App-Formulas-Template.fx` | Complete Named Formulas + UDFs |
-| `App-OnStart-Minimal.fx` | Simplified App.OnStart |
-| `Control-Patterns-Modern.fx` | Ready-to-use control formulas |
-| `MODERNIZATION-PLAN.md` | Architecture overview |
-| `MIGRATION-GUIDE.md` | This guide |
+**Wann brauchen Sie es?**
+- Komplexe Form-Validierung
+- Multi-Step Wizards
+- Calculated Fields mit Abhängigkeiten
+
+**Wann NICHT nötig?**
+- Einfache Form mit Basic Validation
+- Keine Wizards nötig
+
+**UDFs:**
+```powerfx
+ValidateForm(form)             // Form-Validierung
+IsFormValid()                   // Ist Form ok?
+ShowNextStep()                 // Wizard Schritt
+```
+
+---
+
+## Schritt-für-Schritt: Module hinzufügen
+
+### Beispiel: Notifications Module
+
+1. **Datei öffnen**: `src/modules/Notifications-Module.fx`
+
+2. **Code kopieren**: Alle Formulas zwischen den Markern
+   ```powerfx
+   // ============================================================
+   // MODULE: Notifications
+   // OPTIONAL: Can be safely deleted
+   // ============================================================
+   ```
+
+3. **In Power Apps einfügen**:
+   - Unter `App.Formulas` (für UDFs) einfügen
+   - ODER unter `App.OnStart` (für Set/Collections)
+
+4. **Im Control nutzen**:
+   ```powerfx
+   // Button.OnSelect
+   If(HasPermission("Delete"),
+       Remove(Items, Gallery.Selected);
+       ShowSuccess("Gelöscht"),
+       ShowError("Keine Berechtigung", "")
+   )
+   ```
+
+5. **Test**: App starten & testen
+
+---
+
+## Module Entfernen
+
+**Module sind sicher löschbar!** Einfach den gesamten Block löschen:
+
+```powerfx
+// Vor dem Löschen:
+// ============================================================
+// MODULE: [Name]
+// OPTIONAL: Can be safely deleted
+// ============================================================
+// [100+ lines of code]
+
+// Nach dem Löschen:
+// (nichts - einfach gelöscht)
+```
+
+**Wichtig**: Stellen Sie sicher, dass der Code nicht mehr aufgerufen wird:
+```powerfx
+// Suchen nach: ShowSuccess(
+// Suchen nach: ShowError(
+// Usw.
+```
+
+---
+
+## Häufige Fragen
+
+### F: Kann ich mehrere Module kombinieren?
+
+**A**: Ja! Module sind unabhängig. Sie können beliebig kombinieren:
+- Notifications + Filtering + Audit Log (alles zusammen)
+- Nur Notifications
+- Nur Export
+- Keine Module (nur Core)
+
+### F: Wie aktualisiere ich ein Modul später?
+
+**A**:
+1. Altes Modul-Code löschen (kompletten Block)
+2. Neuen Code aus `src/modules/` kopieren
+3. Wieder einfügen
+
+### F: Was ist der Unterschied zu einem Power App Component?
+
+**A**:
+- **Modules** = Copy-Paste Code (schnell, einfach, portabel)
+- **Components** = Reusable UI Elements (komplexer, aber wiederverwendbar)
+
+Für einfache Feature wie Notifications: Modules besser.
+Für UI-Komponenten mit Wiederverwendung: Components besser.
+
+### F: Kann ich ein Modul anpassen?
+
+**A**: Ja! Nach dem Kopieren können Sie:
+- Variable-Namen ändern
+- Funktionen erweitern
+- Mit anderen Modulen kombinieren
+- UI-Text (German) ändern
+
+---
+
+## Häufige Fehler
+
+### Fehler 1: Modul zeigt "undefined"
+
+**Ursache**: Code nicht vollständig kopiert
+
+**Lösung**:
+1. Gesamten Block (von `//` bis zum Ende) kopieren
+2. Alle Dependencies prüfen (Listed im Modul-Header)
+3. Datenquellen prüfen (Items, Tasks, etc.)
+
+### Fehler 2: Modul-Funktionen funktionieren nicht
+
+**Ursache**: Abhängigkeit nicht vorhanden
+
+**Jedes Modul benötigt**: Core Bootstrap
+- `ThemeColors`, `Permission`, etc. (aus App.Formulas)
+- `AppState`, `Filter`, `UI` (aus App.OnStart)
+
+**Lösung**:
+1. Core Bootstrap prüfen (vollständig kopiert?)
+2. Dependencies am Anfang des Moduls lesen
+3. Fehlende Teile nachkopieren
+
+### Fehler 3: Konflikte zwischen Modulen
+
+**Ursache**: Zwei Module mit gleicher Funktion
+
+**Beispiel**:
+```powerfx
+// Modul A: ShowError(message)
+// Modul B: ShowError(message) <- Konflikt!
+```
+
+**Lösung**:
+1. Eine Funktion löschen (oder umbenennen)
+2. Code anpassen, der alte Funktion aufruft
+
+---
+
+## Checkliste: Neue App Setup
+
+- [ ] Core Bootstrap (`App.Formulas` + `App.OnStart`) kopiert
+- [ ] Datenquellen verbunden (Items, Tasks)
+- [ ] Azure AD Gruppen-IDs eingegeben
+- [ ] Optionale Module ausgewählt & kopiert
+- [ ] Module getestet (Test mit Testkonto)
+- [ ] Display Text auf Deutsch prüfen
+- [ ] Alle Controls angepasst
+- [ ] App publishiert
+
+---
+
+## Dateien Referenz
+
+| Datei | Inhalt | Deployment |
+|-------|--------|-----------|
+| `src/core/App-Formulas-Core.fx` | Core Named Formulas + UDFs | Copy-Paste |
+| `src/core/App-OnStart-Core.fx` | State + Data Loading | Copy-Paste |
+| `src/modules/Notifications-Module.fx` | OPTIONAL | Copy-Paste wenn nötig |
+| `src/modules/Filtering-Module.fx` | OPTIONAL | Copy-Paste wenn nötig |
+| `src/modules/AuditLog-Module.fx` | OPTIONAL | Copy-Paste wenn nötig |
+| `src/modules/Export-Module.fx` | OPTIONAL | Copy-Paste wenn nötig |
+| `src/modules/Forms-Module.fx` | OPTIONAL | Copy-Paste wenn nötig |
+| `docs/MODULE-CHECKLIST.md` | Module Selection Guide | Dokumentation |
 
 ---
 
 ## Next Steps
 
-1. Start with a development copy of your app
-2. Migrate one feature at a time
-3. Test thoroughly at each step
-4. Document any custom UDFs you create
-5. Share patterns with your team
+1. **Neue App**: Core Bootstrap deployen + Module nach Bedarf
+2. **Bestehende App**: Schrittweise auf neue Architektur migrieren
+3. **Team**: Dokumentieren & trainieren
+4. **Feedback**: Erfahrungen teilen & verbessern
 
 ---
 
 ## Support
 
-For issues or questions:
-- Review the AUDIT-REPORT.md for known formula corrections
-- Check Power Apps Community forums
-- Reference Microsoft Power Fx documentation
+- Für Fehler: CLAUDE.md → "Häufige Fallstricke" Sektion prüfen
+- Für Module: Modul-Header lesen (Dependencies, Nutzung)
+- Für Architektur: `MODERNIZATION-DESIGN.md` lesen

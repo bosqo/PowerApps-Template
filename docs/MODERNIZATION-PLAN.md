@@ -1,10 +1,13 @@
 # Power Apps Canvas App Modernization Plan
 
+⚠️ **SUPERSEDED**: See `MODERNIZATION-DESIGN.md` for the current Core + Modules architecture. This document is kept for technical reference.
+
 ## Modern Power Fx Architecture using UDFs and Named Formulas
 
 **Version:** 2.0
 **Date:** 2026-01-10
 **Target:** Power Fx 2025 Best Practices
+**Status:** Reference (Technical Details)
 
 ---
 

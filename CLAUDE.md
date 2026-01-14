@@ -4,7 +4,7 @@
 
 Dieses Projekt ist ein **PowerApps Canvas App Template** mit moderner Power Fx 2025 Architektur.
 
-- **Architektur**: Deklarativ-Funktional (App.Formulas + UDFs)
+- **Architektur**: Modular (Core Bootstrap + Optional Modules)
 - **Sprachen**: Power Fx, JSON, YAML
 - **Daten**: Microsoft Dataverse / SharePoint Lists
 - **Lokalisierung**: Deutsch (CET Zeitzone, d.m.yyyy Datumsformat)
@@ -14,71 +14,61 @@ Dieses Projekt ist ein **PowerApps Canvas App Template** mit moderner Power Fx 2
 
 ## Architektur-Prinzipien
 
-### Trennung: Deklarativ vs. Imperativ
+### Core + Modules Pattern
 
-| Bereich | Datei | Inhalt |
-|---------|-------|--------|
-| **App.Formulas** | `App-Formulas-Template.fx` | Named Formulas, 30+ UDFs, Computed Values |
-| **App.OnStart** | `App-OnStart-Minimal.fx` | State-Variablen, ClearCollect, Initialisierung |
-| **Controls** | `Control-Patterns-Modern.fx` | Fertige Formeln für Gallery, Button, Form etc. |
+| Bereich | Ort | Inhalt | Deployment |
+|---------|-----|--------|-----------|
+| **Core Formulas** | `src/core/App-Formulas-Core.fx` | Named Formulas, UDFs (Permissions, Timezone) | PAC CLI |
+| **Core OnStart** | `src/core/App-OnStart-Core.fx` | State Variables, Data Loading (ClearCollect) | PAC CLI |
+| **Optional Modules** | `src/modules/*.fx` | Feature-spezifische Code-Abschnitte | Copy-Paste |
 
 ### App.Formulas enthält (DEKLARATIV)
 - `ThemeColors` - Fluent Design Farbschema
-- `UserProfile` - Benutzerinfo (lazy-loaded via Office365Users)
-- `UserRoles` - Rollenzugehörigkeit (Azure AD Gruppen)
-- `UserPermissions` - Abgeleitete Berechtigungen
-- `DateRanges` - Auto-aktualisierte Datumsbereiche
-- 30+ UDFs für Validierung, Formatierung, Pagination, Zeitzonen
+- `AppConfig` - Environment, Feature Flags, Pagination
+- `Permission` - Rollen-zu-Permissions Mapping
+- `DateRange` - Auto-aktualisierte Datumsbereiche (CET-aware)
+- **UDFs**: `HasRole()`, `CanAccess()`, `GetCETToday()`, `FormatDateCET()`, Validierung, Formatierung
 
 ### App.OnStart enthält (IMPERATIV)
 - `AppState` - Ladezustand, Navigation, Fehler
-- `ActiveFilters` - Benutzer-Filter (Search, Status, Page)
-- `UIState` - Auswahl, Dialoge, Formulare
-- `Concurrent(ClearCollect(...))` - Paralleles Laden von Lookup-Daten
+- `Filter` - Benutzer-Filter (Search, Status, Pagination)
+- `UI` - Auswahl, Dialoge, Formulare
+- `Concurrent(ClearCollect(...))` - Paralleles Laden von Items, Tasks, Lookups
 
-### Warum nicht "App.User", "App.Themes" etc.?
+### Modulare Struktur
 
-Das `App.*` Pattern war ein **Workaround vor Named Formulas** (Pre-2023):
+**Core Bootstrap** (CORE - nicht löschbar):
+- Essenzielle UDFs (Permissions, Timezone, Validation)
+- Basis Named Formulas (Theme, Config, DateRange)
+- Minimales App.OnStart
 
-```powerfx
-// ALT (Legacy) - Imperativ, läuft bei Startup, blockiert App
-Set(App.User, { IsAdmin: ... });
-
-// NEU (Modern) - Deklarativ, lazy-evaluated, reaktiv
-UserRoles = { IsAdmin: ... };
-HasRole(roleName: Text): Boolean = ...;
-```
-
-| Aspekt | App.* (Legacy) | Named Formulas (Modern) |
-|--------|---------------|------------------------|
-| Auswertung | Eager (Startup) | Lazy (bei Bedarf) |
-| Reaktivität | Manuelles Refresh | Auto-Update |
-| Wiederverwendung | Copy/Paste | UDF-Aufruf |
-| Ort | App.OnStart | App.Formulas |
+**Optional Modules** (OPTIONAL - nach Bedarf löschbar):
+- Notifications Module - Toasts, Dialogs, Error Handling
+- Filtering Module - Advanced Search, Multi-field Filters
+- Audit Log Module - Action Tracking
+- Export Module - CSV/Excel Export
+- Forms Module - Validation, Wizards, Calculated Fields
 
 ---
 
-## Rollen-System (6 Rollen)
+## Rollen-System (4 Rollen)
 
-| Rolle | Deutsch | Berechtigungen |
-|-------|---------|----------------|
-| Admin | Administrator | Vollzugriff, ViewAll, Approve, Delete |
-| GF | Geschäftsführer | ViewAll, Approve |
-| Manager | Manager | ViewAll, Edit, Approve |
-| HR | HR | ViewAll (Mitarbeiter) |
-| Sachbearbeiter | Sachbearbeiter | Create, Edit (eigene) |
-| User | Benutzer | Read (eigene) |
+| Code | Deutsch (UI) | Berechtigungen |
+|------|--------------|----------------|
+| `Admin` | Administrator | Vollzugriff, ViewAll, Edit, Delete |
+| `Manager` | Manager | ViewAll, Edit, Approve |
+| `HR` | HR | ViewAll (Mitarbeiter) |
+| `Processor` | Sachbearbeiter | Create, Edit (eigene), Read (eigene) |
 
-**Konfiguration erforderlich**: Azure AD Gruppen-IDs in `App-Formulas-Template.fx:186-217` eintragen.
+**Konfiguration**: Azure AD Gruppen-IDs in `src/core/App-Formulas-Core.fx` eintragen.
 
 ### UDFs für Zugriffskontrolle
+
 ```powerfx
-HasRole("Admin")                      // Rolle prüfen
-HasPermission("Delete")               // Berechtigung prüfen
-HasAnyRole("Admin,Manager")           // Eine von mehreren Rollen
-CanAccessRecord(Owner.Email)          // Datensatz-Zugriff
-CanEditRecord(Owner.Email, Status)    // Edit mit Status-Check
-CanDeleteRecord(Owner.Email)          // Löschen erlaubt?
+HasRole("Admin")                    // Rolle prüfen
+CanAccess(ownerEmail)               // Datensatz-Zugriff
+CanEdit(ownerEmail, status)         // Edit mit Status-Check
+CanDelete(ownerEmail)               // Löschen erlaubt?
 ```
 
 ---
@@ -86,55 +76,70 @@ CanDeleteRecord(Owner.Email)          // Löschen erlaubt?
 ## Zeitzone & Lokalisierung (KRITISCH)
 
 ### CET/CEST Zeitzone
-SharePoint speichert alle DateTime-Felder in **UTC**. Für deutsche Apps:
+
+SharePoint speichert alle DateTime-Felder in **UTC**. Für deutsche Apps immer CET-aware Funktionen nutzen:
 
 ```powerfx
-// NIEMALS Today() mit SharePoint-Datetimes verwenden!
-// IMMER GetCETToday() nutzen:
+// ❌ FALSCH: Vergleicht UTC mit lokaler Zeit
+If(ThisItem.'Due Date' < Today(), "Überfällig", "OK")
+
+// ✅ RICHTIG: Nutzt CET-aware Funktion
 If(ThisItem.'Due Date' < GetCETToday(), "Überfällig", "OK")
-
-// UTC zu CET konvertieren:
-FormatDateTimeCET(ThisItem.'Modified')  // "15.1.2025 14:30"
-
-// Direkte Konvertierung:
-ConvertUTCToCET(ThisItem.'Created On')
 ```
 
-### Deutsches Datumsformat
+### Verfügbare Datum-UDFs
+
 ```powerfx
-FormatDateShort(date)      // "15.1.2025"
-FormatDateLong(date)       // "15. Januar 2025"
-FormatDateRelative(date)   // "Heute", "Gestern", "vor 3 Tagen"
+GetCETToday()                       // Heutiges Datum in CET
+ConvertUTCToCET(utcDate)            // UTC zu CET konvertieren
+FormatDateShort(date)               // "15.1.2025"
+FormatDateLong(date)                // "15. Januar 2025"
+FormatDateRelative(date)            // "Heute", "Gestern", "vor 3 Tagen"
 ```
 
 ---
 
 ## Naming Conventions
 
-### Power Platform Komponenten
-- **Solutions**: `[Publisher]_[Projektname]_[Typ]` (z.B. `contoso_CRM_Core`)
-- **Tabellen**: PascalCase, Singular (z.B. `Customer`, `OrderItem`)
-- **Spalten**: camelCase mit Präfix (z.B. `cust_firstName`)
-- **Flows**: `[App]-[Aktion]-[Trigger]` (z.B. `CRM-SendEmail-OnCreate`)
-- **Canvas Apps**: `[Bereich]_[Funktion]_App` (z.B. `Sales_OrderEntry_App`)
+### Power Fx Code (ENGLISH CODE, GERMAN UI)
 
-### Power Fx Code
-- **Named Formulas**: PascalCase (`ThemeColors`, `UserProfile`, `DateRanges`)
-- **UDFs**: PascalCase mit Verb (`HasRole()`, `GetUserScope()`, `FormatDateShort()`)
-- **State-Variablen**: PascalCase (`AppState`, `ActiveFilters`, `UIState`)
-- **Collections**: PascalCase (`CachedDepartments`, `MyRecentItems`)
-- **Controls**: `[Typ]_[Name]` (`Gallery_Items`, `Button_Submit`, `Label_Error`)
+#### Named Formulas (App.Formulas)
+- PascalCase, kurz, English-only
+- Beispiele: `ThemeColors`, `AppConfig`, `Permission`, `DateRange`
+
+#### User-Defined Functions (UDFs)
+- PascalCase + Verb (Has/Is/Get/Can/Format/Validate)
+- Beispiele: `HasRole()`, `CanAccess()`, `FormatDateCET()`, `GetCETToday()`
+
+#### State Variables (App.OnStart)
+- PascalCase, kurz, English
+- Beispiele: `AppState`, `Filter`, `UI`
+
+#### Collections
+- PascalCase, kurz, English
+- Beispiele: `Items`, `Tasks`, `Lookups`
+
+#### Controls
+- `[Type]_[Name]` Format
+- Beispiele: `Gallery_Items`, `Button_Submit`, `Label_Error`
+
+#### Display Text (User-Facing)
+- **IMMER Deutsch**
+- Rollen: `"Administrator"`, `"Manager"`, `"Sachbearbeiter"`
+- Status: `"Aktiv"`, `"Genehmigt"`, `"Überfällig"`
+- Buttons: `"Speichern"`, `"Löschen"`, `"Abbrechen"`
 
 ---
 
 ## Erforderliche Datenquellen
 
-Vor Verwendung von App.OnStart diese Tabellen verbinden:
+Vor Verwendung von App.OnStart verbinden:
 
-1. **Departments** - Spalten: `Name`, `Status`
-2. **Categories** - Spalten: `Name`, `Status`
-3. **Items** - Spalten: `Owner`, `Status`, `'Modified On'`
-4. **Tasks** - Spalten: `'Assigned To'`, `Status`, `'Due Date'`
+1. **Items** - Spalten: `Owner`, `Status`, `'Modified On'`
+2. **Tasks** - Spalten: `'Assigned To'`, `Status`, `'Due Date'`
+3. **Optional**: Weitere Lookup-Tabellen je nach Anwendungsfall
+
+**Wichtig**: Departments werden über EntraID Gruppen gesteuert (nicht als separate Sammlung).
 
 ---
 
@@ -142,12 +147,11 @@ Vor Verwendung von App.OnStart diese Tabellen verbinden:
 
 | Problem | Ursache | Lösung |
 |---------|---------|--------|
-| **Delegation** | Nicht-delegierbare Funktionen auf >2000 Records | `Filter()` mit einfachen Bedingungen, `Search()` für Text, Pagination mit `FirstN(Skip())` |
+| **Delegation** | Nicht-delegierbare Funktionen auf >2000 Records | `Filter()` mit einfachen Bedingungen, `Search()` für Text, Pagination |
 | **Zeitzone** | `Today()` mit SharePoint UTC-Daten verglichen | Immer `GetCETToday()` verwenden |
 | **API-Limits** | `Office365Users.MyProfileV2()` mehrfach aufgerufen | Mit `With()` cachen oder Named Formula |
-| **Rollen leer** | Azure AD Gruppen nicht konfiguriert | `UserRoles` in App-Formulas-Template.fx anpassen |
+| **Rollen nicht erkannt** | Azure AD Gruppen nicht konfiguriert | Gruppen-IDs in `App-Formulas-Core.fx` prüfen |
 | **Flow-Timeouts** | Flows brechen nach 30 Tagen ab | Child-Flows verwenden |
-| **Lizenz-Limits** | API-Limits überschritten | Batch-Operationen, Throttling |
 
 ---
 
@@ -155,9 +159,9 @@ Vor Verwendung von App.OnStart diese Tabellen verbinden:
 
 | Datum | Fehler | Ursache | Lösung |
 |-------|--------|---------|--------|
-| 2025-01-12 | Notification UDFs fehlen | Auskommentiert in Template | Inline `Notify()` verwenden |
+| 2025-01-14 | Departments-Sammlung nicht nötig | EntraID-gesteuerte Org | Entfernt aus Core OnStart |
+| 2025-01-12 | Notification UDFs fehlten | Auskommentiert in Template | Optional Module nutzen |
 | 2025-01-12 | FormatNumber() undefined | UDF nicht definiert | `Text(value, "#,##0")` nutzen |
-| 2025-01-12 | GetStatusIcon Typo | "buildinicon" statt "builtinicon" | Typo korrigiert |
 
 ---
 
@@ -180,9 +184,6 @@ pac solution pack --folder ./src --zipfile ./sol.zip
 pac canvas download --name "MyApp" --file MyApp.msapp
 pac canvas unpack --msapp MyApp.msapp --sources ./src
 pac canvas pack --sources ./src --msapp MyApp.msapp
-
-# Testing
-pac test run --config-file testconfig.json
 ```
 
 ---
@@ -193,147 +194,26 @@ Mit `gh` können Pull Requests, Issues und Branches direkt vom Terminal verwalte
 
 ### Authentifizierung & Status
 ```bash
-# Login (einmalig)
-gh auth login
-
-# Aktuellen User prüfen
-gh auth status
-
-# Token aktualisieren
-gh auth refresh
+gh auth login          # Login (einmalig)
+gh auth status         # Aktuellen User prüfen
+gh auth refresh        # Token aktualisieren
 ```
 
 ### Issues verwalten
 ```bash
-# Issues auflisten
 gh issue list                          # Alle offenen Issues
-gh issue list --state all             # Alle Issues (offen + geschlossen)
+gh issue list --state all             # Alle Issues
 gh issue list --assignee @me          # Mir zugewiesene Issues
-gh issue list --label "bug"           # Issues mit Tag "bug"
-
-# Issue anzeigen
 gh issue view 42                       # Issue #42 anzeigen
-gh issue view 42 --comments           # Mit Kommentaren
-
-# Issue erstellen
 gh issue create --title "Bug Title" --body "Description"
-gh issue create --title "Fix timezone" --label "bug,urgent"
-
-# Issue bearbeiten
-gh issue edit 42 --title "New Title"
-gh issue edit 42 --state closed       # Schließen
-
-# Kommentare
-gh issue comment 42 --body "This is a comment"
 ```
 
-### Pull Requests erstellen & verwalten
+### Pull Requests
 ```bash
-# PR erstellen
 gh pr create --title "Feature Title" --body "Description"
-gh pr create --title "Add UDFs" --draft                    # Als Draft
-gh pr create --title "Fix bug" --assignee @me --label "fix"
-
-# PRs auflisten
 gh pr list                             # Alle offenen PRs
-gh pr list --state all                # Alle PRs
-gh pr list --author @me               # Meine PRs
-gh pr list --draft                    # Draft PRs
-
-# PR anzeigen
 gh pr view 15                          # PR #15 anzeigen
-gh pr view 15 --comments              # Mit Kommentaren
-
-# PR bearbeiten
-gh pr edit 15 --title "New Title"
-gh pr edit 15 --state closed          # Schließen
-
-# PR checken & mergen
-gh pr checks 15                        # Status von Checks prüfen
-gh pr merge 15                         # Mergen (interaktiv)
 gh pr merge 15 --squash               # Mit Squash mergen
-gh pr merge 15 --auto                 # Auto-merge wenn alle Checks passen
-
-# Kommentare
-gh pr comment 15 --body "Great PR!"
-gh pr comment 15 --edit                # Letzten Kommentar bearbeiten
-```
-
-### Branches verwalten
-```bash
-# Branch erstellen & wechseln
-gh repo clone owner/repo               # Repository klonen
-git checkout -b feature/my-feature     # Branch erstellen
-
-# Branch mit PR verknüpfen
-gh pr create --head feature/my-feature --base main
-
-# Remote Branch löschen
-gh pr delete 15                        # PR löschen (auch Branch)
-```
-
-### Workflow-Beispiele
-
-**Beispiel 1: Feature Branch + PR erstellen**
-```bash
-# Feature Branch erstellen
-git checkout -b feature/add-validation
-
-# Änderungen machen...
-git add .
-git commit -m "Add email validation UDF"
-git push origin feature/add-validation
-
-# PR erstellen
-gh pr create --title "Add email validation" \
-  --body "Adds IsValidEmail() UDF for form validation" \
-  --label "feature" \
-  --assignee @me
-```
-
-**Beispiel 2: Bug Hotfix**
-```bash
-# Hotfix Branch
-git checkout -b fix/timezone-bug
-
-# Änderungen + Commit
-git add src/App-Formulas-Template.fx
-git commit -m "fix: Correct CET timezone offset calculation"
-git push origin fix/timezone-bug
-
-# PR als URGENT markieren
-gh pr create --title "URGENT: Fix timezone bug" \
-  --body "Fixes off-by-one error in CET conversion" \
-  --label "bug,urgent" \
-  --assignee @me
-```
-
-**Beispiel 3: PR Review & Merge**
-```bash
-# PRs mit Review-Anfrage anzeigen
-gh pr list --review-requested @me
-
-# Konkrete PR prüfen
-gh pr view 42 --comments
-
-# Nach Review mergen
-gh pr merge 42 --squash --auto
-
-# PR in lokales main integrieren
-git checkout main
-git pull origin main
-```
-
-### Nützliche Flags
-```bash
---draft              # PR als Draft erstellen
---state open|closed  # Status filtern
---assignee @me      # Mir selbst zuweisen
---label "bug"       # Label setzen
---body-file FILE    # Body aus Datei lesen
---template TEMPLATE # PR-Template verwenden
---squash            # Mit Squash mergen
---auto              # Auto-merge aktivieren
 ```
 
 ---
@@ -350,68 +230,24 @@ git pull origin main
 
 | Datei | Beschreibung |
 |-------|-------------|
-| `src/App-Formulas-Template.fx` | Named Formulas + 30+ UDFs |
-| `src/App-OnStart-Minimal.fx` | Modernes OnStart mit State + Datenladung |
-| `src/Control-Patterns-Modern.fx` | Fertige Control-Formeln |
-| `docs/MIGRATION-GUIDE.md` | Legacy zu Modern Migration |
-| `docs/App-Formulas-Design.md` | Architektur-Dokumentation |
-
----
-
-## Claude Commands (.claude/commands/)
-
-Custom Slash-Commands für spezifische Workflows in diesem Projekt:
-
-### /reflect - Session Reflection
-
-Analysiert die aktuelle Claude-Sitzung und erstellt eine strukturierte Reflection über Techniken, Muster und Lerneffekte.
-
-**Zweck**: Dokumentation von "WIE" die Arbeit gemacht wurde, nicht "WAS" gebaut wurde
-
-**Nutzung**:
-```
-/reflect                          # Vollständige Reflection
-/reflect --focus tools            # Nur Tool-Nutzung analysieren
-/reflect --focus patterns         # Nur Problem-Solving Patterns
-/reflect --name code-review       # Custom Dateiname
-```
-
-**Output**: Datei in `.claude/reflections/YYYY-MM-DD-slug.md` mit:
-- What Went Well (effektive Techniken)
-- What Went Wrong (Ineffizienzen, False Starts)
-- Lessons Learned (actionable Insights)
-- Action Items (konkrete Verbesserungen)
-- Tips & Tricks (für zukünftige Sessions)
-
-**Beispiel-Reflection**:
-```
-# Session Reflection: PowerApp Code Analysis
-
-Date: 2025-01-12
-Session Goal: Analyze template patterns and identify code inconsistencies
-
-## What Went Well
-- Parallel Agent Exploration: 3 Explore agents gleichzeitig statt sequenziell
-- Direct File Reading: Source-Code gelesen statt nur Dokumentation
-- Issue Tracking: Strukturierte Tabelle für Fehler + Prioritäten
-
-## Action Items
-- [ ] Parallel Agents als Default für Code-Analyse nutzen (Priority: High)
-- [ ] Immer 2-3 Source-Files früh lesen (Priority: High)
-```
-
-**Archivierung**: Alle Reflections unter `.claude/reflections/` für persönliche Knowledge Base
+| `src/core/App-Formulas-Core.fx` | Core Named Formulas + UDFs |
+| `src/core/App-OnStart-Core.fx` | Core State + Data Loading |
+| `src/modules/*.fx` | Optional Feature Modules |
+| `docs/MODERNIZATION-DESIGN.md` | Architecture & Design |
+| `docs/MIGRATION-GUIDE.md` | Upgrade Path |
+| `docs/MODULE-CHECKLIST.md` | Module Selection Guide |
 
 ---
 
 ## Code-Qualität
 
-- Schreibe sauberen, lesbaren Power Fx Code
-- Nutze UDFs für wiederverwendbare Logik (Single Responsibility)
-- Vermeide Code-Duplizierung - nutze Named Formulas
-- Kommentiere nur komplexe Logik, nicht offensichtlichen Code
-- Validiere Eingaben früh (Fail Fast)
-- Prüfe Berechtigungen VOR Aktionen (`HasPermission()`, `CanAccessRecord()`)
+- ✅ Sauberen, lesbaren Power Fx Code schreiben
+- ✅ UDFs für wiederverwendbare Logik (Single Responsibility)
+- ✅ Code-Duplizierung vermeiden - Named Formulas nutzen
+- ✅ Nur komplexe Logik kommentieren
+- ✅ Eingaben früh validieren (Fail Fast)
+- ✅ Berechtigungen VOR Aktionen prüfen
+- ✅ Module mit `// CORE` oder `// OPTIONAL` markieren
 
 ---
 
@@ -422,4 +258,4 @@ Session Goal: Analyze template patterns and identify code inconsistencies
 - **fix/**: Bug Fixes (`fix/timezone-calculation`)
 - Ein Commit = eine logische Änderung
 - Aussagekräftige Commit-Messages (Was + Warum)
-- Keine Secrets im Code (Credentials, API-Keys)
+- Keine Secrets im Code
