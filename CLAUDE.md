@@ -161,7 +161,39 @@ Vor Verwendung von App.OnStart diese Tabellen verbinden:
 
 ---
 
-## PAC CLI Befehle
+## Deployment & ALM
+
+### Automatisierte Deployment-Scripts
+
+Dieses Projekt enthält vollständige Deployment-Automation für den ALM-Lifecycle:
+**DEV** → **Git** → **TEST** → **PROD**
+
+**Quick Commands:**
+```powershell
+# DEV → Git (täglich nach Entwicklung)
+.\deploy-dev.bat YourSolutionName
+
+# Git → TEST (wöchentlich für UAT)
+.\deploy-test.bat YourSolutionName
+
+# Git → PROD (nach Approval)
+.\deploy-prod.bat YourSolutionName
+```
+
+**Deployment-Dokumentation:**
+
+| Dokument | Wann nutzen? |
+|----------|--------------|
+| **[QUICK-START.md](QUICK-START.md)** | ⚡ Schnellreferenz (eine Seite zum Ausdrucken) |
+| **[DEPLOYMENT-INSTRUCTIONS.md](DEPLOYMENT-INSTRUCTIONS.md)** | 📖 Vollständige Schritt-für-Schritt Anleitung |
+| **[DEPLOYMENT-WORKFLOW.md](DEPLOYMENT-WORKFLOW.md)** | 🔄 Visuelle Workflows und Decision Trees |
+| **[DEPLOYMENT-CHEATSHEET.md](DEPLOYMENT-CHEATSHEET.md)** | 🎯 Command-Referenz für häufige Tasks |
+| **[README-DEPLOYMENT.md](README-DEPLOYMENT.md)** | 📦 Übersicht über alle Deployment-Dateien |
+| **[docs/DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md)** | 🔧 Technisches Handbuch mit CI/CD |
+
+**Wichtig:** Siehe [DEPLOYMENT-INSTRUCTIONS.md](DEPLOYMENT-INSTRUCTIONS.md) für erstmalige Einrichtung (PAC CLI Installation, Environment-Authentifizierung).
+
+### PAC CLI Befehle (Manuell)
 
 ```bash
 # Authentifizierung

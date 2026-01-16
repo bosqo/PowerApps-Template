@@ -13,3 +13,14 @@ Thumbs.db
 # Temporäre Dateien
 *.tmp
 *.bak
+
+# Power Platform Deployment
+exports/
+backups/
+.env
+*.zip
+*.msapp
+checker-results/
+
+# PAC CLI
+.pac/
