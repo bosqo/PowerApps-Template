@@ -40,8 +40,7 @@ A modern, production-ready Canvas App template using **Named Formulas** and **Us
 PowerApps-Vibe-Claude/
 ├── src/
 │   ├── App-Formulas-Template.fx      # Named Formulas + UDFs (copy to App.Formulas)
-│   ├── App-OnStart-Minimal.fx        # Minimal OnStart (copy to App.OnStart)
-│   ├── App-OnStart-Template.fx       # Legacy OnStart template (for reference)
+│   ├── App-OnStart-Minimal.fx        # Modern OnStart (copy to App.OnStart)
 │   ├── Control-Patterns-Modern.fx    # Modern control formula patterns
 │   └── Datasource-Filter-Patterns.fx # Legacy filter patterns (for reference)
 ├── docs/
