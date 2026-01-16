@@ -551,8 +551,8 @@ If(
 If(
     HasPermission("Delete") && CanDeleteRecord(Gallery.Selected.Owner.Email),
     Remove(Items, Gallery.Selected);
-    Notify("Delete completed: " & Gallery.Selected.Name, NotificationType.Success),
-    Notify("Permission denied: You do not have access to delete this item", NotificationType.Error)
+    NotifyActionCompleted("Delete", Gallery.Selected.Name),
+    NotifyPermissionDenied("delete this item")
 )
 
 
@@ -569,7 +569,7 @@ If(
         FormMode: FormMode.Edit
     }));
     Navigate(EditScreen, ScreenTransition.None),
-    Notify("Permission denied: You do not have access to edit this record", NotificationType.Error)
+    NotifyPermissionDenied("edit this record")
 )
 
 
@@ -584,7 +584,7 @@ Set(ActiveFilters,
         CurrentPage: 1  // Reset to first page
     })
 );
-Notify("Filter applied: " & Self.Selected.DisplayName, NotificationType.Information)
+NotifyInfo("Filter applied: " & Self.Selected.DisplayName)
 
 
 // -----------------------------------------------------------
@@ -599,10 +599,10 @@ If(
             UserScope: If(Self.Value, Blank(), User().Email)
         })
     );
-    Notify(If(Self.Value, "Showing all records", "Showing my records"), NotificationType.Information),
+    NotifyInfo(If(Self.Value, "Showing all records", "Showing my records")),
     // Reset toggle if no permission
     Reset(Self);
-    Notify("Permission denied: You do not have access to view all records", NotificationType.Error)
+    NotifyPermissionDenied("view all records")
 )
 
 
@@ -629,7 +629,7 @@ ClearCollect(
     )
 );
 Set(AppState, Patch(AppState, {IsLoading: false, LastRefresh: Now()}));
-Notify("Data refreshed at " & Text(Now(), "h:mm AM/PM"), NotificationType.Success)
+NotifySuccess("Data refreshed at " & Text(Now(), "h:mm AM/PM"))
 
 
 // -----------------------------------------------------------
@@ -653,7 +653,7 @@ Set(ActiveFilters, {
 Reset(TextInput_Search);
 Reset(Dropdown_Status);
 Reset(Dropdown_Category);
-Notify("All filters reset", NotificationType.Information)
+NotifyInfo("All filters reset")
 
 
 // ============================================================
@@ -725,13 +725,13 @@ HasPermission("Audit")
 If(
     Form.Valid,
     SubmitForm(Form_Details);
-    Notify(
-        If(Form.Mode = FormMode.New, "Created", "Updated") & " completed: " & DataCardValue_Name.Value,
-        NotificationType.Success
+    NotifyActionCompleted(
+        If(Form.Mode = FormMode.New, "Created", "Updated"),
+        DataCardValue_Name.Value
     );
     Set(UIState, Patch(UIState, {IsEditMode: false, UnsavedChanges: false}));
     Back(),
-    Notify("Form: Please correct the errors before submitting", NotificationType.Warning)
+    NotifyWarning("Form: Please correct the errors before submitting")
 )
 
 
@@ -747,7 +747,7 @@ If(
 Set(AppState, Patch(AppState, {CurrentScreen: "Details"}));
 If(
     !CanAccessRecord(UIState.SelectedItem.Owner.Email),
-    Notify("Permission denied: You do not have access to view this record", NotificationType.Error);
+    NotifyPermissionDenied("view this record");
     Navigate(HomeScreen, ScreenTransition.None)
 )
 
@@ -772,7 +772,7 @@ Set(ActiveFilters,
 // AdminScreen.OnVisible
 If(
     !HasRole("Admin"),
-    Notify("Permission denied: You do not have access to the admin area", NotificationType.Error);
+    NotifyPermissionDenied("the admin area");
     Navigate(HomeScreen, ScreenTransition.None),
     Set(AppState, Patch(AppState, {CurrentScreen: "Admin"}))
 )

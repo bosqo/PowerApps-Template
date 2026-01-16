@@ -509,47 +509,53 @@ GetPriorityColor(priority: Text): Color =
 
 
 // -----------------------------------------------------------
-// Notification Functions
+// Notification Functions (Behavior UDFs - Power Fx 2025)
 // -----------------------------------------------------------
-/*
+// NOTE: Behavior UDFs must use Void return type and curly braces
+
 // Standard success notification
-NotifySuccess(message: Text): Boolean =
+NotifySuccess(message: Text): Void = {
     Notify(message, NotificationType.Success);
+};
 
 // Standard error notification
-NotifyError(message: Text): Boolean =
+NotifyError(message: Text): Void = {
     Notify(message, NotificationType.Error);
+};
 
 // Standard warning notification
-NotifyWarning(message: Text): Boolean =
+NotifyWarning(message: Text): Void = {
     Notify(message, NotificationType.Warning);
+};
 
 // Standard info notification
-NotifyInfo(message: Text): Boolean =
+NotifyInfo(message: Text): Void = {
     Notify(message, NotificationType.Information);
+};
 
 // Permission denied notification with action context
-NotifyPermissionDenied(action: Text): Boolean =
+NotifyPermissionDenied(action: Text): Void = {
     Notify(
         "Permission denied: You do not have access to " & Lower(action),
         NotificationType.Error
     );
+};
 
 // Action completed notification
-NotifyActionCompleted(action: Text, itemName: Text): Boolean =
+NotifyActionCompleted(action: Text, itemName: Text): Void = {
     Notify(
         action & " completed: " & itemName,
         NotificationType.Success
     );
+};
 
 // Validation error notification
-NotifyValidationError(fieldName: Text, message: Text): Boolean =
+NotifyValidationError(fieldName: Text, message: Text): Void = {
     Notify(
         fieldName & ": " & message,
         NotificationType.Warning
     );
-
-*/
+};
 // -----------------------------------------------------------
 // Validation Functions
 // -----------------------------------------------------------
