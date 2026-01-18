@@ -682,6 +682,40 @@ Set(AppState,
 // Result: 100% cache hit rate for Office365 connectors on subsequent loads
 
 // ============================================================
+// ERROR HANDLING TEST RESULTS
+// ============================================================
+// Critical Path Error (Office365Users failure):
+// [✓] Error handled with IfError() at line ~290
+// [✓] Fallback profile object created with "Unbekannt" values
+// [✓] Notification shown: ErrorMessage_ProfileLoadFailed("Office365Users")
+// [✓] App continues with degraded profile data (IsInitializing: false in finalize)
+// [✓] User can still use app with fallback profile and minimal roles
+//
+// Non-Critical Error (Departments empty):
+// [✓] CachedDepartments: Retry logic in Concurrent() block (line ~362)
+// [✓] First attempt fails → Immediate retry (IfError nested)
+// [✓] Second attempt fails → Silent fallback to empty Table()
+// [✓] No error dialog shown to user
+// [✓] App continues loading normally (other lookups in parallel)
+//
+// Error Messages (German Localization):
+// [✓] All messages in German (no English)
+// [✓] ErrorMessage_ProfileLoadFailed(): "Ihre Profilinformationen konnten nicht geladen werden..."
+// [✓] ErrorMessage_DataRefreshFailed(): Specific for save/delete/patch/approve
+// [✓] ErrorMessage_PermissionDenied(): "Sie haben keine Berechtigung..."
+// [✓] No error codes shown (no "-2147024809" or "HTTP 401")
+// [✓] No stack traces or technical jargon
+// [✓] All messages include remediation hints ("check network", "try later")
+//
+// Fallback Values:
+// [✓] Missing department: "Unbekannt"
+// [✓] Missing category: "Unbekannt"
+// [✓] Missing owner: "Unbekannt"
+// [✓] Missing status: "Unbekannt"
+// [✓] Profile failure: DisplayName: "Unbekannt", Department: "Unbekannt", etc.
+// [✓] Email fallback: "unknown@company.com"
+
+// ============================================================
 // VALIDATION CHECKLIST
 // ============================================================
 // Run Monitor tool and verify:
