@@ -575,11 +575,15 @@ IsValidEmail(email: Text): Boolean =
     !EndsWith(Last(Split(email, "@")).Value, ".");
 
 // Check if a value is in a set of allowed values (comma-separated)
+// Example: IsOneOf("draft", "draft,pending,active") returns true
+// Returns false for blank inputs or empty allowed list
 IsOneOf(value: Text, allowedValues: Text): Boolean =
+    !IsBlank(value) &&
+    !IsBlank(allowedValues) &&
     CountRows(
         Filter(
             Split(allowedValues, ","),
-            Lower(Trim(Value)) = Lower(Coalesce(value, ""))
+            Lower(Trim(Value)) = Lower(Trim(value))
         )
     ) > 0;
 
