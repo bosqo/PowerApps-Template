@@ -144,14 +144,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ERROR-03 | Error Handling | Phase 2 | Complete |
 | ERROR-04 | Error Handling | Phase 2 | Complete |
 | ERROR-05 | Error Handling | Phase 2 | Complete |
-| FILT-01 | Filtering | Phase 3 | Pending |
-| FILT-02 | Filtering | Phase 3 | Pending |
-| FILT-03 | Filtering | Phase 3 | Pending |
-| FILT-04 | Filtering | Phase 3 | Pending |
-| FILT-05 | Filtering | Phase 3 | Pending |
-| FILT-06 | Filtering | Phase 3 | Pending |
-| PERF-04 | Performance | Phase 3 | Pending |
-| PERF-05 | Performance | Phase 3 | Pending |
+| FILT-01 | Filtering | Phase 3 | Complete |
+| FILT-02 | Filtering | Phase 3 | Complete |
+| FILT-03 | Filtering | Phase 3 | Complete |
+| FILT-04 | Filtering | Phase 3 | Complete |
+| FILT-05 | Filtering | Phase 3 | Complete |
+| FILT-06 | Filtering | Phase 3 | Complete |
+| PERF-04 | Performance | Phase 3 | Complete |
+| PERF-05 | Performance | Phase 3 | Complete |
 | NOTIF-01 | Notifications | Phase 4 | Pending |
 | NOTIF-02 | Notifications | Phase 4 | Pending |
 | NOTIF-03 | Notifications | Phase 4 | Pending |
