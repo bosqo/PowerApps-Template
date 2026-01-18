@@ -27,6 +27,25 @@
 
 
 // ============================================================
+// NAMING CONVENTIONS FOR STATE VARIABLES
+// ============================================================
+//
+// STATE VARIABLES (Set): PascalCase
+// - AppState: Application-wide state (loading, navigation, errors)
+// - ActiveFilters: User-modifiable filter state
+// - UIState: UI component state (panels, dialogs, selections)
+//
+// COLLECTIONS (ClearCollect): PascalCase with prefix
+// - Cached*: Static lookup data loaded at startup (e.g., CachedDepartments)
+// - My*: User-scoped data (e.g., MyRecentItems, MyPendingTasks)
+// - Filter*: Filtered views of data (if needed)
+//
+// All variable names must be PascalCase (no underscores, no prefixes)
+//
+// ============================================================
+
+
+// ============================================================
 // 1. APPLICATION STATE (Mutable)
 // ============================================================
 // State that changes during app usage
