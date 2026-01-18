@@ -599,6 +599,58 @@ Set(AppState,
 
 
 // ============================================================
+// ERROR HANDLING REFERENCE
+// ============================================================
+// This App.OnStart implements error handling patterns that Phase 3+ features can follow.
+// For complete error handling design and patterns, see:
+// - App-Formulas-Template.fx: SECTION 4 (Error Message Localization)
+// - App-Formulas-Template.fx: SECTION 5 (Error Handling Patterns for Phases 3+)
+//
+// CRITICAL PATH ERROR PATTERN (implemented above in section 0):
+// When user MUST have critical data to continue the app
+// - Office365Users.MyProfileV2() fails → Show German error via ErrorMessage_ProfileLoadFailed()
+// - User sees: "Ihre Profilinformationen konnten nicht geladen werden..."
+// - Result: App stays locked (IsInitializing: true), user must retry
+//
+// NON-CRITICAL ERROR PATTERN (implemented above in section 4):
+// When app can function without data, gracefully degrade
+// - CachedDepartments load fails → Silently use empty Table() fallback
+// - User sees: Empty gallery or "Unbekannt" placeholder (not error message)
+// - Result: App continues startup, user can work with limited lookup options
+//
+// USER ACTION ERROR PATTERN (use in Phase 3+ features):
+// When user performs action that fails (save, delete, approve)
+// Example for delete button in Phase 3:
+//   IfError(
+//     Remove(Items, Gallery.Selected),
+//     Set(AppState, Patch(AppState, {
+//       ShowErrorDialog: true,
+//       ErrorMessage: ErrorMessage_DataRefreshFailed("delete")
+//     }))
+//   );
+//
+// USER ACTION ERROR PATTERN (use in Phase 4+ features):
+// When user submits form that fails
+// Example for form save in Phase 4:
+//   IfError(
+//     SubmitForm(EditForm),
+//     Set(AppState, Patch(AppState, {
+//       ShowErrorDialog: true,
+//       ErrorMessage: ErrorMessage_DataRefreshFailed("save")
+//     }))
+//   );
+//
+// VALIDATION ERROR PATTERN (use in Phase 4 features):
+// When user input fails validation
+// Example for email field validation:
+//   If(
+//     !IsValidEmail(txt_Email.Value),
+//     NotifyValidationError("Email", "Ungültiges E-Mail-Format")
+//   );
+//
+
+
+// ============================================================
 // HELPER FUNCTIONS FOR COMMON ACTIONS
 // (Copy these to Button.OnSelect as needed)
 // ============================================================
