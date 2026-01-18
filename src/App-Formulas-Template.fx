@@ -564,15 +564,30 @@ NotifyValidationError(fieldName: Text, message: Text): Void = {
 // -----------------------------------------------------------
 
 // Validate email format
+// Rejects: multiple @, spaces, missing local/domain parts, invalid domain format
+// Example valid: user@example.com, first.last@company.co.uk
+// Example invalid: user@@example.com, user @domain.com, @example.com, user@
 IsValidEmail(email: Text): Boolean =
     !IsBlank(email) &&
+    // No spaces allowed
     !IsMatch(email, " ") &&
+    // Exactly one @ symbol
     CountRows(Split(email, "@")) = 2 &&
+    // Local part (before @) must be at least 1 character
     Len(First(Split(email, "@")).Value) >= 1 &&
-    Len(Last(Split(email, "@")).Value) > 3 &&
-    IsMatch(Last(Split(email, "@")).Value, ".") &&
+    // Domain part (after @) must be at least 4 characters (a.bc minimum)
+    Len(Last(Split(email, "@")).Value) >= 4 &&
+    // Domain must contain at least one dot
+    IsMatch(Last(Split(email, "@")).Value, "\.") &&
+    // Domain must not start or end with dot
     !StartsWith(Last(Split(email, "@")).Value, ".") &&
-    !EndsWith(Last(Split(email, "@")).Value, ".");
+    !EndsWith(Last(Split(email, "@")).Value, ".") &&
+    // Domain must not start or end with hyphen
+    !StartsWith(Last(Split(email, "@")).Value, "-") &&
+    !EndsWith(Last(Split(email, "@")).Value, "-") &&
+    // Local part must not start or end with dot
+    !StartsWith(First(Split(email, "@")).Value, ".") &&
+    !EndsWith(First(Split(email, "@")).Value, ".");
 
 // Check if a value is in a set of allowed values (comma-separated)
 // Example: IsOneOf("draft", "draft,pending,active") returns true
