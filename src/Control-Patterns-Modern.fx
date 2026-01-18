@@ -307,6 +307,88 @@ lbl_RecordCount_Text: Text =
 
 
 // ============================================================
+// PATTERN 1.8: GALLERY WITH FirstN(Skip()) PAGINATION
+// ============================================================
+//
+// For galleries with >2000 record datasets, use FirstN(Skip()) pagination
+// This pattern handles non-delegable operations without breaking delegation
+//
+// Purpose: Show filtered records with pagination controls
+// Page size: 50 records per page (configurable via AppState.PageSize)
+// Total pages: Calculated as Ceiling(CountRows(AllFilteredRecords) / PageSize)
+//
+// Key principle: Filter first, then paginate
+// ✓ CORRECT: FirstN(Skip(Filter(...), ...))
+// ✗ INCORRECT: Filter(FirstN(Skip(...)), ...) — pagination BEFORE filtering breaks delegation
+
+glr_Items_Pagination_Items_Property: Table =
+  FirstN(
+    Skip(
+      FilteredGalleryData(
+        ActiveFilters.ShowMyItemsOnly,
+        ActiveFilters.SelectedStatus,
+        ActiveFilters.SearchTerm
+      ),
+      (AppState.CurrentPage - 1) * AppState.PageSize  // Skip previous pages
+    ),
+    AppState.PageSize  // Show this many records on current page
+  );
+
+// Page Number Calculation
+// Calculate total pages from filtered dataset
+glr_Items_TotalPages_Calculation: Number =
+  Ceiling(
+    CountRows(
+      FilteredGalleryData(
+        ActiveFilters.ShowMyItemsOnly,
+        ActiveFilters.SelectedStatus,
+        ActiveFilters.SearchTerm
+      )
+    ) / AppState.PageSize
+  );
+
+// Page Indicator Label
+// Shows "Page N of M" format
+lbl_PageIndicator_Text: Text =
+  Concatenate("Seite ", AppState.CurrentPage, " von ", glr_Items_TotalPages_Calculation);
+
+// Previous Button OnSelect
+btn_Previous_OnSelect: Boolean =
+  If(
+    AppState.CurrentPage > 1,
+    Set(AppState, Patch(AppState, {CurrentPage: AppState.CurrentPage - 1})),
+    Notify("Bereits auf der ersten Seite", NotificationType.Information)
+  );
+
+// Next Button OnSelect
+btn_Next_OnSelect: Boolean =
+  If(
+    AppState.CurrentPage < glr_Items_TotalPages_Calculation,
+    Set(AppState, Patch(AppState, {CurrentPage: AppState.CurrentPage + 1})),
+    Notify("Bereits auf der letzten Seite", NotificationType.Information)
+  );
+
+// Previous Button DisplayMode (disable if on page 1)
+btn_Previous_DisplayMode: DisplayMode =
+  If(AppState.CurrentPage > 1, DisplayMode.Edit, DisplayMode.Disabled);
+
+// Next Button DisplayMode (disable if on last page)
+btn_Next_DisplayMode: DisplayMode =
+  If(AppState.CurrentPage < glr_Items_TotalPages_Calculation, DisplayMode.Edit, DisplayMode.Disabled);
+
+// Clear All Filters Button OnSelect
+btn_ClearAll_OnSelect: Boolean =
+  Set(ActiveFilters, {
+    ShowMyItemsOnly: false,
+    SelectedStatus: "",
+    SearchTerm: "",
+    StartDate: Blank(),
+    EndDate: Blank()
+  });
+  // Note: Page reset to 1 handled automatically via filter change detection in App.OnStart
+
+
+// ============================================================
 // SECTION 2: VISIBILITY PATTERNS
 // ============================================================
 
