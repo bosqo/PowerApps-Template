@@ -708,6 +708,37 @@ CanViewRecord: Function(ownerEmail As Text): Boolean =
 
 
 // -----------------------------------------------------------
+// DELEGATION PATTERN: Filter Composition (FILT-05)
+// Multi-layer filter combining all 4 filter UDFs
+// -----------------------------------------------------------
+
+// FILT-05: Delegation-friendly filter composition
+// Combines status filter (FILT-03), role scoping (FILT-01), text search (FILT-02), and user filtering (FILT-04)
+// Layer 1 (Status): MatchesStatusFilter(selectedStatus) — most restrictive, applied first for performance
+// Layer 2 (Role + Ownership): CanViewRecord(Owner) — security filter
+// Layer 3 (My Items): If(showMyItemsOnly, Owner = User().Email, true) — optional user-only restriction
+// Layer 4 (Search): Or(...MatchesSearchTerm...) — most expensive, applied last
+// Delegation: SAFE via composition of delegation-safe functions
+// Returns: Table of Items meeting all 4 conditions (AND logic between layers)
+FilteredGalleryData: Function(showMyItemsOnly As Logical, selectedStatus As Text, searchTerm As Text): Table =
+  Filter(
+    Items,
+    // Layer 1: Status filtering (most restrictive - filters down dataset first)
+    MatchesStatusFilter(selectedStatus),
+    // Layer 2: Role-based scoping + ownership check
+    CanViewRecord(Owner),
+    // Layer 3: User-specific filtering (My Items toggle)
+    If(showMyItemsOnly, Owner = User().Email, true),
+    // Layer 4: Text search (most expensive operation - last)
+    Or(
+      MatchesSearchTerm(Title, searchTerm),
+      MatchesSearchTerm(Description, searchTerm),
+      MatchesSearchTerm(Owner, searchTerm)
+    )
+  );
+
+
+// -----------------------------------------------------------
 // Theme & Color Functions (Get*)
 // Returns: Color
 // -----------------------------------------------------------
