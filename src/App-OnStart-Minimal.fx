@@ -27,6 +27,14 @@
 
 
 // ============================================================
+// TIMING MARKER: App.OnStart Start
+// ============================================================
+// Monitor tool measurement begins here
+// Expected total duration: <2000ms (2 seconds)
+// See "Monitor Tool Usage Guide" below for measurement instructions
+
+
+// ============================================================
 // NAMING CONVENTIONS FOR STATE VARIABLES
 // ============================================================
 //
@@ -100,6 +108,7 @@
 // - Navigation: Set(AppState, Patch(AppState, {PreviousScreen: AppState.CurrentScreen, CurrentScreen: "Details"}))
 // - Error: Set(AppState, Patch(AppState, {ShowErrorDialog: true, ErrorMessage: "Failed to save", ErrorDetails: ErrorResponse}))
 //
+// TIMING: Section 1 - AppState initialization
 Set(AppState, {
     // Loading States
     IsLoading: false,
@@ -128,6 +137,8 @@ Set(AppState, {
     ErrorDetails: ""
 });
 
+
+// TIMING: Section 2 - ActiveFilters initialization
 
 // ============================================================
 // 2. ACTIVE FILTERS (Mutable)
@@ -193,6 +204,8 @@ Set(ActiveFilters, {
 });
 
 
+// TIMING: Section 3 - UIState initialization
+
 // ============================================================
 // 3. UI STATE (Mutable)
 // ============================================================
@@ -248,6 +261,8 @@ Set(UIState, {
     UnsavedChanges: false
 });
 
+
+// TIMING: Section 0 - Critical path (user profile, roles, permissions) BEGIN
 
 // ============================================================
 // 0. CRITICAL PATH - SEQUENTIAL USER IDENTITY & AUTHORIZATION
@@ -339,6 +354,9 @@ Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
 // App can still function, but with degraded role/permission data
 // IsInitializing will be set to false in FINALIZE section regardless of errors
 
+// TIMING: Section 0 - Critical path END
+
+// TIMING: Section 4 - Background data loading (parallel) BEGIN
 
 // ============================================================
 // 4. BACKGROUND DATA - Parallel Lookup Data Loading
@@ -517,6 +535,9 @@ Concurrent(
 // NOTE: Control-level fallback implementations deferred to Phase 4 (control patterns work)
 // This task focuses on App.OnStart infrastructure and documentation
 
+// TIMING: Section 4 - Background data loading END
+
+// TIMING: Section 5 - User-scoped data
 
 // ============================================================
 // 5. USER-SCOPED DATA CACHE
@@ -585,6 +606,8 @@ Set(DashboardCounts, {
 });
 
 
+// TIMING: Section 6 - Finalize (IsInitializing = false)
+
 // ============================================================
 // 6. FINALIZE INITIALIZATION
 // ============================================================
@@ -597,6 +620,66 @@ Set(AppState,
     })
 );
 
+
+// TIMING MARKER: App.OnStart Complete
+
+// ============================================================
+// PERFORMANCE TARGET DOCUMENTATION
+// ============================================================
+// Expected timing breakdown:
+// - Section 0 (Critical path): ~500-800ms (Office365Users + Office365Groups checks)
+// - Section 4 (Background parallel): ~300-500ms (Concurrent() loading 4 collections)
+// - Section 5 (User-scoped): ~200-300ms (Recent items, pending tasks)
+// - Sections 1-3, 6 (Config, finalize): ~50-150ms combined
+// Total: ~1050-1850ms (well under 2000ms target)
+
+// ============================================================
+// MONITOR TOOL USAGE GUIDE
+// ============================================================
+// TO MEASURE PERFORMANCE:
+//
+// 1. Open Power Apps Studio
+// 2. Settings > Upcoming features > Monitor tool (enable if not already on)
+// 3. Reload app (Ctrl+Shift+F5) to trigger App.OnStart
+// 4. Open Monitor tool (F12 or Settings > Monitor)
+// 5. Filter Network tab: search for "OnStart"
+// 6. Look for total duration (should be <2000ms)
+// 7. Click on OnStart timeline to see breakdown by section
+//    - Each timing comment above (TIMING: Section X) shows where to look
+//
+// EXPECTED OUTPUT:
+// - OnStart total time: <2000ms (2 seconds) ✓
+// - Critical path time (Section 0): ~500-800ms
+// - Concurrent block time (Section 4): ~300-500ms
+// - Section 5 time: ~200-300ms
+// - Sections 1-3, 6: <100ms combined
+//
+// CACHE VALIDATION:
+// 1. First app load (cold start):
+//    - Office365Users.MyProfileV2(): 1 call (fetches profile)
+//    - Office365Groups.CheckMembershipAsync(): 6 calls (one per role)
+//    - Total Office365 API calls: 7
+//
+// 2. Second app load (cache hit):
+//    - Office365Users.MyProfileV2(): 0 calls (cached, reads from CachedProfileCache)
+//    - Office365Groups: 0 calls (cached, reads from CachedRolesCache)
+//    - Total Office365 API calls: 0
+//    - Result: 100% cache hit rate for Office365 connectors on subsequent loads
+
+// ============================================================
+// VALIDATION CHECKLIST
+// ============================================================
+// Run Monitor tool and verify:
+// [ ] First load: Office365Users called 1 time
+// [ ] First load: Office365Groups called ~6 times (one per role check)
+// [ ] Second load: Office365Users called 0 times (cache hit)
+// [ ] Second load: Office365Groups called 0 times (cache hit)
+// [ ] App.OnStart total time <2000ms
+// [ ] CachedProfileCache populated after first load
+// [ ] CachedRolesCache populated after first load
+// [ ] Critical path completes before background data loading
+// [ ] Concurrent() block runs in parallel (all 4 collections complete around same time)
+// [ ] IsInitializing: true during startup, false after finalization
 
 // ============================================================
 // ERROR HANDLING REFERENCE
