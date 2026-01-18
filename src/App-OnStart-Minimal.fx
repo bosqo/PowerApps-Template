@@ -344,55 +344,122 @@ Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
 // - Improvement: ~75% faster non-critical data loading
 
 Concurrent(
-    // Departments (for dropdowns) - from Dataverse
+    // Departments (for dropdowns) - from Dataverse with retry and fallback
     ClearCollect(
         CachedDepartments,
-        Sort(
-            Filter(
-                Departments,
-                Status = "Active"
+        IfError(
+            // First attempt: Load from Departments table
+            Sort(
+                Filter(
+                    Departments,
+                    Status = "Active"
+                ),
+                Name,
+                SortOrder.Ascending
             ),
-            Name,
-            SortOrder.Ascending
+            // First error: Retry immediately (attempt 2)
+            IfError(
+                Sort(
+                    Filter(
+                        Departments,
+                        Status = "Active"
+                    ),
+                    Name,
+                    SortOrder.Ascending
+                ),
+                // Second attempt also failed: Use empty fallback
+                // Empty table means gallery shows empty state, not error
+                Table()
+            )
         )
     ),
 
-    // Categories (for dropdowns) - from Dataverse
+    // Categories (for dropdowns) - from Dataverse with retry and fallback
     ClearCollect(
         CachedCategories,
-        Sort(
-            Filter(
-                Categories,
-                Status = "Active"
+        IfError(
+            // First attempt: Load from Categories table
+            Sort(
+                Filter(
+                    Categories,
+                    Status = "Active"
+                ),
+                Name,
+                SortOrder.Ascending
             ),
-            Name,
-            SortOrder.Ascending
+            // First error: Retry immediately (attempt 2)
+            IfError(
+                Sort(
+                    Filter(
+                        Categories,
+                        Status = "Active"
+                    ),
+                    Name,
+                    SortOrder.Ascending
+                ),
+                // Second attempt also failed: Use empty fallback
+                Table()
+            )
         )
     ),
 
-    // Statuses (for dropdowns) - static table
+    // Statuses (for dropdowns) - static table with retry and fallback
+    // Static tables rarely fail, but we maintain consistency
     ClearCollect(
         CachedStatuses,
-        Table(
-            {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
-            {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
-            {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
-            {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
-            {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
-            {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
-            {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
+        IfError(
+            // First attempt: Create static status table
+            Table(
+                {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
+                {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
+                {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
+                {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
+                {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
+                {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
+                {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
+            ),
+            // First error: Retry immediately (attempt 2)
+            IfError(
+                Table(
+                    {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
+                    {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
+                    {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
+                    {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
+                    {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
+                    {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
+                    {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
+                ),
+                // Second attempt also failed: Use empty fallback
+                Table()
+            )
         )
     ),
 
-    // Priorities (for dropdowns) - static table
+    // Priorities (for dropdowns) - static table with retry and fallback
+    // Static tables rarely fail, but we maintain consistency
     ClearCollect(
         CachedPriorities,
-        Table(
-            {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
-            {Value: "High", DisplayName: "Hoch", SortOrder: 2},
-            {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
-            {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
-            {Value: "None", DisplayName: "Keine", SortOrder: 5}
+        IfError(
+            // First attempt: Create static priority table
+            Table(
+                {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
+                {Value: "High", DisplayName: "Hoch", SortOrder: 2},
+                {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
+                {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
+                {Value: "None", DisplayName: "Keine", SortOrder: 5}
+            ),
+            // First error: Retry immediately (attempt 2)
+            IfError(
+                Table(
+                    {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
+                    {Value: "High", DisplayName: "Hoch", SortOrder: 2},
+                    {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
+                    {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
+                    {Value: "None", DisplayName: "Keine", SortOrder: 5}
+                ),
+                // Second attempt also failed: Use empty fallback
+                Table()
+            )
         )
     )
 );
