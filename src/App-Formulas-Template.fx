@@ -41,6 +41,11 @@
 // SECTION 1: STATIC NAMED FORMULAS
 // These are constant values that never change during app session
 // ============================================================
+//
+// Depends on: Nothing (static constants)
+// Used by: Control Fill, Color, and BorderColor properties throughout app
+//
+// Dependency order: Static formulas have no dependencies on each other or user formulas
 
 // Theme Colors - Microsoft Fluent Design System
 ThemeColors = {
@@ -139,6 +144,16 @@ AppConfig = {
 };
 
 // Date Range Calculations - Auto-refresh when date changes
+//
+// Depends on:
+// - Today() function (built-in Power Apps date function)
+// - No user-specific dependencies (purely temporal calculations)
+//
+// Used by:
+// - Date filter UDFs (IsDateInRange, IsNotPastDate)
+// - Date range filter patterns in Gallery.Items
+// - DateRangeFilter in ActiveFilters (ThisWeek, ThisMonth, etc.)
+//
 DateRanges = {
     // Today and Yesterday
     Today: Today(),
@@ -175,6 +190,16 @@ DateRanges = {
 
 // User Profile - Lazy-loaded from Office365Users connector
 // This is fetched ONCE when first accessed and cached
+//
+// Depends on:
+// - Office365Users.MyProfileV2() connector
+// - User() function (built-in Power Apps identity)
+//
+// Used by:
+// - UserRoles (for email-based group membership checks)
+// - GetUserScope() UDF
+// - GetDepartmentScope() UDF
+//
 UserProfile = With(
     { profile: Office365Users.MyProfileV2() },
     {
@@ -204,6 +229,17 @@ UserProfile = With(
 
 // User Roles - Determined from Security Groups
 // Update the Group IDs to match your Azure AD configuration
+//
+// Depends on:
+// - UserProfile.Email (for group membership checks)
+// - Office365Groups.ListGroupMembers() connector (commented out in template)
+//
+// Used by:
+// - UserPermissions (derives permissions from role booleans)
+// - Permission check UDFs (HasRole, HasAnyRole)
+// - UI visibility checks (role-based feature access)
+// - RoleColor and RoleBadgeText Named Formulas
+//
 UserRoles = {
     // ===========================================
     // Security Group Membership
@@ -239,6 +275,15 @@ UserRoles = {
 
 // User Permissions - Derived from Roles
 // Automatically updates when UserRoles changes
+//
+// Depends on:
+// - UserRoles.IsAdmin, UserRoles.IsManager, UserRoles.IsHR, UserRoles.IsSachbearbeiter (role booleans)
+//
+// Used by:
+// - Permission check UDFs (HasPermission, CanAccessRecord, CanEditRecord, CanDeleteRecord)
+// - Button visibility checks (CanCreate, CanEdit, CanDelete)
+// - Filter initialization (GetUserScope, GetDepartmentScope)
+//
 UserPermissions = {
     // CRUD Permissions
     CanCreate: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsSachbearbeiter,
