@@ -17,6 +17,35 @@
 // - Consistent behavior across the app
 //
 // ============================================================
+//
+// CONTROL NAMING CONVENTION:
+// {AbbreviatedType}_{Name} (e.g., glr_Orders, btn_Submit, lbl_Status)
+//
+// Standard Abbreviations:
+// - glr = Gallery (e.g., glr_Items, glr_RecentOrders)
+// - btn = Button (e.g., btn_Submit, btn_Delete, btn_Cancel)
+// - lbl = Label (e.g., lbl_Title, lbl_ErrorMessage)
+// - txt = TextInput (e.g., txt_Search, txt_Email, txt_Notes)
+// - img = Image (e.g., img_Logo, img_UserAvatar)
+// - form = Form (e.g., form_EditItem, form_NewRecord)
+// - drp = Dropdown (e.g., drp_Status, drp_Department)
+// - ico = Icon (e.g., ico_Delete, ico_Info, ico_Warning)
+// - cnt = Container (e.g., cnt_Header, cnt_Sidebar)
+// - tog = Toggle (e.g., tog_ActiveOnly, tog_ShowArchived)
+// - chk = Checkbox (e.g., chk_Terms, chk_SelectAll)
+// - dat = DatePicker (e.g., dat_StartDate, dat_DueDate)
+//
+// Benefits of abbreviated prefixes:
+// - Easier to type (3 chars vs 6-10 for full type name)
+// - Consistent length for alignment in formula autocomplete
+// - Clear type indication without verbosity
+//
+// Legacy patterns (AVOID in new code):
+// - glr_Items (full type name - too verbose)
+// - Button1, Button2 (auto-generated names - not descriptive)
+// - submitBtn (camelCase - inconsistent with Power Fx conventions)
+//
+// ============================================================
 
 
 // ============================================================
@@ -61,7 +90,7 @@ Filter(
 */
 
 // AFTER (using UDFs):
-// Gallery_Orders.Items
+// glr_Orders.Items
 Filter(
     Orders,
     CanAccessRecord(Owner.Email)
@@ -85,7 +114,7 @@ Filter(
 */
 
 // AFTER (using UDFs + ActiveFilters):
-// Gallery_Projects.Items
+// glr_Projects.Items
 Filter(
     Projects,
     // Access control via UDF
@@ -101,7 +130,7 @@ Filter(
 // Pattern 1.3: Gallery with Status and Priority Filters
 // -----------------------------------------------------------
 
-// Gallery_Tasks.Items
+// glr_Tasks.Items
 Filter(
     Tasks,
     // User access
@@ -127,7 +156,7 @@ Filter(
 // Pattern 1.4: Search Gallery (Delegation-Friendly)
 // -----------------------------------------------------------
 
-// Gallery_Contacts.Items
+// glr_Contacts.Items
 Search(
     Filter(
         Contacts,
@@ -142,7 +171,7 @@ Search(
 // Pattern 1.5: Sorted Gallery with Custom Column
 // -----------------------------------------------------------
 
-// Gallery_Invoices.Items
+// glr_Invoices.Items
 // NOTE: 'Invoice Date' from SharePoint is in UTC, convert with ConvertUTCToCET()
 Sort(
     Filter(
@@ -160,7 +189,7 @@ Sort(
 // Pattern 1.6: Paginated Gallery (Refactored 2025 with UDFs)
 // -----------------------------------------------------------
 
-// Gallery_AllRecords.Items - Using pagination UDFs
+// glr_AllRecords.Items - Using pagination UDFs
 FirstN(
     Skip(
         Sort(
@@ -177,17 +206,17 @@ FirstN(
     ActiveFilters.PageSize
 )
 
-// Label_PageInfo.Text - Page range display
+// lbl_PageInfo.Text - Page range display
 GetPageRangeText(
     ActiveFilters.CurrentPage,
     ActiveFilters.PageSize,
     CountRows(Filter(Records, CanAccessRecord(Owner.Email)))
 )
 
-// Button_PreviousPage.DisplayMode
+// btn_PreviousPage.DisplayMode
 If(CanGoToPreviousPage(ActiveFilters.CurrentPage), DisplayMode.Edit, DisplayMode.Disabled)
 
-// Button_NextPage.DisplayMode
+// btn_NextPage.DisplayMode
 If(
     CanGoToNextPage(
         ActiveFilters.CurrentPage,
@@ -198,10 +227,10 @@ If(
     DisplayMode.Disabled
 )
 
-// Button_PreviousPage.OnSelect
+// btn_PreviousPage.OnSelect
 Set(ActiveFilters, Patch(ActiveFilters, {CurrentPage: Max(1, ActiveFilters.CurrentPage - 1)}))
 
-// Button_NextPage.OnSelect
+// btn_NextPage.OnSelect
 Set(ActiveFilters,
     Patch(ActiveFilters, {
         CurrentPage: Min(
@@ -229,13 +258,13 @@ App.User.Permissions.CanDelete
 */
 
 // AFTER:
-// Button_Delete.Visible
+// btn_Delete.Visible
 HasPermission("Delete")
 
-// Button_Create.Visible
+// btn_Create.Visible
 HasPermission("Create")
 
-// Button_Settings.Visible
+// btn_Settings.Visible
 HasPermission("Settings")
 
 
@@ -243,16 +272,16 @@ HasPermission("Settings")
 // Pattern 2.2: Control Visibility Based on Roles
 // -----------------------------------------------------------
 
-// Container_AdminPanel.Visible
+// cnt_AdminPanel.Visible
 HasRole("Admin")
 
-// Container_ManagerTools.Visible
+// cnt_ManagerTools.Visible
 HasRole("Manager") || HasRole("Admin")
 
-// Label_InternalOnly.Visible
+// lbl_InternalOnly.Visible
 HasRole("Corporate")
 
-// Container_DepartmentData.Visible
+// cnt_DepartmentData.Visible
 HasAnyRole("Sales,Finance,IT")
 
 
@@ -260,19 +289,19 @@ HasAnyRole("Sales,Finance,IT")
 // Pattern 2.3: Conditional Button Visibility for Record Actions
 // -----------------------------------------------------------
 
-// Button_EditRecord.Visible
+// btn_EditRecord.Visible
 HasPermission("Edit") && CanAccessRecord(Gallery.Selected.Owner.Email)
 
-// Button_DeleteRecord.Visible (with status check)
+// btn_DeleteRecord.Visible (with status check)
 HasPermission("Delete") &&
 CanDeleteRecord(Gallery.Selected.Owner.Email) &&
 !IsOneOf(Gallery.Selected.Status, "Archived,Closed")
 
-// Button_ApproveRecord.Visible
+// btn_ApproveRecord.Visible
 HasPermission("Approve") &&
 Gallery.Selected.Status = "Pending"
 
-// Button_ArchiveRecord.Visible
+// btn_ArchiveRecord.Visible
 HasPermission("Archive") &&
 Gallery.Selected.Status <> "Archived"
 
@@ -281,7 +310,7 @@ Gallery.Selected.Status <> "Archived"
 // Pattern 2.4: Feature Flag Visibility
 // -----------------------------------------------------------
 
-// Container_DebugInfo.Visible
+// cnt_DebugInfo.Visible
 FeatureFlags.ShowDebugInfo
 
 
@@ -304,10 +333,10 @@ Switch(ThisItem.Status,
 */
 
 // AFTER:
-// Icon_StatusIndicator.Color
+// ico_StatusIndicator.Color
 GetStatusColor(ThisItem.Status)
 
-// Label_Status.Fill
+// lbl_Status.Fill
 GetStatusColor(ThisItem.Status)
 
 
@@ -315,10 +344,10 @@ GetStatusColor(ThisItem.Status)
 // Pattern 3.2: Priority-Based Colors
 // -----------------------------------------------------------
 
-// Icon_PriorityFlag.Color
+// ico_PriorityFlag.Color
 GetPriorityColor(ThisItem.Priority)
 
-// Rectangle_PriorityBar.Fill
+// rec_PriorityBar.Fill
 GetPriorityColor(ThisItem.Priority)
 
 
@@ -326,13 +355,13 @@ GetPriorityColor(ThisItem.Priority)
 // Pattern 3.3: Role-Based Colors
 // -----------------------------------------------------------
 
-// Label_RoleBadge.Fill
+// lbl_RoleBadge.Fill
 GetRoleBadgeColor()
 
-// Circle_UserAvatar.BorderColor
+// cir_UserAvatar.BorderColor
 RoleColor
 
-// Icon_UserRole.Color
+// ico_UserRole.Color
 GetRoleBadgeColor()
 
 
@@ -340,25 +369,25 @@ GetRoleBadgeColor()
 // Pattern 3.4: Theme Color References
 // -----------------------------------------------------------
 
-// Button_Primary.Fill
+// btn_Primary.Fill
 GetThemeColor("Primary")
 
-// Button_Primary.HoverFill
+// btn_Primary.HoverFill
 GetThemeColor("PrimaryLight")
 
-// Button_Primary.PressedFill
+// btn_Primary.PressedFill
 GetThemeColor("PrimaryDark")
 
-// Container_Surface.Fill
+// cnt_Surface.Fill
 GetThemeColor("Surface")
 
-// Label_Secondary.Color
+// lbl_Secondary.Color
 GetThemeColor("TextSecondary")
 
-// Rectangle_Divider.Fill
+// rec_Divider.Fill
 GetThemeColor("Divider")
 
-// Container_Error.Fill
+// cnt_Error.Fill
 GetThemeColor("ErrorLight")
 
 
@@ -366,7 +395,7 @@ GetThemeColor("ErrorLight")
 // Pattern 3.5: Conditional Row Colors (Gallery)
 // -----------------------------------------------------------
 
-// Gallery Row Template - Rectangle_RowBackground.Fill
+// Gallery Row Template - rec_RowBackground.Fill
 If(
     ThisItem = Gallery.Selected,
     GetThemeColor("PrimaryLight"),
@@ -396,11 +425,11 @@ Switch(true,
 */
 
 // AFTER:
-// Label_RoleBadge.Text
+// lbl_RoleBadge.Text
 GetRoleLabel()
 
 // Or short form:
-// Label_RoleBadgeShort.Text
+// lbl_RoleBadgeShort.Text
 GetRoleBadge()
 
 
@@ -408,7 +437,7 @@ GetRoleBadge()
 // Pattern 4.2: Welcome Message
 // -----------------------------------------------------------
 
-// Label_Welcome.Text
+// lbl_Welcome.Text
 "Welcome, " & UserProfile.DisplayName & " (" & GetRoleLabel() & ")"
 
 
@@ -423,20 +452,20 @@ Text(ThisItem.'Created On', "mmm d, yyyy")
 
 // AFTER (using German date formatting UDFs with CET timezone):
 // For SharePoint Date-only fields (stored as local date):
-// Label_CreatedDate.Text (short format)
+// lbl_CreatedDate.Text (short format)
 FormatDateShort(ThisItem.'Created On')
 
-// Label_DateShort.Text
+// lbl_DateShort.Text
 FormatDateShort(ThisItem.'Due Date')
 
-// Label_DateLong.Text
+// lbl_DateLong.Text
 FormatDateLong(ThisItem.'Event Date')
 
 // For SharePoint DateTime fields (stored in UTC - most common):
-// Label_DateTime.Text (auto-converts UTC to CET time)
+// lbl_DateTime.Text (auto-converts UTC to CET time)
 FormatDateTimeCET(ThisItem.'Last Modified')
 
-// Label_ModifiedTime.Text (another UTC datetime example)
+// lbl_ModifiedTime.Text (another UTC datetime example)
 FormatDateTimeCET(ThisItem.'Created')
 
 
@@ -444,7 +473,7 @@ FormatDateTimeCET(ThisItem.'Created')
 // Pattern 4.4: Status with Due Date Context (CET Timezone)
 // -----------------------------------------------------------
 
-// Label_TaskStatus.Text
+// lbl_TaskStatus.Text
 // NOTE: If 'Due Date' is a SharePoint DateTime (UTC), compare with GetCETToday()
 // If 'Due Date' is a SharePoint Date (local), use Today() instead
 If(
@@ -466,14 +495,14 @@ If(
 // Pattern 4.5: Truncated Text
 // -----------------------------------------------------------
 
-// Label_Description.Text
+// lbl_Description.Text
 If(
     Len(Coalesce(ThisItem.Description, "")) > 100,
     Left(ThisItem.Description, 97) & "...",
     Coalesce(ThisItem.Description, "")
 )
 
-// Tooltip on Label_Description.Tooltip
+// Tooltip on lbl_Description.Tooltip
 ThisItem.Description
 
 
@@ -481,13 +510,13 @@ ThisItem.Description
 // Pattern 4.6: Currency and Number Formatting
 // -----------------------------------------------------------
 
-// Label_Amount.Text
+// lbl_Amount.Text
 FormatCurrency(ThisItem.Amount, "$")
 
-// Label_Percentage.Text
+// lbl_Percentage.Text
 FormatPercent(ThisItem.CompletionRate, 1)
 
-// Label_Count.Text
+// lbl_Count.Text
 Text(ThisItem.Quantity, "#,##0")
 
 
@@ -495,7 +524,7 @@ Text(ThisItem.Quantity, "#,##0")
 // Pattern 4.7: User Initials
 // -----------------------------------------------------------
 
-// Label_Avatar.Text
+// lbl_Avatar.Text
 GetInitials(ThisItem.Owner.DisplayName)
 
 
@@ -507,10 +536,10 @@ GetInitials(ThisItem.Owner.DisplayName)
 // Pattern 5.1: Status Icons
 // -----------------------------------------------------------
 
-// Icon_Status.Icon
+// ico_Status.Icon
 GetStatusIcon(ThisItem.Status)
 
-// Icon_Status.Color
+// ico_Status.Color
 GetStatusColor(ThisItem.Status)
 
 
@@ -518,13 +547,13 @@ GetStatusColor(ThisItem.Status)
 // Pattern 5.2: Conditional Icons (CET Timezone)
 // -----------------------------------------------------------
 
-// Icon_OverdueWarning.Icon
+// ico_OverdueWarning.Icon
 If(ThisItem.'Due Date' < GetCETToday(), Icon.Warning, Icon.Clock)
 
-// Icon_OverdueWarning.Visible
+// ico_OverdueWarning.Visible
 !IsBlank(ThisItem.'Due Date')
 
-// Icon_OverdueWarning.Color
+// ico_OverdueWarning.Color
 If(ThisItem.'Due Date' < GetCETToday(), GetThemeColor("Error"), GetThemeColor("TextSecondary"))
 
 
@@ -547,7 +576,7 @@ If(
 */
 
 // AFTER:
-// Button_Delete.OnSelect
+// btn_Delete.OnSelect
 If(
     HasPermission("Delete") && CanDeleteRecord(Gallery.Selected.Owner.Email),
     Remove(Items, Gallery.Selected);
@@ -560,7 +589,7 @@ If(
 // Pattern 6.2: Permission-Guarded Edit
 // -----------------------------------------------------------
 
-// Button_Edit.OnSelect
+// btn_Edit.OnSelect
 If(
     CanEditRecord(Gallery.Selected.Owner.Email, Gallery.Selected.Status),
     Set(UIState, Patch(UIState, {
@@ -577,7 +606,7 @@ If(
 // Pattern 6.3: Update Filter State
 // -----------------------------------------------------------
 
-// Dropdown_Status.OnChange
+// drp_Status.OnChange
 Set(ActiveFilters,
     Patch(ActiveFilters, {
         StatusFilter: Self.Selected.Value,
@@ -591,7 +620,7 @@ NotifyInfo("Filter applied: " & Self.Selected.DisplayName)
 // Pattern 6.4: Toggle Show All (Admin/Manager)
 // -----------------------------------------------------------
 
-// Toggle_ShowAll.OnChange
+// tog_ShowAll.OnChange
 If(
     HasPermission("ViewAll"),
     Set(ActiveFilters,
@@ -610,7 +639,7 @@ If(
 // Pattern 6.6: Refresh Data
 // -----------------------------------------------------------
 
-// Button_Refresh.OnSelect
+// btn_Refresh.OnSelect
 Set(AppState, Patch(AppState, {IsLoading: true}));
 ClearCollect(
     MyRecentItems,
@@ -636,7 +665,7 @@ NotifySuccess("Data refreshed at " & Text(Now(), "h:mm AM/PM"))
 // Pattern 6.7: Reset All Filters
 // -----------------------------------------------------------
 
-// Button_ResetFilters.OnSelect
+// btn_ResetFilters.OnSelect
 Set(ActiveFilters, {
     UserScope: GetUserScope(),
     DepartmentScope: GetDepartmentScope(),
@@ -650,9 +679,9 @@ Set(ActiveFilters, {
     CurrentPage: 1,
     PageSize: AppConfig.ItemsPerPage
 });
-Reset(TextInput_Search);
-Reset(Dropdown_Status);
-Reset(Dropdown_Category);
+Reset(txt_Search);
+Reset(drp_Status);
+Reset(drp_Category);
 NotifyInfo("All filters reset")
 
 
@@ -664,7 +693,7 @@ NotifyInfo("All filters reset")
 // Pattern 7.1: Conditional Form Mode
 // -----------------------------------------------------------
 
-// Form_Details.DefaultMode
+// form_Details.DefaultMode
 If(
     IsBlank(UIState.SelectedItem),
     FormMode.New,
@@ -721,10 +750,10 @@ HasPermission("Audit")
 // Pattern 7.4: Form Submit with Validation
 // -----------------------------------------------------------
 
-// Button_Submit.OnSelect
+// btn_Submit.OnSelect
 If(
     Form.Valid,
-    SubmitForm(Form_Details);
+    SubmitForm(form_Details);
     NotifyActionCompleted(
         If(Form.Mode = FormMode.New, "Created", "Updated"),
         DataCardValue_Name.Value
@@ -786,7 +815,7 @@ If(
 // Pattern 9.1: Count with User Scope
 // -----------------------------------------------------------
 
-// Label_TotalCount.Text
+// lbl_TotalCount.Text
 Text(
     CountRows(
         Filter(
@@ -802,7 +831,7 @@ Text(
 // Pattern 9.2: Sum with Filters
 // -----------------------------------------------------------
 
-// Label_TotalAmount.Text
+// lbl_TotalAmount.Text
 FormatCurrency(
     Sum(
         Filter(
@@ -819,7 +848,7 @@ FormatCurrency(
 // Pattern 9.3: Overdue Count (CET Timezone)
 // -----------------------------------------------------------
 
-// Label_OverdueCount.Text
+// lbl_OverdueCount.Text
 Text(
     CountRows(
         Filter(
@@ -836,7 +865,7 @@ Text(
 // Pattern 9.4: Completion Percentage
 // -----------------------------------------------------------
 
-// Label_CompletionRate.Text
+// lbl_CompletionRate.Text
 FormatPercent(
     CountRows(Filter(Tasks, CanAccessRecord('Assigned To'.Email), Status = "Completed")) /
     Max(1, CountRows(Filter(Tasks, CanAccessRecord('Assigned To'.Email)))),
@@ -852,10 +881,10 @@ FormatPercent(
 // Pattern 10.1: Accessible Labels
 // -----------------------------------------------------------
 
-// Button_Delete.AccessibleLabel
+// btn_Delete.AccessibleLabel
 "Delete " & Gallery.Selected.Name
 
-// Button_Edit.AccessibleLabel
+// btn_Edit.AccessibleLabel
 "Edit " & Gallery.Selected.Name & ", " & GetRoleLabel() & " access"
 
 
@@ -863,7 +892,7 @@ FormatPercent(
 // Pattern 10.2: Status Announcements
 // -----------------------------------------------------------
 
-// Label_StatusAnnouncement.Text (Live region)
+// lbl_StatusAnnouncement.Text (Live region)
 If(
     AppState.IsLoading,
     "Loading data, please wait",
