@@ -17,6 +17,13 @@ This roadmap transforms the existing PowerApps Canvas App template from a functi
 
 **Dependencies:** None (foundation phase)
 
+**Plans:** 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Fix critical bugs in HasAnyRole(), IsOneOf(), IsValidEmail() UDFs
+- [ ] 01-02-PLAN.md — Standardize naming conventions for Named Formulas, UDFs, variables, collections, controls
+- [ ] 01-03-PLAN.md — Optimize variable structure (AppState, ActiveFilters, UIState) and validate dependencies
+
 **Requirements:**
 - NAMING-01: Standardized naming convention for Named Formulas (PascalCase: ThemeColors, UserProfile, UserPermissions)
 - NAMING-02: Standardized naming convention for UDFs (PascalCase with verb: HasRole(), GetUserScope(), FormatDateShort())
@@ -47,6 +54,11 @@ This roadmap transforms the existing PowerApps Canvas App template from a functi
 
 **Dependencies:** Phase 1 (requires clean variable structure)
 
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (awaiting planning)
+
 **Requirements:**
 - PERF-01: App.OnStart completes in under 2 seconds
 - PERF-02: Office365Users and Office365Groups API calls cached to eliminate redundant calls between sessions
@@ -70,6 +82,11 @@ This roadmap transforms the existing PowerApps Canvas App template from a functi
 
 **Dependencies:** Phase 2 (requires optimized startup and variable structure)
 
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (awaiting planning)
+
 **Requirements:**
 - FILT-01: Delegation-friendly filter UDF for role-based data scoping (ViewAll OR Owner = CurrentUser)
 - FILT-02: Delegation-friendly filter UDF for text search across multiple SharePoint columns
@@ -92,6 +109,11 @@ This roadmap transforms the existing PowerApps Canvas App template from a functi
 **Goal:** Deliver polished notification system with Fluent Design styling and comprehensive documentation for rapid customer project deployment.
 
 **Dependencies:** Phase 3 (requires complete functional template)
+
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (awaiting planning)
 
 **Requirements:**
 - NOTIF-01: Toast notification UDF for info messages (blue, auto-dismiss)
@@ -119,7 +141,7 @@ This roadmap transforms the existing PowerApps Canvas App template from a functi
 
 | Phase | Requirements | Status | Completion |
 |-------|--------------|--------|------------|
-| Phase 1: Code Cleanup & Standards | 15 | Pending | 0% |
+| Phase 1: Code Cleanup & Standards | 15 | Planning Complete | 0% |
 | Phase 2: Performance Foundation | 8 | Pending | 0% |
 | Phase 3: Delegation & Filtering | 8 | Pending | 0% |
 | Phase 4: User Experience & Documentation | 13 | Pending | 0% |
