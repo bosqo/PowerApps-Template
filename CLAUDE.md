@@ -216,6 +216,151 @@ Vor Verwendung von App.OnStart diese Tabellen verbinden:
 
 ---
 
+## Performance Best Practices
+
+### App.OnStart Startup Time Target: <2 Seconds
+
+**Warum:** App muss schnell laden, um responsives Benutzererlebnis zu bieten. Langsamer Start (>5s) führt zu Benutzerunzufriedenheit und Authentifizierungs-Timeouts.
+
+**So erreichen wir <2s:**
+
+| Technik | Nutzen | Implementierung |
+|---------|--------|-----------------|
+| Sequenzielle Critical Path | Abhängigkeiten respektieren | User → Rollen → Berechtigungen (sequenziell) |
+| Hintergrund-Parallelisierung | Unkritische Daten laden gleichzeitig | Concurrent() für Departments, Categories |
+| API-Caching | Eliminiert redundante Office365-Aufrufe | Collections mit 5-Minuten-TTL |
+| Fehlertolerante Degradation | App läuft weiter bei nicht-kritischen Fehlern | Fallback zu "Unbekannt" für fehlende Daten |
+
+**Startup-Aufschlüsselung (erwartete Timing):**
+```
+Section 0 (Critical path): 500-800ms
+  ├─ Office365Users.MyProfileV2(): ~300ms
+  ├─ Office365Groups role checks (6 roles): ~400ms
+  └─ Permission calculation: ~50ms
+
+Section 4 (Background parallel): 300-500ms
+  ├─ Departments load: ~200ms
+  ├─ Categories load: ~200ms
+  ├─ Statuses load: ~50ms
+  └─ Priorities load: ~50ms
+
+Section 5 (User-scoped): 200-300ms
+  ├─ Recent items: ~200ms
+  └─ Pending tasks: ~100ms
+
+Sections 1-3, 6 (Config, finalize): <100ms
+
+TOTAL: ~1050-1850ms (well under 2000ms target)
+```
+
+### API Call Reduction via Caching
+
+**Problem:** Office365Users und Office365Groups connectors werden mehrfach pro Sitzung aufgerufen, was zu unnötigem API-Overhead führt und den Startup verlangsamt.
+
+**Lösung:** Ergebnisse cachen und für die ganze Sitzung wiederverwenden.
+
+**Caching-Strategie:**
+- **Scope:** Session-basiert (gelöscht beim App-Schließen)
+- **TTL:** 5 Minuten (Balance zwischen Aktualität und Effizienz)
+- **Speicher:** Collections (CachedProfileCache, CachedRolesCache)
+- **API-Aufrufe pro Sitzung:**
+  - Kalter Start (erste Lade): 7 Aufrufe (1 × MyProfileV2, 6 × Office365Groups)
+  - Warmer Start (Cache Hit): 0 Aufrufe
+  - Ergebnis: 100% Cache-Hit-Rate nach erstem Load
+
+**Cache-Invalidierungs-Trigger:**
+1. Sitzungsende (App schließen) → neue Sitzung startet mit leerem Cache
+2. TTL-Ablauf (>5 Minuten) → kann manuell aktualisiert werden
+3. Explizite Aktualisierung (Benutzer klickt "Refresh") → Daten neu abrufen
+4. Rollenänderung (Azure AD-Update) → NICHT automatisch erkannt (zukünftige Verbesserung)
+
+**Wann Daten cachen:**
+- ✓ CACHE: Statische oder langsam ändernde Daten (user profile, roles, departments)
+- ✓ CACHE: Daten aus teuren APIs (Office365, Dataverse komplexe Abfragen)
+- ✗ CACHE NICHT: Häufig ändernde Daten (aktuelle Zeit, Formularstatus)
+- ✗ CACHE NICHT: Sensible Daten, die außerhalb der App ändern (z.B. Berechtigungsentzug)
+
+**Caching für Produktion skalieren:**
+- **Phase 2 (aktuell):** In-Memory Collections, gut für <10.000 gleichzeitige Sitzungen
+- **Phase 4+:** Migration zu Dataverse Cache-Tabelle für 100.000+ Sitzungen
+- **Phase 4+:** Service Principal Cache in Backend Flow für Multi-Tenant-Szenarien
+
+### Concurrent() für paralleles Laden
+
+**Prinzip:** Wenn mehrere Datenladungen KEINE Abhängigkeiten voneinander haben, laden Sie sie gleichzeitig mit Concurrent().
+
+**Critical Path (SEQUENZIELL):**
+```powerfx
+// Muss in Reihenfolge geladen werden: Profile → Roles → Permissions
+ClearCollect(CachedProfileCache, Office365Users.MyProfileV2());
+Set(AppState, Patch(AppState, {UserRoles: UserRoles}));  // Aus Cache lesen
+Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
+```
+
+**Background Path (PARALLEL):**
+```powerfx
+// Können gleichzeitig geladen werden: unabhängige Collections
+Concurrent(
+  ClearCollect(CachedDepartments, Filter(Departments, Status = "Active")),
+  ClearCollect(CachedCategories, Filter(Categories, Status = "Active")),
+  ClearCollect(CachedStatuses, /* static table */),
+  ClearCollect(CachedPriorities, /* static table */)
+);
+```
+
+**Timing-Verbesserung:**
+- Sequenziell: 300 + 200 + 200 + 50 + 50 = 800ms
+- Parallel: max(300, 200, 200, 50, 50) = 300ms
+- Einsparung: ~500ms (62% schneller)
+
+### Error Handling: Critical vs Non-Critical
+
+**Critical Data Errors:**
+- Benutzerprofilladung fehlgeschlagen → APP BLOCKIEREN, Fehler anzeigen, Wiederholung erforderlich
+- Pattern: IfError(call, fallback, show_error_dialog)
+- Benutzer sieht: German error message mit Lösungshinweis
+
+**Non-Critical Errors:**
+- Department-Lookup fehlgeschlagen → STILLES FALLBACK, App lädt weiter
+- Pattern: IfError(call, empty_fallback, no_dialog)
+- Benutzer sieht: Leere Dropdown oder "Unbekannt"-Option
+
+**Error Message Guidelines:**
+- Alle Meldungen auf Deutsch (Sprache des Benutzers)
+- Keine Fehlercodes, keine Stack Traces, keine technische Jargon
+- Remediation-Hinweis einschließen (z.B. "Netzwerk überprüfen", "später erneut versuchen")
+- Beispiele:
+  - ✓ "Ihre Profilinformationen konnten nicht geladen werden. Bitte überprüfen Sie Ihre Internetverbindung."
+  - ✗ "Office365Users Connector Timeout: Error -2147024809"
+
+### Startup-Performance überwachen
+
+**Tool:** Power Apps Monitor (eingebaut)
+
+**Schritte:**
+1. Power Apps Studio öffnen
+2. Einstellungen → Zukünftige Features → Monitor-Tool (aktivieren)
+3. App neu laden (Ctrl+Shift+F5)
+4. Monitor-Tool öffnen (F12 oder Einstellungen → Monitor)
+5. Netzwerk-Tab filtern: "OnStart" suchen
+6. Gesamtdauer überprüfen (sollte <2000ms sein)
+
+**Zu überwachende Metriken:**
+- OnStart Gesamtzeit: <2000ms (Ziel)
+- Office365Users Anzahl der Aufrufe: 1 (erste Lade), 0 (warmer Start)
+- Office365Groups Anzahl der Aufrufe: 6 (erste Lade), 0 (warmer Start)
+- Concurrent() Block-Zeit: 300-500ms (Hintergrunddaten)
+
+**Regressions-Test:**
+Nach Änderungen an App.OnStart:
+1. Baseline messen (vor Änderungen)
+2. Code-Änderungen durchführen
+3. Neu messen (nach Änderungen)
+4. Keine Performance-Regression überprüfen (sollte <2000ms bleiben)
+5. Wenn Regression erkannt: Revertieren oder weiter optimieren
+
+---
+
 ## Deployment & ALM
 
 ### Automatisierte Deployment-Scripts
