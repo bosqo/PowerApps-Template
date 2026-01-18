@@ -630,15 +630,23 @@ IsOneOf(value: Text, allowedValues: Text): Boolean =
     ) > 0;
 
 // Check if text contains only alphanumeric characters
+// Returns false for blank/empty input
 IsAlphanumeric(input: Text): Boolean =
+    !IsBlank(input) &&
     IsMatch(input, "^[a-zA-Z0-9]+$");
 
 // Validate date is not in the past
+// Returns false for blank input (graceful handling)
 IsNotPastDate(inputDate: Date): Boolean =
-    IsBlank(inputDate) || inputDate >= Today();
+    !IsBlank(inputDate) &&
+    inputDate >= Today();
 
 // Validate date is within acceptable range
+// Returns false for any blank input
 IsDateInRange(inputDate: Date, minDate: Date, maxDate: Date): Boolean =
+    !IsBlank(inputDate) &&
+    !IsBlank(minDate) &&
+    !IsBlank(maxDate) &&
     inputDate >= minDate && inputDate <= maxDate;
 
 
