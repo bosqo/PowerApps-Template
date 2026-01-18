@@ -1,0 +1,8 @@
+{
+  "workflow": {
+    "mode": "yolo",
+    "depth": "quick",
+    "parallelization": true
+  },
+  "created": "2026-01-18"
+}
