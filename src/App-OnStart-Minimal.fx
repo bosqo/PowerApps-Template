@@ -118,6 +118,10 @@ Set(AppState, {
     // Connectivity
     IsOnline: Connection.Connected,
 
+    // Authentication & Authorization (populated in critical path)
+    UserRoles: Blank(),      // Populated in critical path after Office365Groups checks
+    UserPermissions: Blank(), // Populated in critical path after roles determined
+
     // Error Handling
     ShowErrorDialog: false,
     ErrorMessage: "",
@@ -243,6 +247,73 @@ Set(UIState, {
     FormMode: FormMode.View,
     UnsavedChanges: false
 });
+
+
+// ============================================================
+// 0. CRITICAL PATH - SEQUENTIAL USER IDENTITY & AUTHORIZATION
+// ============================================================
+// Load critical data required for app to function safely.
+// App blocks user interaction until this completes (IsInitializing: true).
+//
+// Sequential execution order (NOT parallel via Concurrent):
+// 1. Initialize cache collections and timestamp
+// 2. Fetch user profile from Office365Users.MyProfileV2()
+// 3. Determine user roles via Office365Groups checks (cached)
+// 4. Calculate permissions from cached roles (no API calls)
+//
+// Dependencies:
+// - UserProfile Named Formula depends on CachedProfileCache
+// - UserRoles Named Formula depends on CachedRolesCache
+// - UserPermissions Named Formula depends on UserRoles (derived, no API calls)
+//
+// Cache TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
+// Cache Scope: Session-based (cleared when app closes)
+//
+// Error Handling:
+// - IfError() wraps Office365 calls for graceful degradation
+// - Fallback values: "Unbekannt" for missing/failed data
+// - If critical path fails, app stays locked (IsInitializing: true)
+//
+
+// Initialize cache collections and timestamp
+Set(CacheTimestamp, Now());
+ClearCollect(CachedProfileCache, {});  // Will be populated by Office365Users call
+ClearCollect(CachedRolesCache, {});    // Will be populated by Office365Groups calls
+
+// CRITICAL PATH: Sequential load ensures permissions calculated from complete role data
+// Step 1: Fetch user profile from Office365Users
+ClearCollect(
+    CachedProfileCache,
+    IfError(
+        {
+            DisplayName: Office365Users.MyProfileV2().DisplayName,
+            Email: Office365Users.MyProfileV2().UserPrincipalName,
+            Department: Office365Users.MyProfileV2().Department,
+            JobTitle: Office365Users.MyProfileV2().JobTitle,
+            MobilePhone: Office365Users.MyProfileV2().MobilePhone
+        },
+        // ERROR HANDLER: Profile fetch failed
+        {
+            DisplayName: "Unbekannt",
+            Email: "unknown@company.com",
+            Department: "Unbekannt",
+            JobTitle: "Unbekannt",
+            MobilePhone: ""
+        }
+    )
+);
+
+// Update cache timestamp after profile fetch
+Set(CacheTimestamp, Now());
+
+// Step 2: Check user roles from cached profile
+// UserRoles Named Formula reads from CachedRolesCache on first call
+// Office365Groups.CheckMembershipAsync() called once per role to populate cache
+Set(AppState, Patch(AppState, {UserRoles: UserRoles}));
+
+// Step 3: Calculate permissions from roles
+// UserPermissions Named Formula reads from cached roles (no additional API calls)
+Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
 
 
 // ============================================================
