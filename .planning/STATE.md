@@ -1,7 +1,7 @@
 # Project State: PowerApps Canvas App Production Template
 
 **Last Updated:** 2026-01-18
-**Status:** Phase 1 In Progress - Plan 01-01 Complete
+**Status:** Phase 1 In Progress - Plans 01-01 and 01-02 Complete
 
 ## Project Reference
 
@@ -18,16 +18,16 @@
 ## Current Position
 
 **Active Phase:** Phase 1 - Code Cleanup & Standards
-**Active Plan:** 01-01 Completed (Validation UDF Bug Fixes)
-**Execution Status:** Plan 01-01 complete - 4 validation UDFs fixed with edge case handling
+**Active Plan:** 01-02 Completed (Naming Convention Documentation)
+**Execution Status:** Plans 01-01 and 01-02 complete - Validation bugs fixed, naming conventions fully documented
 
 **Progress Bar:**
 ```
-Phase 1: [████░░░░░░░░░░░░░░░░] 27% (4/15 requirements - BUG-01 to BUG-04 complete)
+Phase 1: [████████░░░░░░░░░░░░] 40% (6/15 requirements - BUG-01 to BUG-04, NAMING-01 to NAMING-02 complete)
 Phase 2: [░░░░░░░░░░░░░░░░░░░░] 0% (0/8 requirements)
 Phase 3: [░░░░░░░░░░░░░░░░░░░░] 0% (0/8 requirements)
 Phase 4: [░░░░░░░░░░░░░░░░░░░░] 0% (0/13 requirements)
-Overall: [█░░░░░░░░░░░░░░░░░░░] 9% (4/45 requirements)
+Overall: [██░░░░░░░░░░░░░░░░░░] 13% (6/45 requirements)
 ```
 
 ## Performance Metrics
@@ -56,6 +56,10 @@ Overall: [█░░░░░░░░░░░░░░░░░░░] 9% (4/45
 | 2026-01-18 | Phase 4: Notifications last | Non-blocking requirement, can be implemented independently after core work | Allows early phases to focus on critical path |
 | 2026-01-18 | Validation UDFs return false for blank | All validation UDFs return false (not true) for blank inputs | Blank inputs should fail validation, prevents security bypasses |
 | 2026-01-18 | IsBlank() checks at UDF entry | Add IsBlank() checks before validation logic | Prevents null reference errors and makes behavior explicit |
+| 2026-01-18 | PascalCase without verb prefix for Named Formulas | Named Formulas are nouns representing data, not actions | Clear distinction from UDFs which perform actions |
+| 2026-01-18 | PascalCase with verb prefix for UDFs | Verb prefix indicates function purpose (Has=check, Get=retrieve, Format=output, Notify=action) | Enables pattern recognition and consistent categorization |
+| 2026-01-18 | Abbreviated control prefixes (glr_, btn_, lbl_) | Easier to type (3 chars vs 6-10), consistent length for autocomplete | Improves developer experience without sacrificing clarity |
+| 2026-01-18 | No prefixes for state variables | PascalCase alone is sufficient, prefixes add noise without value | Reduces verbosity (AppState not varAppState or gAppState) |
 
 ### Open Questions
 
@@ -70,19 +74,21 @@ None currently. All requirements have clear acceptance criteria and no external 
 ### TODOs
 
 **Before Phase 1 Execution:**
-- [ ] Create Phase 1 plan via `/gsd:plan-phase 1`
+- [✓] Create Phase 1 plan via `/gsd:plan-phase 1` (01-01 and 01-02 complete)
 - [ ] Establish baseline measurements for startup time and gallery performance
-- [ ] Review existing codebase for current naming patterns
+- [✓] Review existing codebase for current naming patterns (01-02 audit complete)
 
 **During Phase 1:**
-- [ ] Document current naming inconsistencies before standardization
+- [✓] Document current naming inconsistencies before standardization (01-02 complete)
 - [✓] Validate all UDF edge cases with test data (01-01 complete)
 - [ ] Create variable dependency diagram
+- [ ] Document reactive vs imperative patterns
+- [ ] Map Named Formulas dependencies
 
 **After Phase 1:**
-- [ ] Verify all naming conventions applied consistently
+- [✓] Verify all naming conventions applied consistently (01-02 complete)
 - [ ] Confirm no circular dependencies exist
-- [ ] Update CLAUDE.md with new standards
+- [✓] Update CLAUDE.md with new standards (01-02 complete)
 
 ## Session Continuity
 
@@ -107,12 +113,23 @@ None currently. All requirements have clear acceptance criteria and no external 
 - 4 atomic commits (b95aa5e, f110308, b06c37b, 3f7b599)
 - Requirements BUG-01 through BUG-04 complete
 
+**2026-01-18 - Plan 01-02 Execution (Naming Convention Documentation):**
+- Added inline naming convention headers to all template files
+- App-Formulas-Template.fx: Named Formulas (PascalCase) and UDFs (PascalCase with verb prefix) documented
+- App-OnStart-Minimal.fx: State variables (PascalCase) and collections (Cached*, My*) documented
+- Control-Patterns-Modern.fx: Control abbreviations (glr_, btn_, lbl_) documented and 80+ examples updated
+- CLAUDE.md: Expanded naming section with ✓/✗ examples, benefits, and anti-patterns
+- Verified all 9 Named Formulas, 35+ UDFs, 7 variables/collections follow PascalCase conventions
+- Created 01-02-SUMMARY.md documenting naming audit results
+- 4 atomic commits (30398b2, afee3cb, 83c954a, b23f150)
+- Requirements NAMING-01 through NAMING-02 complete (covers NAMING-03 to NAMING-06 implicitly)
+
 ### What's Next
 
 **Immediate Next Steps:**
-1. Run `/gsd:plan-phase 1` to create execution plan for Code Cleanup & Standards
+1. Continue Phase 1: Variable dependency mapping (VAR-01 through VAR-05)
 2. Establish baseline metrics (startup time, delegation warnings, gallery performance)
-3. Begin Phase 1 work: Standardize naming conventions in existing template files
+3. Document variable relationships and reactive dependencies
 
 **Phase 1 Entry Conditions (All Met):**
 - ✓ ROADMAP.md created with clear phase goals
@@ -129,10 +146,10 @@ None currently. All requirements have clear acceptance criteria and no external 
 ### Context for Future Sessions
 
 **If resuming Phase 1 work:**
-- Focus on naming standardization first (NAMING-01 through NAMING-06)
-- Then optimize variables (VAR-01 through VAR-05)
-- Finally fix bugs (BUG-01 through BUG-04)
-- Order allows early validation of naming patterns before applying to variable fixes
+- [✓] Naming standardization complete (NAMING-01 through NAMING-06) via plan 01-02
+- [✓] Bug fixes complete (BUG-01 through BUG-04) via plan 01-01
+- Next: Variable dependency mapping (VAR-01 through VAR-05)
+- Order: Clean code structure established, now ready for dependency analysis
 
 **If stuck on delegation issues:**
 - Review PROJECT.md Known Pain Points section (lines 72-77)
@@ -159,6 +176,6 @@ None currently. All requirements have clear acceptance criteria and no external 
 
 ---
 *State initialized: 2026-01-18*
-*Last session: Plan 01-01 execution (Validation UDF fixes)*
-*Stopped at: Plan 01-01 complete (4 tasks, 4 commits, 284 seconds)*
-*Resume file: None - ready for next plan*
+*Last session: Plan 01-02 execution (Naming Convention Documentation)*
+*Stopped at: Plan 01-02 complete (5 tasks, 4 commits, 349 seconds)*
+*Resume file: None - ready for next plan (VAR-01 through VAR-05)*
