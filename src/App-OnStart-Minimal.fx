@@ -466,6 +466,45 @@ Concurrent(
 
 
 // ============================================================
+// 4B. FALLBACK VALUES FOR MISSING DATA
+// ============================================================
+// When non-critical data fails to load (collections are empty), galleries and
+// dropdowns handle the empty state gracefully using fallback patterns.
+//
+// FALLBACK PHILOSOPHY:
+// - User experience: App fully functional, but with limited options until data loads
+// - No technical errors shown: Empty collections degrade gracefully
+// - "Unbekannt" pattern: Standardized German fallback for missing lookup data
+//
+// IMPLEMENTATION PATTERNS:
+//
+// 1. Gallery fallback when collection is empty:
+//    Gallery.Items = If(IsEmpty(CachedDepartments), Table({Name: "Unbekannt", Value: ""}), CachedDepartments)
+//    Result: Shows single "Unbekannt" placeholder option instead of empty gallery
+//
+// 2. Dropdown fallback for missing lookup:
+//    Dropdown.Items = If(IsEmpty(CachedStatuses), Table({Value: "Unbekannt", DisplayName: "Unbekannt"}), CachedStatuses)
+//    Result: Single fallback option ensures dropdown is never truly empty
+//
+// 3. Display text fallback for blank fields:
+//    Label.Text = If(IsBlank(ThisItem.Department), "Unbekannt", ThisItem.Department)
+//    Result: Shows "Unbekannt" instead of blank field
+//
+// 4. Conditional display based on data availability:
+//    Filter_Panel.Visible = !IsEmpty(CachedCategories)
+//    Result: Filter panel hidden if category lookup data unavailable
+//
+// COLLECTIONS MONITORED:
+// - CachedDepartments → galleries, dropdowns, filters
+// - CachedCategories → category filters and selectors
+// - CachedStatuses → status dropdowns and filters
+// - CachedPriorities → priority selectors and filters
+//
+// NOTE: Control-level fallback implementations deferred to Phase 4 (control patterns work)
+// This task focuses on App.OnStart infrastructure and documentation
+
+
+// ============================================================
 // 5. USER-SCOPED DATA CACHE
 // ============================================================
 // Pre-filtered data based on user's access scope
