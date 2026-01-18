@@ -320,8 +320,11 @@ HasRole(roleName: Text): Boolean =
         false
     );
 
-// Check if user has any of the specified roles (comma-separated)
+// Check if user has any of the specified roles (comma-separated, unlimited count)
+// Example: HasAnyRole("Admin,Manager,HR") returns true if user has ANY of these roles
+// Returns false for blank input without error
 HasAnyRole(roleNames: Text): Boolean =
+    !IsBlank(roleNames) &&
     CountRows(
         Filter(
             Split(roleNames, ","),
