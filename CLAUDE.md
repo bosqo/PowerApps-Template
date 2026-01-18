@@ -119,11 +119,66 @@ FormatDateRelative(date)   // "Heute", "Gestern", "vor 3 Tagen"
 - **Canvas Apps**: `[Bereich]_[Funktion]_App` (z.B. `Sales_OrderEntry_App`)
 
 ### Power Fx Code
-- **Named Formulas**: PascalCase (`ThemeColors`, `UserProfile`, `DateRanges`)
-- **UDFs**: PascalCase mit Verb (`HasRole()`, `GetUserScope()`, `FormatDateShort()`)
-- **State-Variablen**: PascalCase (`AppState`, `ActiveFilters`, `UIState`)
-- **Collections**: PascalCase (`CachedDepartments`, `MyRecentItems`)
-- **Controls**: `[Typ]_[Name]` (`Gallery_Items`, `Button_Submit`, `Label_Error`)
+
+**Named Formulas:** PascalCase (keine Verben, repräsentieren Daten)
+- ✓ `ThemeColors` - Statische Farbkonfiguration
+- ✓ `UserProfile` - Benutzerprofil-Daten
+- ✓ `DateRanges` - Berechnete Datumsbereiche
+- ✗ `getUserProfile` - camelCase nicht verwenden
+- ✗ `theme_colors` - Underscores nicht verwenden
+
+**UDFs (User-Defined Functions):** PascalCase mit Verb-Präfix
+- Boolean Checks: `Has*`, `Can*`, `Is*`
+  - ✓ `HasRole("Admin")` - Rollenprüfung
+  - ✓ `CanAccessRecord(email)` - Zugriffsprüfung
+  - ✓ `IsValidEmail(text)` - Validierung
+- Datenabfrage: `Get*`
+  - ✓ `GetUserScope()` - Scope abrufen
+  - ✓ `GetThemeColor(name)` - Farbe abrufen
+- Formatierung: `Format*`
+  - ✓ `FormatDateShort(date)` - Datum formatieren
+  - ✓ `FormatCurrency(amount)` - Währung formatieren
+- Aktionen (Behavior): `Notify*`, `Show*`, `Update*`
+  - ✓ `NotifySuccess(message)` - Erfolgsmeldung
+  - ✓ `ShowErrorDialog(error)` - Fehlerdialog
+
+**State-Variablen:** PascalCase (keine Präfixe)
+- ✓ `AppState` - Anwendungsstatus
+- ✓ `ActiveFilters` - Aktive Filter
+- ✓ `UIState` - UI-Zustand
+- ✗ `varAppState` - "var" Präfix nicht verwenden
+- ✗ `gActiveFilters` - "g" (global) Präfix nicht verwenden
+
+**Collections:** PascalCase mit beschreibendem Präfix
+- `Cached*` - Statische Lookup-Daten (z.B. `CachedDepartments`, `CachedStatuses`)
+- `My*` - Benutzerbezogene Daten (z.B. `MyRecentItems`, `MyPendingTasks`)
+- `Filter*` - Gefilterte Ansichten (z.B. `FilteredOrders`)
+
+**Controls:** Abgekürzter Typ-Präfix + Name
+- `glr_` = Gallery → `glr_Orders`, `glr_RecentItems`
+- `btn_` = Button → `btn_Submit`, `btn_Delete`, `btn_Cancel`
+- `lbl_` = Label → `lbl_Title`, `lbl_ErrorMessage`
+- `txt_` = TextInput → `txt_Search`, `txt_Email`
+- `img_` = Image → `img_Logo`, `img_Avatar`
+- `form_` = Form → `form_EditItem`, `form_NewRecord`
+- `drp_` = Dropdown → `drp_Status`, `drp_Category`
+- `ico_` = Icon → `ico_Delete`, `ico_Warning`
+- `cnt_` = Container → `cnt_Header`, `cnt_Sidebar`
+- `tog_` = Toggle → `tog_ActiveOnly`, `tog_ShowArchived`
+- `chk_` = Checkbox → `chk_Terms`, `chk_SelectAll`
+- `dat_` = DatePicker → `dat_StartDate`, `dat_DueDate`
+
+**Vorteile der Namenskonventionen:**
+- Typ sofort erkennbar (glr = Gallery, btn = Button)
+- Einfacher zu tippen (3 Zeichen statt 6-10)
+- Konsistente Länge für Autocomplete-Ausrichtung
+- PascalCase folgt Power Fx Konventionen
+- Keine Verwechslung mit Variablen (haben keine Präfixe)
+
+**Legacy-Muster vermeiden:**
+- ❌ `Gallery_Items` - Voller Typname zu lang
+- ❌ `Button1`, `Button2` - Auto-generierte Namen nicht beschreibend
+- ❌ `submitBtn` - camelCase inkonsistent mit Power Fx
 
 ---
 
