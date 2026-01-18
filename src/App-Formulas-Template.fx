@@ -143,6 +143,41 @@ AppConfig = {
     MaxBulkOperationItems: 100
 };
 
+// ============================================================
+// SECTION 1B: USER PROFILE CACHING
+// Cached Office365Users API results for session-scoped reuse
+// ============================================================
+//
+// Depends on:
+// - CachedProfileCache collection (initialized in App.OnStart)
+// - CacheTimestamp variable (set in App.OnStart, for TTL comparison)
+// - Office365Users.MyProfileV2() connector (fallback if cache miss)
+//
+// Used by:
+// - UserProfile Named Formula (replaces the With() pattern in early evaluation)
+// - User authentication and profile-dependent features
+//
+// Cache Invalidation:
+// - TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
+// - Scope: Session-based (cleared when app closes)
+// - Strategy: If cache exists and is < 5 minutes old, use cached value
+//
+CachedUserProfile =
+    If(
+        IsBlank(CachedProfileCache) || Now() - CacheTimestamp > TimeValue("0:5:0"),
+        // Cache miss or expired - fetch from Office365Users API
+        {
+            DisplayName: Office365Users.MyProfileV2().DisplayName,
+            Email: Office365Users.MyProfileV2().UserPrincipalName,
+            Department: Office365Users.MyProfileV2().Department,
+            JobTitle: Office365Users.MyProfileV2().JobTitle,
+            MobilePhone: Office365Users.MyProfileV2().MobilePhone
+        },
+        // Cache hit - return first (and only) cached record
+        First(CachedProfileCache)
+    );
+
+
 // Date Range Calculations - Auto-refresh when date changes
 //
 // Depends on:
@@ -188,28 +223,38 @@ DateRanges = {
 // These auto-refresh when their dependencies change
 // ============================================================
 
-// User Profile - Lazy-loaded from Office365Users connector
-// This is fetched ONCE when first accessed and cached
+// User Profile - Session-cached from Office365Users connector
+// Reads from CachedProfileCache (populated in App.OnStart critical path)
+// Falls back to API call if cache is empty or expired (>5 minutes old)
 //
 // Depends on:
-// - Office365Users.MyProfileV2() connector
+// - CachedProfileCache collection (initialized in App.OnStart)
+// - CacheTimestamp variable (set in App.OnStart, for TTL comparison)
+// - CachedUserProfile Named Formula (cache-aware lookup logic)
 // - User() function (built-in Power Apps identity)
 //
 // Used by:
 // - UserRoles (for email-based group membership checks)
 // - GetUserScope() UDF
 // - GetDepartmentScope() UDF
+// - Control bindings that display user profile info
+//
+// Cache Strategy:
+// - First access: Calls Office365Users.MyProfileV2() and caches result
+// - Subsequent accesses (within 5 min): Returns cached value
+// - After 5 minutes: Cache expires, fetches fresh data on next access
+// - Session scope: Cache cleared when app closes
 //
 UserProfile = With(
-    { profile: Office365Users.MyProfileV2() },
+    { profile: CachedUserProfile },
     {
         // Identity
         Email: User().Email,
         FullName: User().FullName,
         Id: Lower(User().Email),  // Use email as unique ID
 
-        // Office365 Profile Data
-        Department: Coalesce(profile.department, ""),
+        // Office365 Profile Data (from cache or fresh API call)
+        Department: Coalesce(profile.Department, ""),
 
         // Computed Display Values
         DisplayName: Coalesce(
