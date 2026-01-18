@@ -120,7 +120,7 @@ Filter(
     // Access control via UDF
     CanAccessItem(Owner.Email, Department),
     // Active status via conditional
-    If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
+    If(!ActiveFilters.IncludeArchived, Status <> "Archived", true),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -140,7 +140,7 @@ Filter(
     // Priority filter (if selected)
     If(IsBlank(ActiveFilters.PriorityFilter), true, Priority = ActiveFilters.PriorityFilter),
     // Active only
-    If(ActiveFilters.ActiveOnly, Status <> "Archived", true),
+    If(!ActiveFilters.IncludeArchived, Status <> "Archived", true),
     // Due in future or today (handles both Date and UTC DateTime fields)
     If(
         IsBlank('Due Date'),
@@ -178,7 +178,7 @@ Sort(
         Invoices,
         CanAccessRecord('Sales Rep'.Email),
         DateValue(ConvertUTCToCET('Invoice Date')) >= GetCETToday() - 90,
-        If(ActiveFilters.ActiveOnly, Status <> "Void", true)
+        If(!ActiveFilters.IncludeArchived, Status <> "Void", true)
     ),
     'Invoice Date',
     SortOrder.Descending
@@ -196,7 +196,7 @@ FirstN(
             Filter(
                 Records,
                 CanAccessRecord(Owner.Email),
-                If(ActiveFilters.ActiveOnly, Status <> "Archived", true)
+                If(!ActiveFilters.IncludeArchived, Status <> "Archived", true)
             ),
             'Created On',
             SortOrder.Descending
@@ -594,7 +594,6 @@ If(
     CanEditRecord(Gallery.Selected.Owner.Email, Gallery.Selected.Status),
     Set(UIState, Patch(UIState, {
         SelectedItem: Gallery.Selected,
-        IsEditMode: true,
         FormMode: FormMode.Edit
     }));
     Navigate(EditScreen, ScreenTransition.None),
@@ -758,7 +757,7 @@ If(
         If(Form.Mode = FormMode.New, "Created", "Updated"),
         DataCardValue_Name.Value
     );
-    Set(UIState, Patch(UIState, {IsEditMode: false, UnsavedChanges: false}));
+    Set(UIState, Patch(UIState, {FormMode: FormMode.View, UnsavedChanges: false}));
     Back(),
     NotifyWarning("Form: Please correct the errors before submitting")
 )
@@ -821,7 +820,7 @@ Text(
         Filter(
             Items,
             CanAccessRecord(Owner.Email),
-            If(ActiveFilters.ActiveOnly, Status <> "Archived", true)
+            If(!ActiveFilters.IncludeArchived, Status <> "Archived", true)
         )
     )
 ) & " items"
