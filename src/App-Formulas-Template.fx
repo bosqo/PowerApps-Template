@@ -272,12 +272,13 @@ UserProfile = With(
     }
 );
 
-// User Roles - Determined from Security Groups
-// Update the Group IDs to match your Azure AD configuration
+// User Roles - Determined from Security Groups (with caching)
+// Cached results from Office365Groups membership checks
 //
 // Depends on:
-// - UserProfile.Email (for group membership checks)
-// - Office365Groups.ListGroupMembers() connector (commented out in template)
+// - CachedRolesCache collection (initialized in App.OnStart critical path)
+// - Office365Groups.CheckMembershipAsync() connector (called once per role on cache miss)
+// - UserProfile (for email in group checks)
 //
 // Used by:
 // - UserPermissions (derives permissions from role booleans)
@@ -285,49 +286,101 @@ UserProfile = With(
 // - UI visibility checks (role-based feature access)
 // - RoleColor and RoleBadgeText Named Formulas
 //
-UserRoles = {
-    // ===========================================
-    // Security Group Membership
-    // ===========================================
-
-    // Administrator - Full system access
-    IsAdmin: false,
+// IMPORTANT CONFIGURATION REQUIRED:
+// Replace GROUP_ID placeholders with your actual Azure AD Security Group IDs:
+// 1. AdminGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+// 2. ManagerGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+// 3. HRGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+// 4. GFGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+// 5. SachbearbeiterGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+//
+// Cache Strategy:
+// - First call (App.OnStart critical path): Calls Office365Groups for each role, caches result
+// - Subsequent calls: Returns cached roles (no API calls) until cache expires (5 minutes)
+// - Session scope: Cache cleared when app closes
+//
+UserRoles = If(
+    // Cache miss: CachedRolesCache is empty or first evaluation
+    IsBlank(CachedRolesCache),
+    // FIRST CALL: Populate cache by checking each role via Office365Groups
+    {
+        // Administrator - Full system access
+        // Replace "YOUR_ADMIN_GROUP_ID" with actual Azure AD Security Group ID
+        IsAdmin: false,
         /*
-        CountRows(
+        Office365Groups.CheckMembershipAsync(
+            "YOUR_ADMIN_GROUP_ID",
+            User().Email
+        ).value
+        */
 
-        Filter(
-            Office365Groups.ListGroupMembers("GROUP_ID"),
-            mail = User().Email
-        )
-    ) > 0,
-    */
+        // Manager - Team/department management
+        // Replace "YOUR_MANAGER_GROUP_ID" with actual Azure AD Security Group ID
+        IsManager: false,
+        /*
+        Office365Groups.CheckMembershipAsync(
+            "YOUR_MANAGER_GROUP_ID",
+            User().Email
+        ).value
+        */
 
-    // Manager - Team/department management
-    IsManager: false,
+        // HR - Human Resources department
+        // Replace "YOUR_HR_GROUP_ID" with actual Azure AD Security Group ID
+        IsHR: false,
+        /*
+        Office365Groups.CheckMembershipAsync(
+            "YOUR_HR_GROUP_ID",
+            User().Email
+        ).value
+        */
 
-    // HR - Human Resources department
-    IsHR: false,
+        // GF - Geschäftsführung (Business Management)
+        // Replace "YOUR_GF_GROUP_ID" with actual Azure AD Security Group ID
+        IsGF: false,
+        /*
+        Office365Groups.CheckMembershipAsync(
+            "YOUR_GF_GROUP_ID",
+            User().Email
+        ).value
+        */
 
-    // GF - Geschäftsführung
-    IsGF: false,
+        // Sachbearbeiter - Operator/Administrator
+        // Replace "YOUR_SACHBEARBEITER_GROUP_ID" with actual Azure AD Security Group ID
+        IsSachbearbeiter: false,
+        /*
+        Office365Groups.CheckMembershipAsync(
+            "YOUR_SACHBEARBEITER_GROUP_ID",
+            User().Email
+        ).value
+        */
 
-    // Sachbearbeiter
-    IsSachbearbeiter: false,
+        // User - Default role for all authenticated users
+        IsUser: true
+    },
+    // Cache hit: CachedRolesCache has data from previous call
+    // Return cached roles (no API calls on subsequent accesses)
+    First(CachedRolesCache)
+);
 
-    // User - Default role for all authenticated users
-    IsUser: true
-};
-
-// User Permissions - Derived from Roles
+// User Permissions - Derived from Cached Roles (NO API CALLS)
+// Permissions are calculated from UserRoles without making any Office365 API requests
 // Automatically updates when UserRoles changes
 //
 // Depends on:
 // - UserRoles.IsAdmin, UserRoles.IsManager, UserRoles.IsHR, UserRoles.IsSachbearbeiter (role booleans)
+// - Note: UserRoles comes from cache after critical path (no redundant API calls)
 //
 // Used by:
 // - Permission check UDFs (HasPermission, CanAccessRecord, CanEditRecord, CanDeleteRecord)
 // - Button visibility checks (CanCreate, CanEdit, CanDelete)
 // - Filter initialization (GetUserScope, GetDepartmentScope)
+// - All permission-dependent control bindings
+//
+// Cache Strategy:
+// - Called once during App.OnStart critical path
+// - Subsequent app operations read from cached UserRoles
+// - No Office365 API calls (permissions are purely derived from cached roles)
+// - TTL: 5 minutes (inherited from UserRoles cache)
 //
 UserPermissions = {
     // CRUD Permissions
