@@ -657,6 +657,57 @@ CanDeleteRecord(ownerEmail: Text): Boolean =
 
 
 // -----------------------------------------------------------
+// DELEGATION PATTERN: Filter UDFs for SharePoint >2000 records
+// All 4 of these are delegation-safe and work with large datasets
+// -----------------------------------------------------------
+
+// FILT-01: Delegation-friendly filter for role-based data scoping
+// Returns: true if user has ViewAll permission (can see all records)
+// Returns: false if user lacks ViewAll permission (can only see Owner=CurrentUser)
+// Delegation: SAFE (references Named Formula, no filtering)
+// Use case: Filter(Items, CanViewAllData() || Owner = User().Email)
+CanViewAllData: Boolean = UserPermissions.CanViewAll;
+
+// FILT-02: Delegation-friendly text search UDF
+// Parameters: field = Text field to search in (e.g., Title, Description)
+//             term = Search term to match (case-insensitive substring)
+// Returns: true if field contains term, false otherwise
+// Delegation: SAFE via Search() function (delegable for SharePoint)
+// Use case: Filter(Items, MatchesSearchTerm(Title, ActiveFilters.SearchTerm))
+MatchesSearchTerm: Function(field As Text, term As Text): Boolean =
+    If(
+        IsBlank(term),
+        true,  // Blank search term matches everything
+        Not(IsBlank(Search(field, term)))  // Search() is delegable if term is constant
+    );
+
+// FILT-03: Delegation-friendly status filter UDF
+// Parameters: statusValue = Status value to match (e.g., "Active", "Pending", "Completed")
+// Returns: true if ThisItem.Status matches statusValue, false otherwise
+// Delegation: SAFE via equality check (=), must be used in Filter() or Gallery context
+// Usage: Filter(Items, MatchesStatusFilter("Active"))
+MatchesStatusFilter: Function(statusValue As Text): Boolean =
+    If(
+        IsBlank(statusValue),
+        true,  // Blank status = no filter applied
+        ThisItem.Status = statusValue
+    );
+
+// FILT-04: Delegation-friendly user-based record filtering
+// Parameters: ownerEmail = Owner email field from record (e.g., ThisItem.Owner)
+// Returns: true if user has ViewAll permission OR owns record, false otherwise
+// Delegation: SAFE via equality check and CanViewAllData reference
+// Usage: Filter(Items, CanViewRecord(Owner))
+// Security: Default-deny for blank owners (safe pattern)
+CanViewRecord: Function(ownerEmail As Text): Boolean =
+    If(
+        IsBlank(ownerEmail),
+        false,  // Blank owner = cannot determine access, deny access
+        CanViewAllData() || ownerEmail = User().Email
+    );
+
+
+// -----------------------------------------------------------
 // Theme & Color Functions (Get*)
 // Returns: Color
 // -----------------------------------------------------------
