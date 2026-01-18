@@ -285,6 +285,7 @@ Set(AppState, Patch(AppState, {IsInitializing: true}));
 
 // CRITICAL PATH: Sequential load ensures permissions calculated from complete role data
 // Step 1: Fetch user profile from Office365Users with error handling
+// Pattern: Wrap Office365 call in IfError() with user-friendly German error messages
 ClearCollect(
     CachedProfileCache,
     IfError(
@@ -295,8 +296,9 @@ ClearCollect(
             JobTitle: Office365Users.MyProfileV2().JobTitle,
             MobilePhone: Office365Users.MyProfileV2().MobilePhone
         },
-        // ERROR HANDLER: Profile fetch failed - graceful degradation
+        // ERROR HANDLER: Profile fetch failed - graceful degradation with fallback
         // Fallback values allow app to proceed even if Office365 is unavailable
+        // User will see "Unbekannt" for profile fields but app remains functional
         {
             DisplayName: "Unbekannt",
             Email: "unknown@company.com",
@@ -307,6 +309,15 @@ ClearCollect(
     )
 );
 
+// Critical path error check: If profile load failed, notify user with German message
+If(
+    IsBlank(First(CachedProfileCache).DisplayName) || First(CachedProfileCache).DisplayName = "Unbekannt",
+    // Profile load may have failed - check connection
+    // Note: We continue anyway because fallback allows degraded operation
+    // In production, add more sophisticated error tracking here
+    Notify(ErrorMessage_ProfileLoadFailed("Office365Users"), NotificationType.Warning)
+);
+
 // Update cache timestamp after profile fetch completes
 Set(CacheTimestamp, Now());
 
@@ -314,16 +325,19 @@ Set(CacheTimestamp, Now());
 // UserRoles Named Formula reads from CachedRolesCache on first call
 // Office365Groups.CheckMembershipAsync() called once per role to populate cache
 // Pattern: Named Formula is lazy-evaluated here to trigger Office365Groups checks
+// If roles check fails, fallback to minimal permissions (IsUser: true only)
 Set(AppState, Patch(AppState, {UserRoles: UserRoles}));
 
 // Step 3: Calculate permissions from roles
 // UserPermissions Named Formula reads from cached roles (no additional API calls)
 // This completes the critical path without making additional Office365 requests
+// Permissions derived from cached/fallback roles (safe operation)
 Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
 
 // Critical path completed: app will unlock in FINALIZE section
 // If any Office365 APIs failed above, fallback values were used
 // App can still function, but with degraded role/permission data
+// IsInitializing will be set to false in FINALIZE section regardless of errors
 
 
 // ============================================================
