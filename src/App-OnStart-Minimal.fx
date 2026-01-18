@@ -46,9 +46,60 @@
 
 
 // ============================================================
+// VARIABLE STRUCTURE PHILOSOPHY
+// ============================================================
+//
+// This template uses THREE STATE VARIABLES (not dozens):
+//
+// 1. AppState - Application-wide state (loading, navigation, errors)
+//    WHY: Centralized app-level concerns, easier to debug
+//
+// 2. ActiveFilters - User-modifiable filter state
+//    WHY: All filter state in one place, easy to reset/share
+//
+// 3. UIState - UI component state (panels, dialogs, selections)
+//    WHY: UI concerns separate from data/business logic
+//
+// ANTI-PATTERN TO AVOID:
+// - Don't create variables like varIsLoading, varCurrentScreen, varSearchTerm
+// - Don't scatter related state across multiple variables
+// - Don't mix UI state with business logic state
+//
+// BENEFITS OF THIS STRUCTURE:
+// - Single source of truth for each concern
+// - Easy to reset state: Set(UIState, Patch(UIState, {SelectedItem: Blank()}))
+// - Intellisense shows all available fields: UIState. → autocomplete
+// - Debugging shows complete state: AppState record in Monitor
+//
+// ============================================================
+
+
+// ============================================================
 // 1. APPLICATION STATE (Mutable)
 // ============================================================
-// State that changes during app usage
+// Purpose: Global application state that changes during usage
+// Centralized app-level concerns (loading, navigation, connectivity, errors)
+//
+// Schema:
+// - IsLoading: Boolean - General loading indicator (data refresh, operations)
+// - IsInitializing: Boolean - App startup loading (first load only, set to false after OnStart)
+// - IsSaving: Boolean - Save operation in progress (Submit, Patch, Remove operations)
+// - CurrentScreen: Text - Active screen name for navigation tracking and analytics
+// - PreviousScreen: Text - Previous screen for back navigation (Blank if no history)
+// - SessionStart: DateTime - App session start time (set once at OnStart, used for analytics)
+// - LastRefresh: DateTime - Last data refresh timestamp (updated after ClearCollect, Refresh)
+// - LastAction: Text - Last user action performed (for debugging, optional tracking)
+// - IsOnline: Boolean - Network connectivity status cached at startup (read Connection.Connected fresh for critical operations)
+// - ShowErrorDialog: Boolean - Error dialog visibility state
+// - ErrorMessage: Text - User-facing error message (localized, friendly)
+// - ErrorDetails: Text - Technical error details for debugging (stack trace, error codes)
+//
+// Usage:
+// - Update: Set(AppState, Patch(AppState, {IsLoading: true}))
+// - Read: AppState.IsLoading, AppState.CurrentScreen
+// - Navigation: Set(AppState, Patch(AppState, {PreviousScreen: AppState.CurrentScreen, CurrentScreen: "Details"}))
+// - Error: Set(AppState, Patch(AppState, {ShowErrorDialog: true, ErrorMessage: "Failed to save", ErrorDetails: ErrorResponse}))
+//
 Set(AppState, {
     // Loading States
     IsLoading: false,
@@ -68,7 +119,6 @@ Set(AppState, {
     IsOnline: Connection.Connected,
 
     // Error Handling
-    LastError: Blank(),
     ShowErrorDialog: false,
     ErrorMessage: "",
     ErrorDetails: ""
@@ -78,17 +128,54 @@ Set(AppState, {
 // ============================================================
 // 2. ACTIVE FILTERS (Mutable)
 // ============================================================
-// User-modifiable filter state (can be changed via UI controls)
-// Uses UDFs from App.Formulas for default values
+// Purpose: User-modifiable filter state for data views (galleries, lists)
+// Initialized from UDFs and AppConfig, modified via UI controls
+//
+// Schema:
+// - UserScope: Text - User data scope from GetUserScope() ("All", "My", "Department", or user email)
+// - DepartmentScope: Text - Department scope from GetDepartmentScope() (department name or Blank for all)
+// - IncludeArchived: Boolean - Include archived records in views (false = active only, true = include archived)
+// - StatusFilter: Text - Selected status value (Blank = all statuses, specific value = filter by that status)
+// - DateRangeFilter: Text - Date range preset ("All", "Today", "ThisWeek", "ThisMonth", "Custom")
+// - CustomDateStart: Date - Custom date range start (only used if DateRangeFilter = "Custom")
+// - CustomDateEnd: Date - Custom date range end (only used if DateRangeFilter = "Custom")
+// - SearchTerm: Text - Text search query across searchable fields (empty = no search filter)
+// - CategoryFilter: Text - Selected category (Blank = all categories)
+// - PriorityFilter: Text - Selected priority (Blank = all priorities)
+// - OwnerFilter: Text - Filter by owner email (Blank = all owners)
+// - CurrentPage: Number - Current page for pagination (1-based index)
+// - PageSize: Number - Records per page for pagination (default from AppConfig.ItemsPerPage)
+//
+// Usage:
+// - Update single filter: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "query"}))
+// - Reset all filters: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "", StatusFilter: Blank(), CurrentPage: 1}))
+// - Gallery Items: Filter(DataSource,
+//     If(ActiveFilters.IncludeArchived, true, Status <> "Archived"),
+//     StartsWith(Lower(Name), Lower(ActiveFilters.SearchTerm)),
+//     If(IsBlank(ActiveFilters.StatusFilter), true, Status = ActiveFilters.StatusFilter)
+// )
+// - Date range: Filter(DataSource,
+//     Switch(ActiveFilters.DateRangeFilter,
+//         "Today", DateValue(Created) = Today(),
+//         "ThisWeek", DateValue(Created) >= DateRanges.StartOfWeek && DateValue(Created) <= DateRanges.EndOfWeek,
+//         "Custom", DateValue(Created) >= ActiveFilters.CustomDateStart && DateValue(Created) <= ActiveFilters.CustomDateEnd,
+//         true  // "All" or default
+//     )
+// )
+//
 Set(ActiveFilters, {
     // Scope Filters (initialized from UDFs)
     UserScope: GetUserScope(),
     DepartmentScope: GetDepartmentScope(),
 
     // Status Filters
-    ActiveOnly: true,
-    IncludeArchived: false,
+    IncludeArchived: false,  // false = show active only, true = include archived
     StatusFilter: Blank(),
+
+    // Date Range Filters
+    DateRangeFilter: "All",  // "All" | "Today" | "ThisWeek" | "ThisMonth" | "Custom"
+    CustomDateStart: Blank(),
+    CustomDateEnd: Blank(),
 
     // Search & Custom Filters
     SearchTerm: "",
@@ -105,7 +192,36 @@ Set(ActiveFilters, {
 // ============================================================
 // 3. UI STATE (Mutable)
 // ============================================================
-// UI-related state for dialogs, panels, selections
+// Purpose: UI component state (selections, panels, dialogs, forms)
+// Ephemeral state that doesn't persist between sessions
+//
+// Schema:
+// - SelectedItem: Record - Currently selected single item (Blank if no selection)
+// - SelectedItems: Table - Selected items in multi-select mode (empty table if no selection)
+// - SelectionMode: Text - Selection behavior ("single" = one item, "multiple" = multiple items)
+// - IsDetailsPanelOpen: Boolean - Details panel visibility (right-side panel showing item details)
+// - IsFilterPanelOpen: Boolean - Filter panel visibility (left-side or top filter controls)
+// - IsSettingsPanelOpen: Boolean - Settings panel visibility (app configuration, user preferences)
+// - IsConfirmDialogOpen: Boolean - Confirmation dialog visibility (for destructive actions)
+// - ConfirmDialogTitle: Text - Dialog title text (e.g., "Delete Confirmation")
+// - ConfirmDialogMessage: Text - Dialog message text (e.g., "Are you sure you want to delete this item?")
+// - ConfirmDialogAction: Text - Action to execute on confirm (e.g., "delete", "approve", "archive")
+// - FormMode: FormMode - Form display mode (FormMode.View = read-only, FormMode.Edit = editing, FormMode.New = creating)
+// - UnsavedChanges: Boolean - Form has unsaved modifications (used to show discard changes warning)
+//
+// Usage:
+// - Update selection: Set(UIState, Patch(UIState, {SelectedItem: Gallery.Selected}))
+// - Panel visibility: Panel.Visible = UIState.IsDetailsPanelOpen
+// - Open panel: Set(UIState, Patch(UIState, {IsDetailsPanelOpen: true}))
+// - Form mode: Form.Mode = UIState.FormMode
+// - Check edit mode: UIState.FormMode = FormMode.Edit (instead of using IsEditMode field)
+// - Confirmation dialog: Set(UIState, Patch(UIState, {
+//     IsConfirmDialogOpen: true,
+//     ConfirmDialogTitle: "Delete Item",
+//     ConfirmDialogMessage: "Are you sure?",
+//     ConfirmDialogAction: "delete"
+// }))
+//
 Set(UIState, {
     // Selection State
     SelectedItem: Blank(),
@@ -124,7 +240,6 @@ Set(UIState, {
     ConfirmDialogAction: Blank(),
 
     // Form States
-    IsEditMode: false,
     FormMode: FormMode.View,
     UnsavedChanges: false
 });
@@ -315,9 +430,11 @@ NotifyInfo("Filter aktualisiert");
 Set(ActiveFilters, {
     UserScope: GetUserScope(),
     DepartmentScope: GetDepartmentScope(),
-    ActiveOnly: true,
     IncludeArchived: false,
     StatusFilter: Blank(),
+    DateRangeFilter: "All",
+    CustomDateStart: Blank(),
+    CustomDateEnd: Blank(),
     SearchTerm: "",
     CategoryFilter: Blank(),
     PriorityFilter: Blank(),
