@@ -144,6 +144,95 @@ AppConfig = {
 };
 
 // ============================================================
+// SECTION 1A: CACHE STRATEGY & INVALIDATION
+// ============================================================
+//
+// CACHE SCOPE: Session-scoped (cleared on app close/restart)
+// CACHE TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
+// CACHE STORAGE: Collections (CachedProfileCache, CachedRolesCache)
+//
+// CRITICAL DATA CACHE:
+// - UserProfile: Cached from Office365Users.MyProfileV2()
+// - UserRoles: Cached from Office365Groups membership checks
+// - UserPermissions: Derived from UserRoles (no cache needed, no API calls)
+//
+// CACHE TTL CHECK:
+// Compare current time (Now()) with CacheTimestamp
+// If Now() - CacheTimestamp > 5 minutes: Cache expired, fetch fresh
+// If Now() - CacheTimestamp < 5 minutes: Cache valid, use cached value
+//
+// CACHE INVALIDATION TRIGGERS:
+// 1. Session end: User closes app → cache cleared (new session starts)
+// 2. TTL expiry: After 5 minutes of session time → can manually refresh
+// 3. Explicit refresh: User clicks "Refresh" button → manually re-fetch data
+// 4. Role change: If user's Azure AD groups change → not auto-detected (Phase 4+ feature)
+//
+// CACHE MISS BEHAVIOR:
+// - First app load: Cache is empty → Call APIs to populate cache
+// - After 5-minute TTL: Cache expired → Can call RefreshData() to re-populate
+// - On app crash/restart: New session → Cache cleared, fresh API calls
+//
+// CACHE HIT BEHAVIOR:
+// - Subsequent formula evaluations: Read from cache collections, no API calls
+// - Performance benefit: Office365Users calls reduced from per-evaluation to once per session
+// - Typical session: 7 API calls total (1 × MyProfileV2, 6 × Office365Groups)
+//
+// REFRESH PATTERN (for Phase 3+ features):
+// When user clicks "Refresh", manually re-fetch critical data:
+// Set(CacheTimestamp, Now() - TimeValue("0:6:0"));  // Expire cache by setting old timestamp
+// Re-run App.OnStart critical path logic
+// Or: Set(AppState, Patch(AppState, {IsLoading: true}));
+//     ClearCollect(CachedProfileCache, Office365Users.MyProfileV2());
+//     Set(CacheTimestamp, Now());
+//     Set(AppState, Patch(AppState, {IsLoading: false}));
+//
+// SCALABILITY NOTES:
+// - Current cache: In-app collections (good for <10,000 sessions)
+// - Future optimization: Dataverse cache table (scales to 100,000+ sessions)
+// - Future optimization: Service principal cache in backend flow (reduces API calls per user)
+//
+// CACHE COLLECTION SCHEMAS
+//
+// CachedProfileCache: Record (single user profile)
+// Schema: {
+//   DisplayName: Text,
+//   Email: Text,
+//   Department: Text,
+//   JobTitle: Text,
+//   MobilePhone: Text
+// }
+// Size: ~1KB per user
+// Updated: Once per session (or on explicit refresh)
+//
+// CachedRolesCache: Record (user roles)
+// Schema: {
+//   IsAdmin: Boolean,
+//   IsManager: Boolean,
+//   IsHR: Boolean,
+//   IsGF: Boolean,
+//   IsSachbearbeiter: Boolean,
+//   IsUser: Boolean
+// }
+// Size: <1KB per user
+// Updated: Once per session (or on explicit refresh)
+//
+// CACHING BEST PRACTICES
+//
+// DO:
+// ✓ Cache static or slow-changing data (user profile, roles)
+// ✓ Cache data that comes from expensive APIs (Office365Users, Office365Groups)
+// ✓ Set reasonable TTL based on data freshness requirements
+// ✓ Document cache invalidation triggers for your cache
+// ✓ Test cache behavior (verify cache hits via Monitor tool)
+//
+// DON'T:
+// ✗ Cache frequently changing data (current time, temporary form values)
+// ✗ Cache data without TTL (stale data risk)
+// ✗ Add caching without understanding data freshness requirements
+// ✗ Cache sensitive data that changes outside the app (e.g., Azure AD role changes)
+// ✗ Implement custom cache without documenting invalidation strategy
+
+// ============================================================
 // SECTION 1B: USER PROFILE CACHING
 // Cached Office365Users API results for session-scoped reuse
 // ============================================================
