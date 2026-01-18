@@ -961,5 +961,131 @@ GetInitials(fullName: Text): Text =
     );
 
 // ============================================================
+// SECTION 4: ERROR MESSAGE LOCALIZATION (German)
+// User-friendly error messages without technical jargon
+// ============================================================
+//
+// Depends on: Nothing (static message templates)
+// Used by: App.OnStart error handlers, Phase 3+ features (delete, patch, approve)
+//
+// Design Principle:
+// - All error messages are user-friendly German text
+// - No technical error codes, stack traces, or API details
+// - Include remediation hints where possible ("check network", "retry later")
+// - Never show to user: "Office365Users Connector Timeout", "HTTP 401", "Error Code: -2147024809"
+//
+
+// Profile loading errors - critical path (blocks app)
+ErrorMessage_ProfileLoadFailed(connectorName: Text): Text =
+    Switch(connectorName,
+        "Office365Users", "Ihre Profilinformationen konnten nicht geladen werden. Bitte überprüfen Sie Ihre Internetverbindung.",
+        "Office365Groups", "Ihre Berechtigungen konnten nicht überprüft werden. Bitte versuchen Sie später erneut.",
+        "Generic", "Ein Fehler ist aufgetreten. Bitte aktualisieren Sie die App und versuchen Sie erneut."
+    );
+
+// Data refresh/operation errors
+ErrorMessage_DataRefreshFailed(operationType: Text): Text =
+    Switch(operationType,
+        "save", "Speichern fehlgeschlagen. Bitte überprüfen Sie Ihre Eingabe und versuchen Sie erneut.",
+        "delete", "Löschen fehlgeschlagen. Sie haben möglicherweise keine Berechtigung.",
+        "load", "Daten konnten nicht geladen werden. Bitte überprüfen Sie Ihre Internetverbindung.",
+        "patch", "Änderungen konnten nicht gespeichert werden. Bitte versuchen Sie später erneut.",
+        "approve", "Genehmigung fehlgeschlagen. Sie haben möglicherweise keine Berechtigung.",
+        "reject", "Ablehnung fehlgeschlagen. Bitte versuchen Sie später erneut.",
+        "Generic", "Vorgang fehlgeschlagen. Bitte versuchen Sie später erneut."
+    );
+
+// Permission denied errors - user action blocked
+ErrorMessage_PermissionDenied(actionName: Text): Text =
+    "Sie haben keine Berechtigung zum Ausführen dieser Aktion: " & actionName;
+
+// Generic error fallback
+ErrorMessage_Generic: Text = "Ein Fehler ist aufgetreten. Bitte versuchen Sie später erneut.";
+
+// Validation error messages
+ErrorMessage_ValidationFailed(fieldName: Text, reason: Text): Text =
+    "Validierung fehlgeschlagen für " & fieldName & ": " & reason;
+
+// Network/connection errors
+ErrorMessage_NetworkError: Text = "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihr Netzwerk und versuchen Sie erneut.";
+
+// Timeout errors
+ErrorMessage_TimeoutError: Text = "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie später erneut.";
+
+// Not found errors
+ErrorMessage_NotFound(itemType: Text): Text =
+    itemType & " nicht gefunden. Möglicherweise wurde es gelöscht oder Sie haben keinen Zugriff.";
+
+
+// ============================================================
+// SECTION 5: ERROR HANDLING PATTERNS FOR PHASES 3+
+// ============================================================
+//
+// Depends on: ErrorMessage_* UDFs (defined above)
+// Used by: Phase 3+ features that perform operations (delete, patch, approve)
+//
+// PATTERN GUIDELINES:
+//
+// Pattern 1: Critical Path Error (blocks app startup)
+// Use when user MUST have this data to continue the app
+// Example: User profile loading fails during App.OnStart
+// Result: Show German error message, keep app locked (IsInitializing: true), require user action
+//
+// Pattern 2: Non-Critical Error (graceful degradation)
+// Use when app can function without this data
+// Example: Department lookup fails to load (shows empty in dropdown)
+// Result: Use empty fallback, silently continue startup, no error dialog
+//
+// Pattern 3: User Action Error (notify, don't block app)
+// Use when user performs action that fails (save, delete, approve)
+// Example: Patch/Remove/Create fails due to permissions or validation
+// Result: Show German error message, keep form open, user can retry
+//
+// Example implementations:
+//
+// --- CRITICAL PATH ERROR (Phase 2 - App.OnStart) ---
+// When critical data fails:
+//   If(
+//     IsError(Office365Users.MyProfileV2()),
+//     Set(AppState, Patch(AppState, {
+//       ShowErrorDialog: true,
+//       ErrorMessage: ErrorMessage_ProfileLoadFailed("Office365Users"),
+//       IsInitializing: true  // Keep app locked
+//     }))
+//   );
+//
+// --- NON-CRITICAL ERROR (Phase 2 - Background data) ---
+// When lookup data fails:
+//   ClearCollect(
+//     CachedDepartments,
+//     IfError(
+//       Filter(Departments, Status = "Active"),
+//       IfError(..., Table())  // Empty fallback, silent degradation
+//     )
+//   );
+//
+// --- USER ACTION ERROR (Phase 3 - Delete) ---
+// When user performs delete:
+//   IfError(
+//     Remove(Items, Gallery.Selected),
+//     Set(AppState, Patch(AppState, {
+//       ShowErrorDialog: true,
+//       ErrorMessage: ErrorMessage_DataRefreshFailed("delete")
+//     }))
+//   );
+//
+// --- USER ACTION ERROR (Phase 4 - Form submit) ---
+// When user saves form:
+//   IfError(
+//     SubmitForm(EditForm),
+//     Set(AppState, Patch(AppState, {
+//       ShowErrorDialog: true,
+//       ErrorMessage: ErrorMessage_DataRefreshFailed("save")
+//     }))
+//   );
+//
+
+
+// ============================================================
 // END OF APP.FORMULAS
 // ============================================================
