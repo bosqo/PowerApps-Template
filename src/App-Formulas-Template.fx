@@ -14,6 +14,27 @@
 // 4. Adjust department names (Sales, Finance, IT) to match your org
 //
 // ============================================================
+//
+// NAMING CONVENTIONS IN THIS TEMPLATE
+// ============================================================
+//
+// NAMED FORMULAS: PascalCase (e.g., ThemeColors, UserProfile, DateRanges)
+// - Static configurations and computed values
+// - No verb prefix (these are nouns representing data)
+//
+// USER-DEFINED FUNCTIONS (UDFs): PascalCase with verb prefix
+// - Boolean checks: Has*, Can*, Is* (e.g., HasRole, CanAccessRecord, IsValidEmail)
+// - Retrieval: Get* (e.g., GetUserScope, GetThemeColor)
+// - Formatting: Format* (e.g., FormatDateShort, FormatCurrency)
+// - Actions (Behavior): Notify*, Show*, Update* (e.g., NotifySuccess)
+//
+// Examples:
+// - HasRole("Admin") → Boolean check
+// - GetUserScope() → Retrieval function
+// - FormatDateShort(date) → Formatting function
+// - NotifySuccess("Saved") → Behavior function (Void return)
+//
+// ============================================================
 
 
 // ============================================================
@@ -288,7 +309,8 @@ DefaultFilters = {
 // ============================================================
 
 // -----------------------------------------------------------
-// Permission & Role Check Functions
+// Permission & Role Check Functions (Has*, Can*)
+// Returns: Boolean
 // -----------------------------------------------------------
 
 // Check if user has a specific permission by name
@@ -362,7 +384,8 @@ GetRoleBadge(): Text = RoleBadgeText;
 
 
 // -----------------------------------------------------------
-// Access Control Functions
+// Data Retrieval Functions (Get*)
+// Returns: Various types (Text, Color, Number, Record)
 // -----------------------------------------------------------
 
 // Get effective user scope for datasource filtering
@@ -402,7 +425,8 @@ CanDeleteRecord(ownerEmail: Text): Boolean =
 
 
 // -----------------------------------------------------------
-// Theme & Color Functions
+// Theme & Color Functions (Get*)
+// Returns: Color
 // -----------------------------------------------------------
 
 // Get theme color by name
@@ -512,9 +536,10 @@ GetPriorityColor(priority: Text): Color =
 
 
 // -----------------------------------------------------------
-// Notification Functions (Behavior UDFs - Power Fx 2025)
+// Notification Functions (Notify*)
+// Returns: Void (side effects only)
+// NOTE: Behavior UDFs use curly braces and Void return type
 // -----------------------------------------------------------
-// NOTE: Behavior UDFs must use Void return type and curly braces
 
 // Standard success notification
 NotifySuccess(message: Text): Void = {
@@ -559,8 +584,10 @@ NotifyValidationError(fieldName: Text, message: Text): Void = {
         NotificationType.Warning
     );
 };
+
 // -----------------------------------------------------------
-// Validation Functions
+// Validation Functions (Is*)
+// Returns: Boolean
 // -----------------------------------------------------------
 
 // Validate email format
@@ -616,7 +643,8 @@ IsDateInRange(inputDate: Date, minDate: Date, maxDate: Date): Boolean =
 
 
 // -----------------------------------------------------------
-// Pagination Functions
+// Pagination Functions (Get*, Can*)
+// Returns: Number (pages/counts) or Boolean (navigation checks)
 // -----------------------------------------------------------
 
 // Calculate total number of pages
@@ -647,7 +675,8 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
 
 
 // -----------------------------------------------------------
-// Timezone Conversion Functions (CET/UTC)
+// Timezone Conversion Functions (Convert*, Get*, Is*)
+// Returns: DateTime, Date, or Boolean
 // CET = Central European Time (Standard: UTC+1, Daylight: UTC+2)
 // SharePoint stores dates in UTC, convert to CET timezone (CET/CEST)
 // -----------------------------------------------------------
@@ -696,7 +725,9 @@ GetCETToday(): Date =
 
 
 // -----------------------------------------------------------
-// Date & Time Formatting Functions (German Format, CET Timezone)
+// Date & Time Formatting Functions (Format*)
+// Returns: Text (formatted output)
+// German Format (d.m.yyyy), CET Timezone
 // -----------------------------------------------------------
 
 // Format date as short format (e.g., "15.1.2025")
@@ -755,7 +786,8 @@ FormatDateRelative(inputDate: Date): Text =
 
 
 // -----------------------------------------------------------
-// Text Formatting Functions
+// Text Formatting Functions (Format*, Get*)
+// Returns: Text (formatted output)
 // -----------------------------------------------------------
 
 // Format number as currency
