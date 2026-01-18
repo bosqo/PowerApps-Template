@@ -280,8 +280,11 @@ Set(CacheTimestamp, Now());
 ClearCollect(CachedProfileCache, {});  // Will be populated by Office365Users call
 ClearCollect(CachedRolesCache, {});    // Will be populated by Office365Groups calls
 
+// Ensure app stays locked during critical path execution
+Set(AppState, Patch(AppState, {IsInitializing: true}));
+
 // CRITICAL PATH: Sequential load ensures permissions calculated from complete role data
-// Step 1: Fetch user profile from Office365Users
+// Step 1: Fetch user profile from Office365Users with error handling
 ClearCollect(
     CachedProfileCache,
     IfError(
@@ -292,7 +295,8 @@ ClearCollect(
             JobTitle: Office365Users.MyProfileV2().JobTitle,
             MobilePhone: Office365Users.MyProfileV2().MobilePhone
         },
-        // ERROR HANDLER: Profile fetch failed
+        // ERROR HANDLER: Profile fetch failed - graceful degradation
+        // Fallback values allow app to proceed even if Office365 is unavailable
         {
             DisplayName: "Unbekannt",
             Email: "unknown@company.com",
@@ -303,17 +307,23 @@ ClearCollect(
     )
 );
 
-// Update cache timestamp after profile fetch
+// Update cache timestamp after profile fetch completes
 Set(CacheTimestamp, Now());
 
 // Step 2: Check user roles from cached profile
 // UserRoles Named Formula reads from CachedRolesCache on first call
 // Office365Groups.CheckMembershipAsync() called once per role to populate cache
+// Pattern: Named Formula is lazy-evaluated here to trigger Office365Groups checks
 Set(AppState, Patch(AppState, {UserRoles: UserRoles}));
 
 // Step 3: Calculate permissions from roles
 // UserPermissions Named Formula reads from cached roles (no additional API calls)
+// This completes the critical path without making additional Office365 requests
 Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
+
+// Critical path completed: app will unlock in FINALIZE section
+// If any Office365 APIs failed above, fallback values were used
+// App can still function, but with degraded role/permission data
 
 
 // ============================================================
