@@ -101,12 +101,17 @@
 // - ShowErrorDialog: Boolean - Error dialog visibility state
 // - ErrorMessage: Text - User-facing error message (localized, friendly)
 // - ErrorDetails: Text - Technical error details for debugging (stack trace, error codes)
+// - CurrentPage: Number - Current page number for pagination (1-based index, starts at 1)
+// - TotalPages: Number - Total pages calculated from filtered record count (calculated dynamically)
+// - PageSize: Number - Records per page for pagination (set to 50 for optimal performance)
+// - LastFilterChangeTime: DateTime - Timestamp of last filter change (used to detect filter changes and reset page)
 //
 // Usage:
 // - Update: Set(AppState, Patch(AppState, {IsLoading: true}))
 // - Read: AppState.IsLoading, AppState.CurrentScreen
 // - Navigation: Set(AppState, Patch(AppState, {PreviousScreen: AppState.CurrentScreen, CurrentScreen: "Details"}))
 // - Error: Set(AppState, Patch(AppState, {ShowErrorDialog: true, ErrorMessage: "Failed to save", ErrorDetails: ErrorResponse}))
+// - Pagination: Set(AppState, Patch(AppState, {CurrentPage: 2}))
 //
 // TIMING: Section 1 - AppState initialization
 Set(AppState, {
@@ -130,6 +135,12 @@ Set(AppState, {
     // Authentication & Authorization (populated in critical path)
     UserRoles: Blank(),      // Populated in critical path after Office365Groups checks
     UserPermissions: Blank(), // Populated in critical path after roles determined
+
+    // Pagination (for galleries with >2000 record datasets)
+    CurrentPage: 1,           // Current page number (1-based)
+    TotalPages: 0,            // Total pages calculated from filtered record count
+    PageSize: 50,             // Records per page (PERF-05 recommendation)
+    LastFilterChangeTime: Now(), // Timestamp of last filter change (to reset page on filter change)
 
     // Error Handling
     ShowErrorDialog: false,
@@ -158,17 +169,14 @@ Set(AppState, {
 // - CategoryFilter: Text - Selected category (Blank = all categories)
 // - PriorityFilter: Text - Selected priority (Blank = all priorities)
 // - OwnerFilter: Text - Filter by owner email (Blank = all owners)
-// - CurrentPage: Number - Current page for pagination (1-based index)
-// - PageSize: Number - Records per page for pagination (default from AppConfig.ItemsPerPage)
+// - ShowMyItemsOnly: Boolean - Filter to show only current user's items (used by CanViewRecord)
+// - SelectedStatus: Text - Selected status filter value (empty string = all statuses)
+// - SearchTerm: Text - Text search query across searchable fields (empty = no search)
 //
 // Usage:
 // - Update single filter: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "query"}))
-// - Reset all filters: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "", StatusFilter: Blank(), CurrentPage: 1}))
-// - Gallery Items: Filter(DataSource,
-//     If(ActiveFilters.IncludeArchived, true, Status <> "Archived"),
-//     StartsWith(Lower(Name), Lower(ActiveFilters.SearchTerm)),
-//     If(IsBlank(ActiveFilters.StatusFilter), true, Status = ActiveFilters.StatusFilter)
-// )
+// - Reset all filters: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "", SelectedStatus: "", ShowMyItemsOnly: false}))
+// - Gallery Items: FilteredGalleryData(ActiveFilters.ShowMyItemsOnly, ActiveFilters.SelectedStatus, ActiveFilters.SearchTerm)
 // - Date range: Filter(DataSource,
 //     Switch(ActiveFilters.DateRangeFilter,
 //         "Today", DateValue(Created) = Today(),
@@ -197,10 +205,8 @@ Set(ActiveFilters, {
     CategoryFilter: Blank(),
     PriorityFilter: Blank(),
     OwnerFilter: Blank(),
-
-    // Pagination
-    CurrentPage: 1,
-    PageSize: AppConfig.ItemsPerPage
+    ShowMyItemsOnly: false,   // Filter to show only current user's items
+    SelectedStatus: ""        // Selected status filter value
 });
 
 
@@ -832,9 +838,11 @@ Set(ActiveFilters, {
     CategoryFilter: Blank(),
     PriorityFilter: Blank(),
     OwnerFilter: Blank(),
-    CurrentPage: 1,
-    PageSize: AppConfig.ItemsPerPage
+    ShowMyItemsOnly: false,
+    SelectedStatus: ""
 });
+// Reset pagination when filters are cleared
+Set(AppState, Patch(AppState, {CurrentPage: 1}));
 NotifyInfo("Filter zurückgesetzt");
 
 
