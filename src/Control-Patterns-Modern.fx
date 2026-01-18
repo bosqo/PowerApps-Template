@@ -244,6 +244,68 @@ Set(ActiveFilters,
 )
 
 
+// -----------------------------------------------------------
+// Pattern 1.7: Filtered Gallery with Active Filter UI (FILT-05)
+// -----------------------------------------------------------
+
+// For galleries with datasets >2000 records using multi-condition filters
+// Purpose: Show filtered records (status, role-based, search) with UI controls
+// Uses FilteredGalleryData() composition from App-Formulas
+// Filters are applied via ActiveFilters state variable (updated by UI controls)
+//
+// Key principle: Gallery.Items calls FilteredGalleryData with current filter values
+// Gallery automatically updates when any filter value in ActiveFilters changes
+
+glr_Items_FilteredGallery_Items: Table =
+  FilteredGalleryData(
+    ActiveFilters.ShowMyItemsOnly,
+    ActiveFilters.SelectedStatus,
+    ActiveFilters.SearchTerm
+  );
+
+// Status Dropdown Control
+// Populated with distinct status values from Items table
+drp_StatusFilter_Items: Table = Table(
+  {Value: ""},
+  {Value: "Active"},
+  {Value: "Pending"},
+  {Value: "Completed"}
+);
+
+// Status Dropdown OnChange
+drp_StatusFilter_OnChange: Boolean =
+  Set(ActiveFilters, Patch(ActiveFilters, {SelectedStatus: drp_StatusFilter.Value}));
+
+// Search TextInput OnChange
+txt_SearchBox_OnChange: Boolean =
+  Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: txt_SearchBox.Value}));
+
+// My Items Toggle OnChange
+tog_MyItemsOnly_OnChange: Boolean =
+  Set(ActiveFilters, Patch(ActiveFilters, {ShowMyItemsOnly: tog_MyItemsOnly.Value}));
+
+// Clear All Button OnSelect
+btn_ClearAll_OnSelect: Boolean =
+  Set(ActiveFilters, {
+    ShowMyItemsOnly: false,
+    SelectedStatus: "",
+    SearchTerm: ""
+  });
+
+// Filter Summary Label (shows active filter count)
+lbl_FilterSummary_Text: Text =
+  Concatenate(
+    "Filter: ",
+    If(ActiveFilters.SelectedStatus <> "", Concatenate(ActiveFilters.SelectedStatus, ", "), ""),
+    If(ActiveFilters.ShowMyItemsOnly, "Meine Einträge, ", ""),
+    If(ActiveFilters.SearchTerm <> "", Concatenate("Suche: '", ActiveFilters.SearchTerm, "'"), "")
+  );
+
+// Record Count Label (shows how many records match current filters)
+lbl_RecordCount_Text: Text =
+  Concatenate(CountRows(glr_Items_FilteredGallery_Items), " Einträge gefunden");
+
+
 // ============================================================
 // SECTION 2: VISIBILITY PATTERNS
 // ============================================================
