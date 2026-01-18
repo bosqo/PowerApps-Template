@@ -121,56 +121,62 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Category | Phase | Status |
 |-------------|----------|-------|--------|
-| PERF-01 | Performance | TBD | Pending |
-| PERF-02 | Performance | TBD | Pending |
-| PERF-03 | Performance | TBD | Pending |
-| PERF-04 | Performance | TBD | Pending |
-| PERF-05 | Performance | TBD | Pending |
-| FILT-01 | Filtering | TBD | Pending |
-| FILT-02 | Filtering | TBD | Pending |
-| FILT-03 | Filtering | TBD | Pending |
-| FILT-04 | Filtering | TBD | Pending |
-| FILT-05 | Filtering | TBD | Pending |
-| FILT-06 | Filtering | TBD | Pending |
-| NAMING-01 | Code Structure | TBD | Pending |
-| NAMING-02 | Code Structure | TBD | Pending |
-| NAMING-03 | Code Structure | TBD | Pending |
-| NAMING-04 | Code Structure | TBD | Pending |
-| NAMING-05 | Code Structure | TBD | Pending |
-| NAMING-06 | Code Structure | TBD | Pending |
-| VAR-01 | Variable Structure | TBD | Pending |
-| VAR-02 | Variable Structure | TBD | Pending |
-| VAR-03 | Variable Structure | TBD | Pending |
-| VAR-04 | Variable Structure | TBD | Pending |
-| VAR-05 | Variable Structure | TBD | Pending |
-| ERROR-01 | Error Handling | TBD | Pending |
-| ERROR-02 | Error Handling | TBD | Pending |
-| ERROR-03 | Error Handling | TBD | Pending |
-| ERROR-04 | Error Handling | TBD | Pending |
-| ERROR-05 | Error Handling | TBD | Pending |
-| NOTIF-01 | Notifications | TBD | Pending |
-| NOTIF-02 | Notifications | TBD | Pending |
-| NOTIF-03 | Notifications | TBD | Pending |
-| NOTIF-04 | Notifications | TBD | Pending |
-| NOTIF-05 | Notifications | TBD | Pending |
-| NOTIF-06 | Notifications | TBD | Pending |
-| NOTIF-07 | Notifications | TBD | Pending |
-| NOTIF-08 | Notifications | TBD | Pending |
-| BUG-01 | Bug Fixes | TBD | Pending |
-| BUG-02 | Bug Fixes | TBD | Pending |
-| BUG-03 | Bug Fixes | TBD | Pending |
-| BUG-04 | Bug Fixes | TBD | Pending |
-| DOC-01 | Documentation | TBD | Pending |
-| DOC-02 | Documentation | TBD | Pending |
-| DOC-03 | Documentation | TBD | Pending |
-| DOC-04 | Documentation | TBD | Pending |
-| DOC-05 | Documentation | TBD | Pending |
+| NAMING-01 | Code Structure | Phase 1 | Pending |
+| NAMING-02 | Code Structure | Phase 1 | Pending |
+| NAMING-03 | Code Structure | Phase 1 | Pending |
+| NAMING-04 | Code Structure | Phase 1 | Pending |
+| NAMING-05 | Code Structure | Phase 1 | Pending |
+| NAMING-06 | Code Structure | Phase 1 | Pending |
+| VAR-01 | Variable Structure | Phase 1 | Pending |
+| VAR-02 | Variable Structure | Phase 1 | Pending |
+| VAR-03 | Variable Structure | Phase 1 | Pending |
+| VAR-04 | Variable Structure | Phase 1 | Pending |
+| VAR-05 | Variable Structure | Phase 1 | Pending |
+| BUG-01 | Bug Fixes | Phase 1 | Pending |
+| BUG-02 | Bug Fixes | Phase 1 | Pending |
+| BUG-03 | Bug Fixes | Phase 1 | Pending |
+| BUG-04 | Bug Fixes | Phase 1 | Pending |
+| PERF-01 | Performance | Phase 2 | Pending |
+| PERF-02 | Performance | Phase 2 | Pending |
+| PERF-03 | Performance | Phase 2 | Pending |
+| ERROR-01 | Error Handling | Phase 2 | Pending |
+| ERROR-02 | Error Handling | Phase 2 | Pending |
+| ERROR-03 | Error Handling | Phase 2 | Pending |
+| ERROR-04 | Error Handling | Phase 2 | Pending |
+| ERROR-05 | Error Handling | Phase 2 | Pending |
+| FILT-01 | Filtering | Phase 3 | Pending |
+| FILT-02 | Filtering | Phase 3 | Pending |
+| FILT-03 | Filtering | Phase 3 | Pending |
+| FILT-04 | Filtering | Phase 3 | Pending |
+| FILT-05 | Filtering | Phase 3 | Pending |
+| FILT-06 | Filtering | Phase 3 | Pending |
+| PERF-04 | Performance | Phase 3 | Pending |
+| PERF-05 | Performance | Phase 3 | Pending |
+| NOTIF-01 | Notifications | Phase 4 | Pending |
+| NOTIF-02 | Notifications | Phase 4 | Pending |
+| NOTIF-03 | Notifications | Phase 4 | Pending |
+| NOTIF-04 | Notifications | Phase 4 | Pending |
+| NOTIF-05 | Notifications | Phase 4 | Pending |
+| NOTIF-06 | Notifications | Phase 4 | Pending |
+| NOTIF-07 | Notifications | Phase 4 | Pending |
+| NOTIF-08 | Notifications | Phase 4 | Pending |
+| DOC-01 | Documentation | Phase 4 | Pending |
+| DOC-02 | Documentation | Phase 4 | Pending |
+| DOC-03 | Documentation | Phase 4 | Pending |
+| DOC-04 | Documentation | Phase 4 | Pending |
+| DOC-05 | Documentation | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 45 total
-- Mapped to phases: 0 (to be filled by roadmapper)
-- Unmapped: 45 ⚠️
+- Mapped to phases: 45
+- Unmapped: 0 ✓
+
+**Phase Distribution:**
+- Phase 1 (Code Cleanup & Standards): 15 requirements
+- Phase 2 (Performance Foundation): 8 requirements
+- Phase 3 (Delegation & Filtering): 8 requirements
+- Phase 4 (User Experience & Documentation): 13 requirements
 
 ---
 *Requirements defined: 2026-01-18*
-*Last updated: 2026-01-18 after initial definition*
+*Last updated: 2026-01-18 after roadmap creation*
