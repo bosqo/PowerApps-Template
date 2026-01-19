@@ -361,6 +361,123 @@ Nach Änderungen an App.OnStart:
 
 ---
 
+## Notification System (Phase 4)
+
+Toast notifications provide non-blocking, Fluent Design-compliant feedback for user actions. Use notifications for form submissions, validation errors, approval actions, and success confirmations.
+
+### Notification UDFs - Public API
+
+All notification UDFs are defined in `App-Formulas-Template.fx` (lines 950-1000+). Never call `Notify()` directly; always use these UDFs instead for consistent styling and state management:
+
+| UDF | Type | Usage | Auto-Dismiss | Example |
+|-----|------|-------|--------------|---------|
+| `NotifySuccess(msg)` | Success | Record saved, action completed | 5s | `NotifySuccess("Record saved successfully")` |
+| `NotifyError(msg)` | Error | Save failed, permission denied | Manual (X button) | `NotifyError("Save failed: Check network")` |
+| `NotifyWarning(msg)` | Warning | Validation failure, confirmation needed | 5s | `NotifyWarning("Email format invalid")` |
+| `NotifyInfo(msg)` | Info | Status updates, informational messages | 5s | `NotifyInfo("Loading data...")` |
+| `NotifyPermissionDenied(action)` | Error | User lacks permission for action | Manual | `NotifyPermissionDenied("approve records")` |
+| `NotifyActionCompleted(action, name)` | Success | Action finished | 5s | `NotifyActionCompleted("Delete", "Item 1")` |
+| `NotifyValidationError(field, msg)` | Warning | Form field validation failed | 5s | `NotifyValidationError("Email", "Invalid format")` |
+
+Each UDF internally calls `AddToast()` to update the `NotificationStack` collection and display the toast in the UI.
+
+### Toast Lifecycle
+
+1. Call `NotifySuccess()` or related UDF (Layer 1 - Trigger)
+2. UDF calls `AddToast()` internally (Layer 2 - State)
+3. `AddToast()` adds row to `NotificationStack` collection
+4. UI layer (`cnt_NotificationStack` container) automatically renders toast
+5. If `AutoClose=true`: Toast fades and disappears after configured duration (default 5s)
+6. If `AutoClose=false`: Toast persists until user clicks X button or app closes
+
+See `Control-Patterns-Modern.fx` (Pattern 1.9) for container implementation.
+
+### Code Examples
+
+**Example 1: Form submission success**
+```powerfx
+btn_SaveRecord.OnSelect =
+If(
+    IsValid(form_EditRecord),
+    Patch(Items, ThisItem, form_EditRecord.Updates);
+    NotifySuccess("Record saved successfully"),
+    NotifyValidationError("Form", "Please complete all required fields")
+)
+```
+
+**Example 2: Delete with confirmation**
+```powerfx
+btn_DeleteRecord.OnSelect =
+If(
+    Confirm("Delete this record permanently?"),
+    IfError(
+        Remove(Items, ThisItem);
+        NotifyActionCompleted("Delete", ThisItem.Name),
+        NotifyError("Failed to delete: " & Error.Message)
+    )
+)
+```
+
+**Example 3: Custom notification with specific timing**
+```powerfx
+// If you need custom message, type, or duration:
+AddToast("Custom notification", "Info", true, 8000)
+// Parameters: message, type ("Success"/"Error"/"Warning"/"Info"), autoClose (true/false), duration(ms)
+```
+
+### Configuration
+
+Toast behavior is configured in `ToastConfig` Named Formula in `App-Formulas-Template.fx` (around line 885):
+
+```powerfx
+ToastConfig = {
+    Width: 350,              // Toast width in pixels
+    MaxWidth: 400,           // Maximum width on large screens
+    SuccessDuration: 5000,   // Auto-dismiss after 5 seconds
+    WarningDuration: 5000,   // Auto-dismiss after 5 seconds
+    InfoDuration: 5000,      // Auto-dismiss after 5 seconds
+    ErrorDuration: 0,        // Never auto-dismiss errors (0 = manual only)
+    AnimationDuration: 300   // Fade-in/fade-out animation speed (ms)
+}
+```
+
+**How to customize:**
+
+- **Change auto-dismiss timeout:** Edit `SuccessDuration`, `WarningDuration`, `InfoDuration` in `ToastConfig`
+- **Change toast colors:** Edit `GetToastBackground()` UDF (lines 920-930) to return different `ThemeColors` values
+- **Change icons:** Edit `GetToastIcon()` UDF (lines 935-945) to use different Unicode characters (e.g., "👍" instead of "✓")
+- **Add custom notification type:** Add case to `GetToastBackground()`, `GetToastIcon()`, `GetToastIconColor()` UDFs, then create new UDF like `NotifyDebug(msg) = AddToast(msg, "Debug", true, 5000)`
+
+Example: To make errors auto-dismiss after 10 seconds:
+```powerfx
+ErrorDuration: 10000  // Change in ToastConfig
+```
+
+### Best Practices
+
+- Always use specific UDF (`NotifySuccess` vs `NotifyError`) for correct styling and behavior
+- Errors should describe both problem and solution: "Failed to save: Check network connection"
+- Keep messages brief (one sentence, <80 characters ideally)
+- Avoid showing sensitive information in toasts (user emails, database IDs, system errors)
+- For long operations (>5s), disable button during operation and show progress indicator
+- Group related notifications (don't spam 10 toasts for single action)
+- Error toasts never auto-dismiss; user must acknowledge with X button
+- Test notifications in Power Apps Monitor (F12) to verify they appear in `NotificationStack` collection
+
+### Common Issues & Quick Fixes
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Toasts don't appear | `NotificationStack` not initialized | Check App.OnStart Section 7 for `ClearCollect(NotificationStack, Table())` |
+| Toast blocks content | `cnt_NotificationStack` ZIndex too low | Set `ZIndex = 1000` on notification container |
+| Toasts overlap | Container `Spacing` property wrong | Set `cnt_NotificationStack` property: `Spacing: 12` |
+| Error auto-dismisses | `ErrorDuration` in `ToastConfig` not 0 | Change `ErrorDuration: 0` in `ToastConfig` |
+| Collection grows unbounded | Old toasts not being removed | Verify `RemoveToast()` called on close button, auto-dismiss formula working |
+
+See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed diagnosis of these and other issues.
+
+---
+
 ## Deployment & ALM
 
 ### Automatisierte Deployment-Scripts
