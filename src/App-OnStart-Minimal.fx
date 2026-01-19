@@ -661,6 +661,11 @@ Set(NotificationCounter, 0);
 // Used by timer control in UI layer (04-02) to track which toast is being removed
 Set(ToastToRemove, Blank());
 
+// Animation state: Track when toast appears for entrance animation
+// Used by cnt_Toast.Opacity formula to create fade-in effect over 300ms
+// Set to Blank() at startup; will be updated by toast controls when rendered
+Set(ToastAnimationStart, Blank());
+
 // OPTIONAL: Periodic cleanup of old toasts (safety net)
 // Uncomment if you notice NotificationStack growing unbounded
 // (Usually handled by auto-dismiss timers in UI, but this provides fallback)
