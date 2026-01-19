@@ -1060,6 +1060,32 @@ If(
 //
 // Purpose of Phase 4-02: Translate notification state into polished animated UI
 
+// ============================================================
+// PATTERN 1.9: TOAST NOTIFICATION CONTAINER & TILES (Phase 4)
+// ============================================================
+// Renders toast notifications in top-right corner as non-blocking overlay
+// Connects to NotificationStack collection managed by App.Formulas layer
+//
+// Architecture:
+// - Parent: cnt_NotificationStack (vertical container, fixed position, high Z-index)
+// - Bind to: NotificationStack collection (Layer 2 state)
+// - Children: cnt_Toast tiles (repeating, one per notification)
+// - Styling: Dynamic via GetToastBackground(), GetToastIcon(), GetToastIconColor()
+// - Interaction: Close button calls RemoveToast(ID) to delete specific toast
+// - Animation: Slide-in on entrance, fade-out on auto-dismiss exit
+//
+// Three-Layer System:
+// Layer 1 (Trigger): NotifySuccess(), NotifyError() in App-Formulas → call AddToast()
+// Layer 2 (State): NotificationStack collection in App.OnStart + AddToast/RemoveToast UDFs
+// Layer 3 (UI): cnt_NotificationStack + cnt_Toast + auto-dismiss formulas (this section)
+//
+// Related:
+// - Formula layer: App-Formulas-Template.fx (NotifySuccess, NotifyError, AddToast, RemoveToast)
+// - Initialization: App.OnStart Section 7 (NotificationStack collection setup)
+// - Customization: docs/TOAST-NOTIFICATION-GUIDE.md
+// - Troubleshooting: docs/TROUBLESHOOTING.md
+// ============================================================
+
 // -----------------------------------------------------------
 // Pattern 11.1: Toast Notification Container (Main)
 // -----------------------------------------------------------
@@ -1154,6 +1180,17 @@ If(
 
 // Visibility & Timing:
 // ============
+// ============================================================
+// AUTO-DISMISS MECHANISM (for toasts with AutoClose=true)
+// ============================================================
+// Visible property monitors: If(ThisItem.AutoClose && elapsed > 5s, false, true)
+// - When elapsed time exceeds configured duration, Visible becomes false
+// - Opacity property fades over last 300ms (4.7s-5.0s) for smooth fade-out effect
+// - After 5s, toast disappears from screen and should be removed from NotificationStack
+// - Error toasts (AutoClose=false) are never hidden by this formula
+// - See docs/TROUBLESHOOTING.md#problem-4 if errors auto-dismiss unexpectedly
+// ============================================================
+
 // Visible: If(ThisItem.AutoClose && Now() - ThisItem.CreatedAt > TimeValue("0:0:5"), false, true)
 // Comment: Hide after 5 seconds if AutoClose=true (fade-out animation handled separately via Opacity)
 // Note: For error toasts (AutoClose=false), this formula returns true indefinitely until RemoveToast() called

@@ -875,6 +875,35 @@ GetPriorityColor(priority: Text): Color =
 // → After 5 seconds, auto-dismiss timer calls RemoveToast(0)
 // → Toast removed from collection, UI automatically hides it
 // ============================================================
+// TOAST NOTIFICATION SYSTEM ARCHITECTURE (Phase 4)
+// ============================================================
+// Three-layer notification system for non-blocking, Fluent Design feedback.
+//
+// Layer 1: Trigger UDFs (this section)
+//   - NotifySuccess(), NotifyError(), NotifyWarning(), NotifyInfo()
+//   - NotifyPermissionDenied(), NotifyActionCompleted(), NotifyValidationError()
+//   - Developers call these; never call Notify() or AddToast() directly
+//   - Each UDF calls AddToast() to update NotificationStack collection
+//
+// Layer 2: State Management (this section + App.OnStart)
+//   - ToastConfig: Configuration (durations, dimensions)
+//   - AddToast/RemoveToast: Lifecycle UDFs
+//   - NotificationStack: Collection holding active toasts (initialized in App.OnStart Section 7)
+//   - NotificationCounter: ID generator for unique toast IDs
+//
+// Layer 3: UI Rendering (Control-Patterns-Modern.fx, Pattern 1.9)
+//   - cnt_NotificationStack: Main container (top-right overlay, fixed position, ZIndex 1000)
+//   - cnt_Toast: Individual toast tile (repeating child, one per row in collection)
+//   - GetToast* helpers: Dynamic styling (colors, icons, borders per type)
+//   - Auto-dismiss timer: Visible formula monitors elapsed time, fades at 4.7s, hides at 5.0s
+//
+// Example flow:
+// NotifySuccess("Saved") → AddToast() → NotificationStack row → UI renders → 5s timeout → RemoveToast()
+//
+// For customization: Edit ToastConfig below for durations/widths
+// For troubleshooting: See docs/TROUBLESHOOTING.md
+// For detailed guide: See docs/TOAST-NOTIFICATION-GUIDE.md
+// ============================================================
 
 // Toast Configuration - Static settings for all notifications
 ToastConfig = {
@@ -998,9 +1027,18 @@ NotifyValidationError(fieldName: Text, message: Text): Void = {
 };
 
 // ============================================================
-// Toast Lifecycle Management UDFs (Helper Functions)
-// AddToast: Called internally by NotifySuccess/NotifyError/etc.
-// RemoveToast: Called by UI close button or auto-dismiss timer
+// NOTIFICATION LIFECYCLE: AddToast & RemoveToast
+// ============================================================
+// AddToast: Called by NotifySuccess/NotifyError/etc (Layer 1 → Layer 2)
+//   → Adds row to NotificationStack (Layer 2 state)
+//   → UI layer (Layer 3) automatically renders new row in cnt_NotificationStack
+//
+// RemoveToast: Called by UI close button or auto-dismiss timer (Layer 3 → Layer 2)
+//   → Removes row from NotificationStack
+//   → UI layer automatically updates (row no longer exists)
+//
+// Never call these directly in controls; they are implementation details.
+// Always use NotifySuccess(), NotifyError(), etc. for user-facing notifications.
 // ============================================================
 
 // Add toast to notification stack
