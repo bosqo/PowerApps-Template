@@ -1312,6 +1312,167 @@ If(
 // Then update cnt_Toast.Opacity with the fade-in logic above
 
 
+// -----------------------------------------------------------
+// Pattern 11.7: Toast Testing & Verification
+// -----------------------------------------------------------
+//
+// COMPREHENSIVE TEST SCENARIOS for verifying toast system functionality
+// Copy these formulas into Power Apps Studio formula bar or button OnSelect handlers
+
+// TEST 1: Basic Success Notification
+// Execute in any control's OnSelect (e.g., test button):
+/*
+NotifySuccess("Record saved successfully")
+*/
+// Expected: Green toast appears top-right, disappears after 5 seconds
+
+// TEST 2: Multiple Toasts (Stacking Verification)
+// Execute in button or formula bar:
+/*
+NotifySuccess("First message");
+NotifySuccess("Second message");
+NotifySuccess("Third message")
+*/
+// Expected: All 3 toasts visible, stacked vertically, newest (Third) on top
+
+// TEST 3: Mixed Types (Colors & Icons)
+// Execute all at once:
+/*
+NotifyInfo("Information message");
+NotifyWarning("Warning message");
+NotifyError("Error message");
+NotifySuccess("Success message")
+*/
+// Expected:
+// - Info: Blue background, ℹ icon
+// - Warning: Amber background, ⚠ icon
+// - Error: Red background, ✕ icon, does NOT auto-dismiss
+// - Success: Green background, ✓ icon, auto-dismisses after 5s
+
+// TEST 4: Auto-Dismiss Timing
+// Execute:
+/*
+NotifySuccess("Success - will dismiss in 5 seconds");
+NotifyError("Error - stays until you click X")
+*/
+// Expected:
+// - Success: Visible ~4.7s, fades during last 0.3s, gone by 5s
+// - Error: Remains indefinitely (no auto-dismiss, no fade-out)
+// - X button works on both at any time
+
+// TEST 5: Manual Dismissal (X Button)
+// Execute:
+/*
+NotifyError("Error 1");
+NotifyError("Error 2");
+NotifyError("Error 3")
+*/
+// Then: Click X on middle error (Error 2)
+// Expected: Only Error 2 disappears; Error 1 and 3 remain
+
+// TEST 6: Long Message Text (Wrapping)
+// Execute:
+/*
+NotifyWarning("This is a very long warning message that will definitely wrap across multiple lines in the toast container to test text wrapping behavior and ensure the toast grows properly")
+*/
+// Expected:
+// - Text wraps to multiple lines within 350px width
+// - Toast height grows to fit wrapped content
+// - Icon and close button remain properly aligned
+
+// TEST 7: Rapid Sequential Notifications (Performance)
+// Execute (creates 10 toasts rapidly):
+/*
+ForAll(
+    Sequence(10),
+    Notify("Toast " & Value, NotificationType.Success)
+)
+*/
+// Expected:
+// - All 10 toasts appear
+// - No crashes or performance lag
+// - App remains responsive
+// - Each toast has unique ID (can verify via LookUp NotificationStack)
+
+// TEST 8: Non-Blocking Behavior
+// Setup: Create a test gallery or button on main screen
+// Execute toast: NotifySuccess("Toast appears")
+// While toast visible: Try clicking gallery items, buttons, forms
+// Expected: All controls remain interactive; toast doesn't block clicks
+
+
+// IMPLEMENTATION CHECKLIST FOR DEVELOPERS:
+
+// Before publishing the app, verify:
+// [ ] NotificationStack collection initialized in App.OnStart (empty table)
+// [ ] NotificationCounter initialized in App.OnStart (set to 0)
+// [ ] ToastAnimationStart initialized in App.OnStart (set to Blank)
+// [ ] cnt_NotificationStack container added to main screen
+//     - Items: NotificationStack
+//     - Position: Top-right (X = Parent.Width - 400, Y = 16)
+//     - ZIndex: 1000 (above all other content)
+// [ ] cnt_Toast child control added inside cnt_NotificationStack
+//     - Fill: GetToastBackground(ThisItem.Type)
+//     - Opacity: Fade-in/fade-out formula implemented
+//     - Width: ToastConfig.Width (350px)
+// [ ] Child controls inside cnt_Toast:
+//     - ico_ToastIcon: Shows GetToastIcon(ThisItem.Type)
+//     - lbl_ToastMessage: Shows ThisItem.Message
+//     - btn_CloseToast: OnSelect calls RemoveToast(ThisItem.ID)
+// [ ] All UDFs present in App-Formulas:
+//     - NotifySuccess, NotifyError, NotifyWarning, NotifyInfo
+//     - GetToastBackground, GetToastBorderColor, GetToastIcon, GetToastIconColor
+//     - AddToast, RemoveToast
+// [ ] Test all 8 test scenarios above
+
+
+// CUSTOMIZATION GUIDE:
+
+// To change auto-dismiss timeout (default: 5 seconds):
+// In App-Formulas-Template.fx, update ToastConfig:
+/*
+ToastConfig = {
+    SuccessDuration: 3000,    // Change from 5000 to 3000 for 3 seconds
+    WarningDuration: 5000,
+    InfoDuration: 5000,
+    ErrorDuration: 0,
+    ...
+}
+*/
+
+// To change toast width (default: 350px):
+// In App-Formulas-Template.fx:
+/*
+ToastConfig = {
+    Width: 400,    // Change from 350 to 400 for wider toasts
+    ...
+}
+*/
+
+// To change toast colors:
+// In App-Formulas-Template.fx, update GetToastBackground():
+/*
+GetToastBackground(toastType: Text): Color =
+    Switch(
+        toastType,
+        "Success", ColorValue("#E7F7E7"),  // Your custom green
+        "Error", ColorValue("#FFF0F0"),     // Your custom red
+        ...
+    );
+*/
+
+// To add custom notification type (e.g., "Critical"):
+// 1. Update ToastConfig with new duration:
+//    CriticalDuration: 0,  // Never dismiss
+// 2. Add to GetToastBackground():
+//    "Critical", ColorValue("#FF0000"),  // Your color
+// 3. Add to GetToastIcon():
+//    "Critical", "🛑",  // Your icon
+// 4. Create new UDF in App-Formulas:
+//    NotifyCritical(message: Text): Void = { AddToast(message, "Critical", false, 0) };
+// 5. Call NotifyCritical("message") from your code
+
+
 // ============================================================
 // END OF CONTROL PATTERNS
 // ============================================================
