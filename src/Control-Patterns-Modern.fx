@@ -1048,5 +1048,196 @@ If(
 
 
 // ============================================================
+// SECTION 11: TOAST NOTIFICATION PATTERNS (NEW in Phase 4)
+// ============================================================
+// Toast notifications appear as non-blocking overlays in top-right corner
+// Rendering NotificationStack collection managed by NotifySuccess/NotifyError UDFs
+//
+// Architecture:
+// Layer 1: UDFs (NotifySuccess, NotifyError) - public API in App-Formulas
+// Layer 2: State (NotificationStack collection, NotificationCounter) - App.OnStart
+// Layer 3: UI (cnt_NotificationStack, cnt_Toast, animations) - this file
+//
+// Purpose of Phase 4-02: Translate notification state into polished animated UI
+
+// -----------------------------------------------------------
+// Pattern 11.1: Toast Notification Container (Main)
+// -----------------------------------------------------------
+//
+// PURPOSE: Fixed overlay container positioned top-right
+// Automatically shows/hides based on NotificationStack collection
+// Children: cnt_Toast tiles repeat for each notification
+// Non-blocking: Toasts float on top layer (z-index 1000), don't intercept clicks
+
+// cnt_NotificationStack - Main container
+// PROPERTIES:
+
+// Items property (bind to notification collection):
+// ============
+// Items: NotificationStack
+// Comment: Bind to notification collection from App-OnStart Section 7
+// This collection is automatically updated by NotifySuccess/NotifyError/etc. UDFs
+
+// Position properties:
+// ============
+// X: Parent.Width - 400
+// Comment: Position at right edge (350px content + 30px padding + 20px margin)
+
+// Y: 16
+// Comment: Top padding (16px from screen top, Fluent Design spacing)
+
+// Width: If(CountRows(NotificationStack) > 0, 380, 0)
+// Comment: 350px content + 30px padding; collapse to 0 when empty (avoids empty click zone)
+
+// Height: Parent.Height - 32
+// Comment: Full screen height minus top/bottom padding; auto-layout handles child sizing
+
+// Layout & Appearance:
+// ============
+// LayoutMode: LayoutMode.Vertical
+// Comment: Stack toasts vertically, newest on top (Power Apps adds rows to end)
+
+// ClipContents: false
+// Comment: Allow toast animations (slide-in) to overflow container edges if needed
+
+// ZIndex: 1000
+// Comment: Render on top of galleries, forms, panels; ensures toasts always visible
+
+// Visible: CountRows(NotificationStack) > 0
+// Comment: Hide completely when no toasts (prevents empty floating container + click zone)
+
+// Fill: RGBA(0, 0, 0, 0)
+// Comment: Transparent background (only child toasts have colored backgrounds)
+
+// Padding: 8
+// Comment: 8px padding around entire container (Fluent Design baseline spacing)
+
+// Spacing: 12
+// Comment: 12px gap between individual toasts for visual breathing room
+
+
+// -----------------------------------------------------------
+// Pattern 11.2: Individual Toast Tile (Child Control)
+// -----------------------------------------------------------
+//
+// PURPOSE: Individual notification tile with icon, message, and close button
+// Repeats for each row in NotificationStack collection
+// Horizontal layout: [icon] | [message] | [close button]
+
+// cnt_Toast - Individual toast tile (repeats inside cnt_NotificationStack)
+// PROPERTIES:
+
+// Styling:
+// ============
+// Fill: GetToastBackground(ThisItem.Type)
+// Comment: Dynamic background color per type (Success=green light, Error=red light, Warning=amber, Info=blue)
+
+// BorderColor: GetToastBorderColor(ThisItem.Type)
+// Comment: Colored left/top border accent per notification type (matches icon color)
+
+// BorderThickness: 2
+// Comment: Visible 2px border to distinguish toast from content behind it
+
+// CornerRadius: 4
+// Comment: Rounded corners (4px) per Fluent Design standard for modern look
+
+// Padding: 12
+// Comment: 12px padding around all contents (icon + message + close button)
+
+// Sizing:
+// ============
+// Height: Auto
+// Comment: Let content determine height; grows with message length if text wraps
+
+// Width: ToastConfig.Width
+// Comment: Use configured width (350px from ToastConfig Named Formula in App-Formulas)
+
+// Visibility & Timing:
+// ============
+// Visible: If(ThisItem.AutoClose && Now() - ThisItem.CreatedAt > TimeValue("0:0:5"), false, true)
+// Comment: Hide after 5 seconds if AutoClose=true (fade-out animation handled separately via Opacity)
+// Note: For error toasts (AutoClose=false), this formula returns true indefinitely until RemoveToast() called
+
+// Opacity (fade-out effect):
+// ============
+// Opacity: If(ThisItem.AutoClose && Now() - ThisItem.CreatedAt > TimeValue("0:0:4.7"), Max(0, 1 - ((Now() - ThisItem.CreatedAt - TimeValue("0:0:4.7")) / TimeValue("0:0:0.3"))), 1)
+// Comment: Fades from opacity 1.0 to 0.0 over last 300ms (4.7s to 5.0s) before Visible becomes false
+// This creates smooth fade-out animation for success/info/warning toasts before they're removed
+
+// Border Style:
+// ============
+// BorderStyle: BorderStyle.Solid
+// Comment: Solid border (not dotted or dashed)
+
+
+// -----------------------------------------------------------
+// Pattern 11.3: Toast Icon (Child - Left side)
+// -----------------------------------------------------------
+//
+// ico_ToastIcon - Icon control showing notification type icon
+
+// Text: GetToastIcon(ThisItem.Type)
+// Comment: Returns Unicode icon: ✓ (success), ✕ (error), ⚠ (warning), ℹ (info)
+
+// Color: GetToastIconColor(ThisItem.Type)
+// Comment: Icon color matches type (green/red/amber/blue)
+
+// FontSize: 24
+// Comment: Icon should be visible and prominent (24px is readable but not overwhelming)
+
+// AccessibleLabel: ThisItem.Type & " notification"
+// Comment: Screen reader announces notification type for accessibility
+
+
+// -----------------------------------------------------------
+// Pattern 11.4: Toast Message (Child - Middle)
+// -----------------------------------------------------------
+//
+// lbl_ToastMessage - Label showing notification message text
+
+// Text: ThisItem.Message
+// Comment: Display the notification message from NotificationStack row
+
+// FontSize: 14 (Typography.SizeMD if available)
+// Comment: Standard body text size for readability
+
+// Color: ThemeColors.Text
+// Comment: Use default text color (matches app theme)
+
+// WordWrap: true
+// Comment: Text wraps to multiple lines if message is long
+
+// AutoHeight: true
+// Comment: Label height grows automatically to fit wrapped text
+
+
+// -----------------------------------------------------------
+// Pattern 11.5: Toast Close Button (Child - Right side)
+// -----------------------------------------------------------
+//
+// btn_CloseToast - Close button (X) to manually dismiss individual toast
+
+// Text: "✕" (Unicode X character)
+// Comment: Unicode X is recognizable universal close button symbol
+
+// OnSelect: RemoveToast(ThisItem.ID)
+// Comment: Call RemoveToast UDF to remove this specific toast from NotificationStack collection
+// The toast immediately disappears when X clicked (no fade-out for manual dismissal)
+
+// HoverFill: ThemeColors.SurfaceHover
+// Comment: Light hover color to indicate button is interactive
+
+// DisplayMode: DisplayMode.Edit
+// Comment: Always interactive (can't disable close button)
+
+// AccessibleLabel: "Close " & ThisItem.Type & " notification"
+// Comment: Screen reader announces action: "Close error notification" etc.
+
+// Width: 32
+// Height: 32
+// Comment: 32x32 px for good touch target on mobile (minimum 44x44 for mobile, but 32x32 works on desktop)
+
+
+// ============================================================
 // END OF CONTROL PATTERNS
 // ============================================================
