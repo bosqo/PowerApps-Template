@@ -627,6 +627,54 @@ Set(AppState,
 );
 
 
+// TIMING: Section 7 - Notification Stack (NEW in Phase 4) BEGIN
+
+// ============================================================
+// 7. NOTIFICATION STACK (NEW in Phase 4)
+// ============================================================
+// Purpose: Initialize toast notification state for custom notification UI
+// Timing: 100-200ms (background loading, doesn't block critical path)
+// Architecture: Toast notifications are managed via NotificationStack collection
+// - Developers call NotifySuccess/NotifyError/etc. UDFs
+// - These UDFs call AddToast internally to update NotificationStack
+// - UI layer (04-02) renders toasts from this collection
+// - Auto-dismiss timers (UI layer) call RemoveToast to cleanup old toasts
+//
+// Schema: { ID, Message, Type, AutoClose, Duration, CreatedAt, IsVisible }
+// - ID: Unique identifier for each toast (incremented by NotificationCounter)
+// - Message: Text message to display
+// - Type: "Success", "Error", "Warning", or "Info"
+// - AutoClose: Boolean - whether toast auto-dismisses (errors: false, others: true)
+// - Duration: Timeout in ms (errors: 0/never, others: 5000/5 seconds)
+// - CreatedAt: Timestamp when toast was added (for auto-dismiss calculation)
+// - IsVisible: Boolean - visibility state (true = show, false = hide during fade-out)
+//
+// Initialize NotificationStack collection (empty at startup)
+// Will be populated as users trigger actions (save, delete, etc.)
+ClearCollect(NotificationStack, Table());
+
+// Counter: Unique ID for each toast (incremented in AddToast UDF)
+// Ensures every toast has a unique ID for proper removal via RemoveToast
+Set(NotificationCounter, 0);
+
+// For auto-dismiss: Store current toast ID being dismissed
+// Used by timer control in UI layer (04-02) to track which toast is being removed
+Set(ToastToRemove, Blank());
+
+// OPTIONAL: Periodic cleanup of old toasts (safety net)
+// Uncomment if you notice NotificationStack growing unbounded
+// (Usually handled by auto-dismiss timers in UI, but this provides fallback)
+// ForAll(
+//     Filter(
+//         NotificationStack,
+//         Now() - CreatedAt > TimeValue("0:0:30")  // Remove toasts older than 30 seconds
+//     ),
+//     Remove(NotificationStack, @Value)
+// );
+
+// TIMING: Section 7 - Notification Stack END
+
+
 // TIMING MARKER: App.OnStart Complete
 
 // ============================================================

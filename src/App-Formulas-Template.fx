@@ -855,24 +855,104 @@ GetPriorityColor(priority: Text): Color =
 // NOTE: Behavior UDFs use curly braces and Void return type
 // -----------------------------------------------------------
 
+// ============================================================
+// TOAST NOTIFICATION SYSTEM (NEW in Phase 4)
+// ============================================================
+// Layer 1: UDFs (NotifySuccess, NotifyError, etc.) - public API
+// Layer 2: State (NotificationStack collection, AddToast/RemoveToast) - lifecycle
+// Layer 3: UI (Control-Patterns-Modern.fx, cnt_NotificationStack) - rendering (04-02)
+//
+// Architecture:
+// - Developers call NotifySuccess("message") or NotifyError("message")
+// - These UDFs call AddToast() to update the NotificationStack collection
+// - UI layer (04-02) renders toasts from NotificationStack collection
+// - Auto-dismiss timers (UI layer) call RemoveToast() to remove old toasts
+//
+// Example flow:
+// NotifySuccess("Record saved") → AddToast("Record saved", "Success", true, 5000)
+// → NotificationStack updated with new toast {ID: 0, Message: "Record saved", Type: "Success", AutoClose: true, ...}
+// → UI renders toast in top-right corner
+// → After 5 seconds, auto-dismiss timer calls RemoveToast(0)
+// → Toast removed from collection, UI automatically hides it
+// ============================================================
+
+// Toast Configuration - Static settings for all notifications
+ToastConfig = {
+    Width: 350,               // Toast width in pixels (250-400 range)
+    MaxWidth: 400,            // Maximum width for very long messages
+    SuccessDuration: 5000,    // Auto-dismiss timeout in ms
+    WarningDuration: 5000,    // Auto-dismiss timeout in ms
+    InfoDuration: 5000,       // Auto-dismiss timeout in ms
+    ErrorDuration: 0,         // Never auto-dismiss (user must close)
+    AnimationDuration: 300    // Slide-in animation duration in ms
+};
+
+// Get toast background color by type
+GetToastBackground(toastType: Text): Color =
+    Switch(
+        toastType,
+        "Success", ThemeColors.SuccessLight,      // Light green
+        "Error", ThemeColors.ErrorLight,          // Light red
+        "Warning", ThemeColors.WarningLight,      // Light amber
+        "Info", ColorValue("#E7F4FF"),            // Light blue
+        ThemeColors.Surface                       // Default white
+    );
+
+// Get toast border color by type
+GetToastBorderColor(toastType: Text): Color =
+    Switch(
+        toastType,
+        "Success", ThemeColors.Success,           // Green
+        "Error", ThemeColors.Error,               // Red
+        "Warning", ThemeColors.Warning,           // Amber
+        "Info", ThemeColors.Info,                 // Blue
+        ThemeColors.Border                        // Default grey
+    );
+
+// Get toast icon by type
+GetToastIcon(toastType: Text): Text =
+    Switch(
+        toastType,
+        "Success", "✓",                           // Checkmark
+        "Error", "✕",                             // X mark
+        "Warning", "⚠",                           // Warning triangle
+        "Info", "ℹ",                              // Info circle
+        ""                                        // Default empty
+    );
+
+// Get toast icon color by type
+GetToastIconColor(toastType: Text): Color =
+    Switch(
+        toastType,
+        "Success", ThemeColors.Success,           // Green
+        "Error", ThemeColors.Error,               // Red
+        "Warning", ThemeColors.Warning,           // Amber
+        "Info", ThemeColors.Info,                 // Blue
+        ThemeColors.Text                          // Default text color
+    );
+
 // Standard success notification
 NotifySuccess(message: Text): Void = {
     Notify(message, NotificationType.Success);
+    AddToast(message, "Success", true, ToastConfig.SuccessDuration)
 };
 
 // Standard error notification
 NotifyError(message: Text): Void = {
     Notify(message, NotificationType.Error);
+    AddToast(message, "Error", false, ToastConfig.ErrorDuration)
 };
 
 // Standard warning notification
 NotifyWarning(message: Text): Void = {
     Notify(message, NotificationType.Warning);
+    AddToast(message, "Warning", true, ToastConfig.WarningDuration)
 };
 
 // Standard info notification
 NotifyInfo(message: Text): Void = {
     Notify(message, NotificationType.Information);
+    AddToast(message, "Info", true, ToastConfig.InfoDuration)
 };
 
 // Permission denied notification with action context
@@ -881,6 +961,12 @@ NotifyPermissionDenied(action: Text): Void = {
         "Permission denied: You do not have access to " & Lower(action),
         NotificationType.Error
     );
+    AddToast(
+        "Permission denied: You do not have access to " & Lower(action),
+        "Error",
+        false,
+        ToastConfig.ErrorDuration
+    )
 };
 
 // Action completed notification
@@ -889,6 +975,12 @@ NotifyActionCompleted(action: Text, itemName: Text): Void = {
         action & " completed: " & itemName,
         NotificationType.Success
     );
+    AddToast(
+        action & " completed: " & itemName,
+        "Success",
+        true,
+        ToastConfig.SuccessDuration
+    )
 };
 
 // Validation error notification
@@ -897,6 +989,59 @@ NotifyValidationError(fieldName: Text, message: Text): Void = {
         fieldName & ": " & message,
         NotificationType.Warning
     );
+    AddToast(
+        fieldName & ": " & message,
+        "Warning",
+        true,
+        ToastConfig.WarningDuration
+    )
+};
+
+// ============================================================
+// Toast Lifecycle Management UDFs (Helper Functions)
+// AddToast: Called internally by NotifySuccess/NotifyError/etc.
+// RemoveToast: Called by UI close button or auto-dismiss timer
+// ============================================================
+
+// Add toast to notification stack
+// Called by all Notify* UDFs to update the NotificationStack collection
+// Parameters:
+//   message: Text - Message to display
+//   toastType: Text - Type of notification ("Success", "Error", "Warning", "Info")
+//   shouldAutoClose: Boolean - Should auto-dismiss after duration (errors: false)
+//   duration: Number - Duration in milliseconds before auto-dismiss (0 = never)
+// Note: Auto-dismiss logic is handled by UI timer control in 04-02
+AddToast(message: Text; toastType: Text; shouldAutoClose: Boolean; duration: Number): Void = {
+    // Patch new toast into NotificationStack collection with schema:
+    // ID (unique identifier), Message, Type, AutoClose, Duration, CreatedAt, IsVisible
+    Patch(
+        NotificationStack,
+        Defaults(NotificationStack),
+        {
+            ID: NotificationCounter,
+            Message: message,
+            Type: toastType,
+            AutoClose: shouldAutoClose,
+            Duration: duration,
+            CreatedAt: Now(),
+            IsVisible: true
+        }
+    );
+    // Increment counter for next toast to ensure unique IDs
+    Set(NotificationCounter, NotificationCounter + 1)
+};
+
+// Remove toast from notification stack
+// Called by toast close button (X) or auto-dismiss timer (UI layer)
+// Parameters:
+//   toastID: Number - ID of toast to remove (matches NotificationStack.ID field)
+// Note: Silently ignores if toast already removed or doesn't exist
+RemoveToast(toastID: Number): Void = {
+    IfError(
+        Remove(NotificationStack, LookUp(NotificationStack, ID = toastID)),
+        // Silently ignore errors (toast already removed or ID doesn't match)
+        Blank()
+    )
 };
 
 // -----------------------------------------------------------
