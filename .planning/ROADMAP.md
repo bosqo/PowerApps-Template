@@ -114,10 +114,12 @@ Plans:
 
 **Dependencies:** Phase 3 (requires complete functional template)
 
-**Plans:** 0 plans (awaiting planning)
+**Plans:** 3 plans
 
 Plans:
-- [ ] TBD (awaiting planning)
+- [ ] 04-01-PLAN.md — Notification System Core (UDF helpers, state management, AddToast/RemoveToast)
+- [ ] 04-02-PLAN.md — Toast UI Controls & Styling (container patterns, animations, Fluent Design)
+- [ ] 04-03-PLAN.md — Documentation & Configuration (QUICK-START, CLAUDE.md expansion, troubleshooting)
 
 **Requirements:**
 - NOTIF-01: Toast notification UDF for info messages (blue, auto-dismiss)
@@ -167,4 +169,4 @@ Plans:
 ---
 
 *Roadmap created: 2026-01-18*
-*Last updated: 2026-01-18 — Phase 3 execution complete (31/45 requirements, 67%)*
+*Last updated: 2026-01-19 — Phase 4 planning complete (3 plans defined)*
