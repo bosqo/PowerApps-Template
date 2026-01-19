@@ -9,71 +9,71 @@ Requirements for this template optimization. Each requirement must be implemente
 
 ### Performance Optimization
 
-- [ ] **PERF-01**: App.OnStart completes in under 2 seconds
-- [ ] **PERF-02**: Office365Users and Office365Groups API calls cached to eliminate redundant calls between sessions
-- [ ] **PERF-03**: Concurrent() used for all independent data loading operations in App.OnStart
-- [ ] **PERF-04**: Gallery with 500+ records renders without performance degradation
-- [ ] **PERF-05**: Non-delegable operations identified and documented with FirstN(Skip()) pagination pattern
+- [x] **PERF-01**: App.OnStart completes in under 2 seconds
+- [x] **PERF-02**: Office365Users and Office365Groups API calls cached to eliminate redundant calls between sessions
+- [x] **PERF-03**: Concurrent() used for all independent data loading operations in App.OnStart
+- [x] **PERF-04**: Gallery with 500+ records renders without performance degradation
+- [x] **PERF-05**: Non-delegable operations identified and documented with FirstN(Skip()) pagination pattern
 
 ### Filtering & Data Access
 
-- [ ] **FILT-01**: Delegation-friendly filter UDF for role-based data scoping (ViewAll OR Owner = CurrentUser)
-- [ ] **FILT-02**: Delegation-friendly filter UDF for text search across multiple SharePoint columns
-- [ ] **FILT-03**: Delegation-friendly filter UDF for status/dropdown filtering
-- [ ] **FILT-04**: Delegation-friendly filter UDF for user-based filtering ("My Items" toggle)
-- [ ] **FILT-05**: Filter composition pattern that combines role + search + status + user without breaking delegation
-- [ ] **FILT-06**: All filters work with datasets >2000 records without silent data loss
+- [x] **FILT-01**: Delegation-friendly filter UDF for role-based data scoping (ViewAll OR Owner = CurrentUser)
+- [x] **FILT-02**: Delegation-friendly filter UDF for text search across multiple SharePoint columns
+- [x] **FILT-03**: Delegation-friendly filter UDF for status/dropdown filtering
+- [x] **FILT-04**: Delegation-friendly filter UDF for user-based filtering ("My Items" toggle)
+- [x] **FILT-05**: Filter composition pattern that combines role + search + status + user without breaking delegation
+- [x] **FILT-06**: All filters work with datasets >2000 records without silent data loss
 
 ### Code Structure & Naming
 
-- [ ] **NAMING-01**: Standardized naming convention for Named Formulas (PascalCase: ThemeColors, UserProfile, UserPermissions)
-- [ ] **NAMING-02**: Standardized naming convention for UDFs (PascalCase with verb: HasRole(), GetUserScope(), FormatDateShort())
-- [ ] **NAMING-03**: Standardized naming convention for variables (PascalCase: AppState, ActiveFilters, UIState)
-- [ ] **NAMING-04**: Standardized naming convention for collections (PascalCase: CachedDepartments, MyRecentItems)
-- [ ] **NAMING-05**: Standardized abbreviated naming for controls (glr=Gallery, btn=Button, lbl=Label, txt=TextInput, img=Image, form=Form)
-- [ ] **NAMING-06**: Naming convention documentation in template comments and CLAUDE.md
+- [x] **NAMING-01**: Standardized naming convention for Named Formulas (PascalCase: ThemeColors, UserProfile, UserPermissions)
+- [x] **NAMING-02**: Standardized naming convention for UDFs (PascalCase with verb: HasRole(), GetUserScope(), FormatDateShort())
+- [x] **NAMING-03**: Standardized naming convention for variables (PascalCase: AppState, ActiveFilters, UIState)
+- [x] **NAMING-04**: Standardized naming convention for collections (PascalCase: CachedDepartments, MyRecentItems)
+- [x] **NAMING-05**: Standardized abbreviated naming for controls (glr=Gallery, btn=Button, lbl=Label, txt=TextInput, img=Image, form=Form)
+- [x] **NAMING-06**: Naming convention documentation in template comments and CLAUDE.md
 
 ### Variable Structure
 
-- [ ] **VAR-01**: AppState variable structure reviewed for logical consistency
-- [ ] **VAR-02**: ActiveFilters variable structure reviewed and optimized
-- [ ] **VAR-03**: UIState variable structure reviewed for redundancy elimination
-- [ ] **VAR-04**: Each variable has documented purpose and schema in template comments
-- [ ] **VAR-05**: Variable dependency chain validated (no circular references)
+- [x] **VAR-01**: AppState variable structure reviewed for logical consistency
+- [x] **VAR-02**: ActiveFilters variable structure reviewed and optimized
+- [x] **VAR-03**: UIState variable structure reviewed for redundancy elimination
+- [x] **VAR-04**: Each variable has documented purpose and schema in template comments
+- [x] **VAR-05**: Variable dependency chain validated (no circular references)
 
 ### Error Handling
 
-- [ ] **ERROR-01**: Graceful error handling pattern for Office365Users connector failures
-- [ ] **ERROR-02**: Graceful error handling pattern for Office365Groups connector failures
-- [ ] **ERROR-03**: Graceful error handling pattern for SharePoint data modification failures (Patch, Remove)
-- [ ] **ERROR-04**: Fallback values documented for all API calls (e.g., empty department if Office365 unavailable)
-- [ ] **ERROR-05**: User-friendly error messages (not technical jargon) for all error scenarios
+- [x] **ERROR-01**: Graceful error handling pattern for Office365Users connector failures
+- [x] **ERROR-02**: Graceful error handling pattern for Office365Groups connector failures
+- [x] **ERROR-03**: Graceful error handling pattern for SharePoint data modification failures (Patch, Remove)
+- [x] **ERROR-04**: Fallback values documented for all API calls (e.g., empty department if Office365 unavailable)
+- [x] **ERROR-05**: User-friendly error messages (not technical jargon) for all error scenarios
 
 ### Notification System
 
-- [ ] **NOTIF-01**: Toast notification UDF for info messages (blue, auto-dismiss)
-- [ ] **NOTIF-02**: Toast notification UDF for success messages (green, auto-dismiss)
-- [ ] **NOTIF-03**: Toast notification UDF for warning messages (amber, auto-dismiss)
-- [ ] **NOTIF-04**: Toast notification UDF for error messages (red, auto-dismiss)
-- [ ] **NOTIF-05**: Toast notifications auto-dismiss after 3-5 seconds
-- [ ] **NOTIF-06**: Multiple toasts can stack (no overlap)
-- [ ] **NOTIF-07**: Toast styling consistent with Fluent Design theme colors
-- [ ] **NOTIF-08**: Toast positioned at top or bottom of screen (configurable)
+- [x] **NOTIF-01**: Toast notification UDF for info messages (blue, auto-dismiss)
+- [x] **NOTIF-02**: Toast notification UDF for success messages (green, auto-dismiss)
+- [x] **NOTIF-03**: Toast notification UDF for warning messages (amber, auto-dismiss)
+- [x] **NOTIF-04**: Toast notification UDF for error messages (red, auto-dismiss)
+- [x] **NOTIF-05**: Toast notifications auto-dismiss after 3-5 seconds
+- [x] **NOTIF-06**: Multiple toasts can stack (no overlap)
+- [x] **NOTIF-07**: Toast styling consistent with Fluent Design theme colors
+- [x] **NOTIF-08**: Toast positioned at top or bottom of screen (configurable)
 
 ### Bug Fixes & Validation
 
-- [ ] **BUG-01**: Fix HasAnyRole() hardcoded 3-role limit (handle unlimited role lists)
-- [ ] **BUG-02**: Fix IsOneOf() incorrect `in` operator usage (use proper Filter/CountRows pattern)
-- [ ] **BUG-03**: Strengthen IsValidEmail() validation (reject multiple @, spaces, invalid formats)
-- [ ] **BUG-04**: All validation UDFs handle edge cases (empty strings, null values, special characters)
+- [x] **BUG-01**: Fix HasAnyRole() hardcoded 3-role limit (handle unlimited role lists)
+- [x] **BUG-02**: Fix IsOneOf() incorrect `in` operator usage (use proper Filter/CountRows pattern)
+- [x] **BUG-03**: Strengthen IsValidEmail() validation (reject multiple @, spaces, invalid formats)
+- [x] **BUG-04**: All validation UDFs handle edge cases (empty strings, null values, special characters)
 
 ### Documentation & Template
 
-- [ ] **DOC-01**: Template includes configuration guide for EntraID group IDs
-- [ ] **DOC-02**: Code comments document purpose and usage of each Named Formula
-- [ ] **DOC-03**: Code comments document purpose and parameters of each UDF
-- [ ] **DOC-04**: CLAUDE.md updated with naming conventions and best practices
-- [ ] **DOC-05**: Quick-start guide for using template in new customer projects
+- [x] **DOC-01**: Template includes configuration guide for EntraID group IDs
+- [x] **DOC-02**: Code comments document purpose and usage of each Named Formula
+- [x] **DOC-03**: Code comments document purpose and parameters of each UDF
+- [x] **DOC-04**: CLAUDE.md updated with naming conventions and best practices
+- [x] **DOC-05**: Quick-start guide for using template in new customer projects
 
 ## v2 Requirements
 
