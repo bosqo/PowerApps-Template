@@ -1238,6 +1238,80 @@ If(
 // Comment: 32x32 px for good touch target on mobile (minimum 44x44 for mobile, but 32x32 works on desktop)
 
 
+// -----------------------------------------------------------
+// Pattern 11.6: Toast Animation (Entrance & Exit)
+// -----------------------------------------------------------
+//
+// ENTRANCE ANIMATION (Slide-in):
+// Two implementation approaches:
+
+// APPROACH A: Built-in Animation Property (Recommended if available in your Power Apps version)
+// ============
+// cnt_Toast.Animation (if supported): Animation.SlideInLeft
+// Automatically slides toast from right to left on entrance
+// Duration: ~300ms (platform default)
+// Simplest implementation, but less customizable
+
+// APPROACH B: Manual X Position with Timing (Works on all Power Apps versions)
+// ============
+// This approach uses a hidden timer state to calculate animation progress
+
+// Implementation steps:
+// 1. Add hidden state variable to track animation start:
+//    ToastAnimationStart (DateTime) - stores when toast first appears
+//
+// 2. Use X offset formula on cnt_Toast or wrapper container:
+//    X = Parent.Width - 400 + If(
+//        IsBlank(ToastAnimationStart),
+//        0,  // Not animating - position is final
+//        If(
+//            Now() - ToastAnimationStart < TimeValue("0:0:0.3"),  // Within 300ms animation window
+//            (ToastConfig.Width * (Now() - ToastAnimationStart)) / TimeValue("0:0:0.3"),
+//            0  // Animation complete - at final position
+//        )
+//    )
+//    This moves toast from right (ToastConfig.Width offset) to left (0 offset) over 300ms
+//
+// 3. Initialize ToastAnimationStart when toast appears:
+//    OnVisible event: Set(ToastAnimationStart, Now())
+//    Or: In RemoveToast UDF, clear animation state
+//
+// APPROACH C: Opacity Fade-In (Simplest, less visual impact)
+// ============
+// Instead of slide, fade in toast:
+// Opacity: If(
+//     IsBlank(ToastAnimationStart),
+//     1,  // No animation state - fully opaque
+//     If(
+//         Now() - ToastAnimationStart < TimeValue("0:0:0.3"),
+//         (Now() - ToastAnimationStart) / TimeValue("0:0:0.3"),  // Fade from 0 to 1
+//         1  // Animation complete - fully opaque
+//     )
+// )
+// Toasts fade in smoothly over 300ms
+
+// EXIT ANIMATION (Fade-out):
+// Already implemented in Pattern 11.2 via Opacity formula
+// When Now() - CreatedAt > 4.7 seconds (for auto-dismiss):
+//   Opacity fades from 1.0 to 0.0 over 300ms
+//   Visible becomes false at 5.0 seconds
+// When user clicks X button:
+//   RemoveToast() immediately removes from collection
+//   Toast disappears without fade (instant removal)
+
+// RECOMMENDED APPROACH FOR PHASE 4:
+// Use APPROACH C (Opacity Fade-In) because:
+// - Works on all Power Apps versions (no platform-specific features needed)
+// - Simple to implement (single Opacity formula)
+// - Combines nicely with fade-out exit animation
+// - Creates professional "fade in, then fade out" effect
+// - No need for additional state variables or timer complexity
+
+// To implement: Add ToastAnimationStart variable to App.OnStart Section 7:
+//   Set(ToastAnimationStart, Blank());
+// Then update cnt_Toast.Opacity with the fade-in logic above
+
+
 // ============================================================
 // END OF CONTROL PATTERNS
 // ============================================================
