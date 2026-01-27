@@ -666,6 +666,21 @@ Set(ToastToRemove, Blank());
 // Set to Blank() at startup; will be updated by toast controls when rendered
 Set(ToastAnimationStart, Blank());
 
+// NEW (Phase 4 - Revert System): Track which toast is currently reverting
+// Used to prevent multiple simultaneous reverts and show loading state
+Set(ToastReverting, Blank());
+
+// NEW (Phase 4 - Revert System): Optional collection for revert callback registry
+// Maps callback ID to handler name (informational, not required for functionality)
+ClearCollect(
+    RevertCallbackRegistry,
+    Table(
+        {ID: 0, Name: "DELETE_UNDO", Description: "Restore deleted item"},
+        {ID: 1, Name: "ARCHIVE_UNDO", Description: "Unarchive item"},
+        {ID: 2, Name: "CUSTOM", Description: "Custom revert action"}
+    )
+);
+
 // OPTIONAL: Periodic cleanup of old toasts (safety net)
 // Uncomment if you notice NotificationStack growing unbounded
 // (Usually handled by auto-dismiss timers in UI, but this provides fallback)

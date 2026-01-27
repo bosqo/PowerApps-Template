@@ -1082,6 +1082,225 @@ RemoveToast(toastID: Number): Void = {
     )
 };
 
+// ============================================================
+// REVERT-ENABLED TOAST SYSTEM (NEW in Phase 4 - Extended)
+// ============================================================
+// Extends basic toast system with optional Undo/Revert buttons
+// Use for: Delete with Undo, Archive with Restore, Bulk actions with Undo
+//
+// Architecture:
+// - AddToastWithRevert: Extended AddToast with revert parameters
+// - HandleRevert: Execute revert action and restore state
+// - NotifyWithRevert, NotifyDeleteWithUndo, NotifyArchiveWithUndo: High-level APIs
+//
+// Example flow:
+// User clicks Delete → Remove(Items) → NotifyDeleteWithUndo() →
+// User clicks "Undo" → HandleRevert() → Patch(Items, restore) → Success
+// ============================================================
+
+// Extended AddToast with revert support (NEW)
+// Called by NotifyWithRevert and related functions
+// Parameters:
+//   message: Text - Message to display
+//   toastType: Text - Type: "Success", "Error", "Warning", "Info"
+//   shouldAutoClose: Boolean - Auto-dismiss after duration?
+//   duration: Number - Auto-dismiss timeout in milliseconds
+//   hasRevert: Boolean - Show revert button? (NEW)
+//   revertLabel: Text - Revert button text (e.g., "Undo", "Restore") (NEW)
+//   revertData: Record - Data needed to revert action (e.g., {ItemID: "123"}) (NEW)
+//   revertCallbackID: Number - Callback handler ID (0=Delete, 1=Archive, 2=Custom) (NEW)
+//
+// Schema added to NotificationStack:
+//   HasRevert: Boolean - whether toast shows revert button
+//   RevertLabel: Text - button text
+//   RevertData: Record - serialized data for revert
+//   RevertCallbackID: Number - handler identifier
+//   IsReverting: Boolean - revert in progress (loading state)
+//   RevertError: Text - error message if revert fails
+AddToastWithRevert(
+    message: Text;
+    toastType: Text;
+    shouldAutoClose: Boolean;
+    duration: Number;
+    hasRevert: Boolean;
+    revertLabel: Text;
+    revertData: Record;
+    revertCallbackID: Number
+): Void = {
+    Patch(
+        NotificationStack,
+        Defaults(NotificationStack),
+        {
+            ID: NotificationCounter,
+            Message: message,
+            Type: toastType,
+            AutoClose: shouldAutoClose,
+            Duration: duration,
+            CreatedAt: Now(),
+            IsVisible: true,
+            // Revert fields
+            HasRevert: hasRevert,
+            RevertLabel: revertLabel,
+            RevertData: revertData,
+            RevertCallbackID: revertCallbackID,
+            IsReverting: false,
+            RevertError: Blank()
+        }
+    );
+    Set(NotificationCounter, NotificationCounter + 1)
+};
+
+// Handle revert/undo action (NEW)
+// Called when user clicks revert button on toast
+// Executes appropriate callback based on ID and removes toast on success
+// Parameters:
+//   toastID: Number - Toast ID to revert
+//   callbackID: Number - Callback type (0=Delete Undo, 1=Archive Undo, 2=Custom)
+//   revertData: Record - Data for executing revert (e.g., {ItemID: "123"})
+//
+// Callback IDs:
+//   0: DELETE_UNDO - Restore deleted item
+//   1: ARCHIVE_UNDO - Unarchive item
+//   2: CUSTOM - Custom revert handler (extend in app code)
+HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
+    // Mark toast as reverting (shows loading spinner in UI)
+    Patch(
+        NotificationStack,
+        LookUp(NotificationStack, ID = toastID),
+        {IsReverting: true, RevertError: Blank()}
+    );
+
+    // Execute callback based on ID
+    Switch(
+        callbackID,
+        // 0: DELETE_UNDO - Restore deleted item
+        0,
+        IfError(
+            // Restore item from revertData
+            Patch(Items, Defaults(Items), revertData);
+            // Remove toast after successful restore
+            RemoveToast(toastID);
+            // Show success message
+            NotifySuccess("Eintrag wiederhergestellt: " & revertData.ItemName),
+            // Error handler: Show error in toast
+            Patch(
+                NotificationStack,
+                LookUp(NotificationStack, ID = toastID),
+                {
+                    IsReverting: false,
+                    RevertError: "Wiederherstellung fehlgeschlagen: " & Error.Message
+                }
+            )
+        ),
+        // 1: ARCHIVE_UNDO - Unarchive item
+        1,
+        IfError(
+            // Reactivate item by setting status to Active
+            Patch(Items, {ID: revertData.ItemID}, {Status: "Active"});
+            // Remove toast after successful unarchive
+            RemoveToast(toastID);
+            // Show success message
+            NotifySuccess("Eintrag reaktiviert: " & revertData.ItemName),
+            // Error handler: Show error in toast
+            Patch(
+                NotificationStack,
+                LookUp(NotificationStack, ID = toastID),
+                {
+                    IsReverting: false,
+                    RevertError: "Reaktivierung fehlgeschlagen: " & Error.Message
+                }
+            )
+        ),
+        // 2+: CUSTOM - User-defined callbacks (extend as needed)
+        // No-op: App code should extend this switch statement
+        Patch(
+            NotificationStack,
+            LookUp(NotificationStack, ID = toastID),
+            {IsReverting: false}
+        )
+    )
+};
+
+// Generic notification with optional revert (NEW)
+NotifyWithRevert(
+    message: Text;
+    notificationType: Text;
+    revertLabel: Text;
+    revertData: Record;
+    revertCallbackID: Number
+): Void = {
+    Notify(
+        message,
+        Switch(
+            notificationType,
+            "Success", NotificationType.Success,
+            "Error", NotificationType.Error,
+            "Warning", NotificationType.Warning,
+            NotificationType.Information
+        )
+    );
+    AddToastWithRevert(
+        message,
+        notificationType,
+        notificationType <> "Error",  // Auto-close unless error
+        Switch(
+            notificationType,
+            "Success", ToastConfig.SuccessDuration,
+            "Warning", ToastConfig.WarningDuration,
+            "Info", ToastConfig.InfoDuration,
+            ToastConfig.ErrorDuration
+        ),
+        true,                          // HasRevert: true
+        revertLabel,
+        revertData,
+        revertCallbackID
+    )
+};
+
+// Success notification with revert button (NEW)
+NotifySuccessWithRevert(
+    message: Text;
+    revertLabel: Text;
+    revertData: Record;
+    revertCallbackID: Number
+): Void = {
+    NotifyWithRevert(
+        message,
+        "Success",
+        revertLabel,
+        revertData,
+        revertCallbackID
+    )
+};
+
+// Delete success notification with undo button (NEW)
+// Convenience function: pre-configured for delete/undo workflow
+// Parameters:
+//   itemName: Text - Name of deleted item (for message)
+//   revertData: Record - Must contain: {ItemID, ItemName, [ItemData]}
+NotifyDeleteWithUndo(itemName: Text; revertData: Record): Void = {
+    NotifySuccessWithRevert(
+        "Eintrag '" & itemName & "' gelöscht",
+        "Rückgängig",
+        revertData,
+        0  // CallbackID: DELETE_UNDO
+    )
+};
+
+// Archive success notification with restore button (NEW)
+// Convenience function: pre-configured for archive/restore workflow
+// Parameters:
+//   itemName: Text - Name of archived item (for message)
+//   revertData: Record - Must contain: {ItemID, ItemName}
+NotifyArchiveWithUndo(itemName: Text; revertData: Record): Void = {
+    NotifySuccessWithRevert(
+        "Eintrag '" & itemName & "' archiviert",
+        "Wiederherstellen",
+        revertData,
+        1  // CallbackID: ARCHIVE_UNDO
+    )
+};
+
 // -----------------------------------------------------------
 // Validation Functions (Is*)
 // Returns: Boolean
