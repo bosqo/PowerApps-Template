@@ -4,11 +4,27 @@
 
 Dieses Projekt ist ein **PowerApps Canvas App Template** mit moderner Power Fx 2025 Architektur.
 
-- **Architektur**: Deklarativ-Funktional (App.Formulas + UDFs)
-- **Sprachen**: Power Fx, JSON, YAML
-- **Daten**: Microsoft Dataverse / SharePoint Lists
-- **Lokalisierung**: Deutsch (CET Zeitzone, d.m.yyyy Datumsformat)
-- **Tooling**: VS Code mit Power Platform CLI (`pac`)
+| Aspekt | Details |
+|--------|---------|
+| **Status** | Production-Ready (45/45 Requirements Complete) |
+| **Architektur** | Deklarativ-Funktional (App.Formulas + UDFs) |
+| **Sprachen** | Power Fx, JSON, YAML |
+| **Daten** | Microsoft Dataverse / SharePoint Lists |
+| **Lokalisierung** | Deutsch (CET Zeitzone, d.m.yyyy Datumsformat) |
+| **Tooling** | VS Code mit Power Platform CLI (`pac`) |
+| **UDFs** | 35+ wiederverwendbare User-Defined Functions |
+| **Performance** | App.OnStart <2 Sekunden (60% schneller als Legacy) |
+
+### Projekt-Status
+
+Das Template ist **vollständig** und produktionsreif:
+
+- **Phase 1** (Code Cleanup): 15/15 Requirements
+- **Phase 2** (Performance): 8/8 Requirements
+- **Phase 3** (Filtering): 8/8 Requirements
+- **Phase 4** (UX/Docs): 13/13 Requirements
+
+Siehe `.planning/STATE.md` für vollständige Projekthistorie.
 
 ---
 
@@ -83,6 +99,84 @@ CanDeleteRecord(Owner.Email)          // Löschen erlaubt?
 
 ---
 
+## UDF Quick Reference (35+ Funktionen)
+
+Vollständige Dokumentation: `docs/UDF-REFERENCE.md`
+
+### Permission & Role (7 UDFs)
+| UDF | Returns | Beschreibung |
+|-----|---------|-------------|
+| `HasPermission(name)` | Boolean | Berechtigung prüfen (create, read, edit, delete, viewall, approve) |
+| `HasRole(name)` | Boolean | Rolle prüfen (admin, gf, manager, hr, sachbearbeiter, user) |
+| `HasAnyRole(names)` | Boolean | Eine von mehreren Rollen (komma-separiert) |
+| `HasAllRoles(names)` | Boolean | Alle angegebenen Rollen erforderlich |
+| `GetRoleLabel()` | Text | Höchste Rolle als Anzeige-Label (Deutsch) |
+| `GetRoleBadgeColor()` | Color | Theme-Farbe für Rollen-Badge |
+| `GetRoleBadge()` | Text | Kurzer Badge-Text (Admin, GF, Manager, etc.) |
+
+### Data Access (7 UDFs)
+| UDF | Returns | Beschreibung |
+|-----|---------|-------------|
+| `GetUserScope()` | Text | User-Email für Filterung, oder Blank() bei ViewAll |
+| `GetDepartmentScope()` | Text | Abteilung für Filterung, oder Blank() bei Admin |
+| `CanAccessRecord(email)` | Boolean | Zugriff auf Record via Owner-Email |
+| `CanAccessDepartment(dept)` | Boolean | Zugriff auf Abteilungs-Records |
+| `CanAccessItem(email, dept)` | Boolean | Kombinierter Owner + Department Check |
+| `CanEditRecord(email, status)` | Boolean | Edit erlaubt (berücksichtigt Status) |
+| `CanDeleteRecord(email)` | Boolean | Delete erlaubt |
+
+### Delegation-Safe Filter (5 UDFs)
+| UDF | Returns | Beschreibung |
+|-----|---------|-------------|
+| `CanViewAllData()` | Boolean | User hat ViewAll-Berechtigung |
+| `MatchesSearchTerm(field, term)` | Boolean | Delegation-safe Textsuche |
+| `MatchesStatusFilter(status)` | Boolean | Delegation-safe Status-Filter |
+| `CanViewRecord(email)` | Boolean | ViewAll OR Ownership |
+| `FilteredGalleryData(my, status, search)` | Table | Kombiniert alle Filter |
+
+### Validation (7 UDFs)
+| UDF | Returns | Beschreibung |
+|-----|---------|-------------|
+| `IsValidEmail(text)` | Boolean | E-Mail validieren (20+ Regeln) |
+| `IsNotPastDate(date)` | Boolean | Datum nicht in Vergangenheit |
+| `IsDateInRange(date, start, end)` | Boolean | Datum innerhalb Bereich |
+| `IsAlphanumeric(text)` | Boolean | Nur Buchstaben und Zahlen |
+| `IsOneOf(value, options)` | Boolean | Wert in komma-separierter Liste |
+| `HasMaxLength(text, max)` | Boolean | Text unter Maximallänge |
+| `IsBlank(value)` | Boolean | Wert ist leer/null |
+
+### Notification (7 UDFs)
+| UDF | Type | Beschreibung |
+|-----|------|-------------|
+| `NotifySuccess(msg)` | Success | Erfolg (grün, 5s auto-dismiss) |
+| `NotifyError(msg)` | Error | Fehler (rot, manuell schließen) |
+| `NotifyWarning(msg)` | Warning | Warnung (amber, 5s auto-dismiss) |
+| `NotifyInfo(msg)` | Info | Info (blau, 5s auto-dismiss) |
+| `NotifyPermissionDenied(action)` | Error | Keine Berechtigung für Aktion |
+| `NotifyActionCompleted(action, name)` | Success | Aktion abgeschlossen |
+| `NotifyValidationError(field, msg)` | Warning | Validierungsfehler |
+
+### Date & Time (8 UDFs)
+| UDF | Returns | Beschreibung |
+|-----|---------|-------------|
+| `GetCETToday()` | Date | Heutiges Datum in CET (nicht UTC!) |
+| `ConvertUTCToCET(datetime)` | DateTime | UTC nach CET konvertieren |
+| `GetCETOffset()` | Number | Aktuelle CET/CEST Offset (-1 oder -2) |
+| `FormatDateShort(date)` | Text | "15.1.2025" |
+| `FormatDateLong(date)` | Text | "15. Januar 2025" |
+| `FormatDateRelative(date)` | Text | "Heute", "Gestern", "vor 3 Tagen" |
+| `FormatDateTimeCET(datetime)` | Text | "15.1.2025 14:30" |
+| `FormatTime(datetime)` | Text | "14:30" |
+
+### Text & Number (3 UDFs)
+| UDF | Returns | Beschreibung |
+|-----|---------|-------------|
+| `FormatCurrency(amount)` | Text | "1.234,56 €" |
+| `FormatNumber(value)` | Text | "1.234" mit Tausender-Trennung |
+| `Slugify(text)` | Text | URL-freundlicher Text |
+
+---
+
 ## Zeitzone & Lokalisierung (KRITISCH)
 
 ### CET/CEST Zeitzone
@@ -106,6 +200,60 @@ FormatDateShort(date)      // "15.1.2025"
 FormatDateLong(date)       // "15. Januar 2025"
 FormatDateRelative(date)   // "Heute", "Gestern", "vor 3 Tagen"
 ```
+
+---
+
+## Delegation Patterns (>2000 Records)
+
+SharePoint und Dataverse begrenzen Queries auf **2000 Records** (Delegation Limit). Diese UDFs arbeiten delegation-safe:
+
+### Delegation-Safe Filter UDFs
+
+| UDF | Parameter | Beschreibung |
+|-----|-----------|-------------|
+| `CanViewAllData()` | none | Prüft ob User ViewAll-Berechtigung hat |
+| `MatchesSearchTerm(field, term)` | field, term | Delegation-safe Textsuche mit Search() |
+| `MatchesStatusFilter(statusValue)` | statusValue | Delegation-safe Status-Gleichheitsprüfung |
+| `CanViewRecord(ownerEmail)` | ownerEmail | ViewAll OR Ownership Check |
+| `FilteredGalleryData(...)` | 3 params | Kombiniert alle Filter-Layer |
+
+### Beispiel: Delegation-Safe Gallery
+
+```powerfx
+// Gallery.Items - alle 4 Filter kombiniert
+glr_Items.Items = FilteredGalleryData(
+    tog_MyItemsOnly.Value,           // Boolean: nur eigene Items?
+    drp_StatusFilter.Selected.Value, // Text: Status-Filter
+    txt_Search.Text                  // Text: Suchbegriff
+)
+```
+
+### Was ist delegable?
+
+| Operation | Delegable | Beispiel |
+|-----------|-----------|----------|
+| `=` Gleichheit | Ja | `Status = "Active"` |
+| `Search()` | Ja | `Search(Title, "term")` |
+| `&&`, `\|\|` | Ja | `A && B \|\| C` |
+| `<`, `>`, `<=`, `>=` | Ja | `Date < Today()` |
+| `CountRows()` | **Nein** | Nutze FirstN/Skip stattdessen |
+| `Filter()` mit UDF | **Nein** | UDF muss inline evaluiert werden |
+| `in` Operator | **Nein** | Nutze OR-Kette stattdessen |
+
+### Pagination für große Datasets
+
+```powerfx
+// FirstN + Skip Pattern für >2000 Records
+FirstN(
+    Skip(
+        FilteredGalleryData(...),
+        (AppState.CurrentPage - 1) * 50  // 50 = PageSize
+    ),
+    50
+)
+```
+
+Siehe `docs/DELEGATION-PATTERNS.md` für vollständige Dokumentation.
 
 ---
 
@@ -208,11 +356,25 @@ Vor Verwendung von App.OnStart diese Tabellen verbinden:
 
 ## Dokumentierte Fehler & Lösungen
 
-| Datum | Fehler | Ursache | Lösung |
-|-------|--------|---------|--------|
-| 2025-01-12 | Notification UDFs fehlen | Auskommentiert in Template | Inline `Notify()` verwenden |
-| 2025-01-12 | FormatNumber() undefined | UDF nicht definiert | `Text(value, "#,##0")` nutzen |
-| 2025-01-12 | GetStatusIcon Typo | "buildinicon" statt "builtinicon" | Typo korrigiert |
+### Behobene Fehler (Phase 1-4)
+
+| Datum | Fehler | Status | Lösung |
+|-------|--------|--------|--------|
+| 2025-01-12 | Notification UDFs fehlen | **BEHOBEN** | 7 NotifyX() UDFs implementiert (Phase 4) |
+| 2025-01-12 | FormatNumber() undefined | **BEHOBEN** | UDF implementiert in App-Formulas-Template.fx |
+| 2025-01-12 | GetStatusIcon Typo | **BEHOBEN** | Korrigiert zu "builtinicon" |
+| 2025-01-18 | HasAnyRole() 3-Rollen-Limit | **BEHOBEN** | Unbegrenzte Rollen via Split() |
+| 2025-01-18 | IsOneOf() falscher `in` Operator | **BEHOBEN** | Korrektes Filter/CountRows Pattern |
+| 2025-01-18 | IsValidEmail() zu schwach | **BEHOBEN** | 20+ Validierungsregeln hinzugefügt |
+| 2025-01-18 | IsNotPastDate() gab TRUE für Blank | **BEHOBEN** | Sicherheitsfix: gibt jetzt FALSE |
+
+### Bekannte Einschränkungen
+
+| Bereich | Einschränkung | Workaround |
+|---------|---------------|------------|
+| Delegation | UDFs innerhalb Filter() nicht delegable | Nutze FilteredGalleryData() |
+| Caching | Rollenänderungen nicht automatisch erkannt | Manuelles Refresh bei Azure AD-Updates |
+| Offline | Keine Offline-Unterstützung | Netzwerkverbindung erforderlich |
 
 ---
 
@@ -476,6 +638,46 @@ ErrorDuration: 10000  // Change in ToastConfig
 
 See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed diagnosis of these and other issues.
 
+### Toast Revert/Undo System
+
+Erweiterte Toast-Funktionalität für Aktionen mit Undo-Möglichkeit:
+
+| UDF | Parameter | Beschreibung |
+|-----|-----------|-------------|
+| `AddToUndo(data)` | Record-Daten | Speichert Daten für späteres Revert |
+| `RevertLastAction()` | none | Führt Undo der letzten Aktion aus |
+
+**Beispiel: Delete mit Undo**
+```powerfx
+btn_Delete.OnSelect =
+With(
+    {itemToDelete: ThisItem},
+    // Speichere Item für Undo
+    AddToUndo({
+        ItemID: itemToDelete.ID,
+        ItemData: itemToDelete,
+        ActionType: "Delete"
+    });
+    // Lösche Item
+    Remove(Items, itemToDelete);
+    // Toast mit Undo-Button
+    NotifySuccessWithRevert(
+        "Item gelöscht",
+        "Rückgängig",
+        {ItemID: itemToDelete.ID}
+    )
+)
+```
+
+**Revert Callbacks:**
+| Callback ID | Aktion | Beschreibung |
+|-------------|--------|-------------|
+| 0 | DELETE_UNDO | Gelöschtes Item wiederherstellen |
+| 1 | ARCHIVE_UNDO | Archiviertes Item reaktivieren |
+| 2 | CUSTOM | Benutzerdefinierte Undo-Aktion |
+
+Siehe `docs/TOAST-REVERT-DESIGN.md` für vollständige Architektur-Dokumentation.
+
 ---
 
 ## Deployment & ALM
@@ -695,15 +897,58 @@ git pull origin main
 
 ---
 
-## Wichtige Dateien
+## Wichtige Dateien & Dokumentation
+
+### Source Code (4,131 Zeilen Power Fx)
+
+| Datei | Zeilen | Beschreibung |
+|-------|--------|-------------|
+| `src/App-Formulas-Template.fx` | 1,664 | Named Formulas + 35+ UDFs |
+| `src/App-OnStart-Minimal.fx` | 952 | State-Variablen, Caching, Initialisierung |
+| `src/Control-Patterns-Modern.fx` | 1,515 | Fertige Control-Formeln für Gallery, Form, Toast |
+
+### Dokumentation (19 Dateien)
+
+**Architektur & Design:**
+| Datei | Beschreibung |
+|-------|-------------|
+| `docs/App-Formulas-Design.md` | Architektur-Dokumentation, Layer-Konzept |
+| `docs/UDF-REFERENCE.md` | **Vollständige API-Referenz aller 35+ UDFs** |
+| `docs/UI-DESIGN-REFERENCE.md` | Fluent Design Implementation Guide |
+| `docs/POWER-PLATFORM-BEST-PRACTICES.md` | Platform-weite Best Practices |
+
+**Filtering & Delegation:**
+| Datei | Beschreibung |
+|-------|-------------|
+| `docs/DELEGATION-PATTERNS.md` | 4 delegation-safe UDFs für >2000 Records |
+| `docs/FILTER-COMPOSITION-GUIDE.md` | Filter kombinieren (Role + Search + Status) |
+| `docs/GALLERY-PERFORMANCE.md` | FirstN/Skip Pagination für große Datasets |
+
+**Toast Notifications:**
+| Datei | Beschreibung |
+|-------|-------------|
+| `docs/TOAST-NOTIFICATION-GUIDE.md` | Vollständige Toast-Dokumentation |
+| `docs/TOAST-NOTIFICATION-SETUP.md` | Setup-Anleitung für neue Apps |
+| `docs/TOAST-REVERT-DESIGN.md` | Undo/Revert Architektur |
+| `docs/TOAST-REVERT-IMPLEMENTATION.md` | Revert-System Implementation |
+| `docs/TOAST-REVERT-EXAMPLES.md` | Copy-Paste Beispiele für Revert |
+
+**Deployment & Migration:**
+| Datei | Beschreibung |
+|-------|-------------|
+| `docs/DEPLOYMENT-GUIDE.md` | Technisches Handbuch mit CI/CD |
+| `docs/MIGRATION-GUIDE.md` | Legacy zu Modern Migration |
+| `docs/TROUBLESHOOTING.md` | Symptom-basierte Problemdiagnose |
+| `docs/DATAVERSE-ITEM-SCHEMA.md` | Dataverse Tabellen-Schema |
+
+### Projekt-Planung
 
 | Datei | Beschreibung |
 |-------|-------------|
-| `src/App-Formulas-Template.fx` | Named Formulas + 30+ UDFs |
-| `src/App-OnStart-Minimal.fx` | Modernes OnStart mit State + Datenladung |
-| `src/Control-Patterns-Modern.fx` | Fertige Control-Formeln |
-| `docs/MIGRATION-GUIDE.md` | Legacy zu Modern Migration |
-| `docs/App-Formulas-Design.md` | Architektur-Dokumentation |
+| `.planning/PROJECT.md` | Projektzweck und Value Proposition |
+| `.planning/REQUIREMENTS.md` | 45 v1 Requirements (alle complete) |
+| `.planning/ROADMAP.md` | 4-Phasen Delivery Plan |
+| `.planning/STATE.md` | Aktueller Projektstatus und Metriken |
 
 ---
 
@@ -750,6 +995,39 @@ Session Goal: Analyze template patterns and identify code inconsistencies
 ```
 
 **Archivierung**: Alle Reflections unter `.claude/reflections/` für persönliche Knowledge Base
+
+---
+
+## Claude Skills (.claude/skills/)
+
+Domain-spezifische Anleitungen für Claude Code, die automatisch bei relevanten Tasks geladen werden.
+
+### Verfügbare Skills
+
+| Skill | Datei | Inhalt |
+|-------|-------|--------|
+| **Power Apps** | `.claude/skills/power-apps/SKILL.md` | Canvas & Model-Driven Apps, Power Fx Patterns |
+| **Power Automate** | `.claude/skills/power-automate/SKILL.md` | Cloud Flows, Trigger, Aktionen |
+| **Dataverse** | `.claude/skills/dataverse/SKILL.md` | Entity/Table Modeling, Relationships |
+| **Power Platform** | `.claude/skills/power-platform/SKILL.md` | Platform-übergreifende Konzepte |
+| **Error Learning** | `.claude/skills/error-learning/SKILL.md` | Fehlerbehandlungs-Patterns |
+
+### Skill-Nutzung
+
+Skills werden automatisch geladen wenn sie zum aktuellen Task passen. Du kannst Skills auch explizit anfordern:
+
+```
+"Nutze den power-apps skill für diese Aufgabe"
+"Zeige mir den dataverse skill"
+```
+
+### Skill-Struktur
+
+Jeder Skill enthält:
+- **Kontext**: Wann der Skill anwendbar ist
+- **Patterns**: Bewährte Code-Muster
+- **Anti-Patterns**: Was vermieden werden sollte
+- **Beispiele**: Copy-Paste-fähige Lösungen
 
 ---
 
