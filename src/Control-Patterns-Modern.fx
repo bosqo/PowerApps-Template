@@ -117,8 +117,8 @@ Filter(
 // glr_Projects.Items
 Filter(
     Projects,
-    // Access control via UDF
-    CanAccessItem(Owner.Email, Department),
+    // Access control via UDF (owner-based, no department scoping)
+    CanAccessRecord(Owner.Email),
     // Active status via conditional
     If(!ActiveFilters.IncludeArchived, Status <> "Archived", true),
     // Search (native)
@@ -811,7 +811,6 @@ NotifySuccess("Data refreshed at " & Text(Now(), "h:mm AM/PM"))
 // btn_ResetFilters.OnSelect
 Set(ActiveFilters, {
     UserScope: GetUserScope(),
-    DepartmentScope: GetDepartmentScope(),
     ActiveOnly: true,
     IncludeArchived: false,
     StatusFilter: Blank(),
@@ -819,6 +818,8 @@ Set(ActiveFilters, {
     CategoryFilter: Blank(),
     PriorityFilter: Blank(),
     OwnerFilter: Blank(),
+    ShowMyItemsOnly: false,
+    SelectedStatus: "",
     CurrentPage: 1,
     PageSize: AppConfig.ItemsPerPage
 });
@@ -861,15 +862,8 @@ If(
     LookUp(Users, Email = User().Email)
 )
 
-// DataCardValue_Department.Default
-If(
-    IsBlank(GetDepartmentScope()),
-    "",  // Admin can leave blank
-    UserProfile.Department  // Pre-fill with user's department
-)
-
 // DataCardValue_CreatedBy.Default
-UserProfile.Email
+User().Email
 
 // DataCardValue_CreatedOn.Default
 Now()
@@ -928,13 +922,10 @@ If(
 // Pattern 8.2: Screen.OnVisible - Filter Context
 // -----------------------------------------------------------
 
-// DepartmentScreen.OnVisible
-Set(AppState, Patch(AppState, {CurrentScreen: "Department"}));
-Set(ActiveFilters,
-    Patch(ActiveFilters, {
-        DepartmentScope: Coalesce(UIState.SelectedDepartment, UserProfile.Department)
-    })
-)
+// FilteredScreen.OnVisible
+Set(AppState, Patch(AppState, {CurrentScreen: "Filtered"}));
+// Reset filters when entering filtered screen
+Set(ActiveFilters, Patch(ActiveFilters, {ShowMyItemsOnly: false}))
 
 
 // -----------------------------------------------------------
