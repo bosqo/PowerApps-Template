@@ -755,6 +755,10 @@ GetHoverColor(baseColor: Color): Color =
 GetPressedColor(baseColor: Color): Color =
     ColorFade(baseColor, ColorIntensity.Pressed);
 
+// Get disabled state color (60% lighter, washed out)
+GetDisabledColor(baseColor: Color): Color =
+    ColorFade(baseColor, ColorIntensity.Disabled);
+
 
 // -----------------------------------------------------------
 // Notification Functions (Notify*)
