@@ -616,8 +616,8 @@ GetToastBorderColor(toastType: Text): Color =
 Nach erfolgreicher Implementierung:
 
 1. **Dokumentation lesen**:
-   - `docs/TOAST-NOTIFICATION-GUIDE.md` - Vollständige API-Referenz
-   - `docs/TROUBLESHOOTING.md` - Erweiterte Fehlerbehebung
+   - `docs/notifications/TOAST-NOTIFICATION-GUIDE.md` - Vollständige API-Referenz
+   - `docs/troubleshooting/TROUBLESHOOTING.md` - Erweiterte Fehlerbehebung
 
 2. **Weitere Patterns implementieren**:
    - `src/Control-Patterns-Modern.fx` - Alle Control-Patterns mit Notifications
@@ -627,7 +627,7 @@ Nach erfolgreicher Implementierung:
    - Teste mit Screenreader (Accessibility)
 
 4. **Production Deployment**:
-   - Siehe `DEPLOYMENT-INSTRUCTIONS.md` für ALM-Workflow
+   - Siehe `_archive/deployment/DEPLOYMENT-INSTRUCTIONS.md` für ALM-Workflow
 
 ---
 
@@ -637,7 +637,7 @@ Bei Fragen oder Problemen:
 
 1. **Dokumentation prüfen**:
    - `CLAUDE.md` - Hauptdokumentation
-   - `docs/TROUBLESHOOTING.md` - Häufige Fehler
+   - `docs/troubleshooting/TROUBLESHOOTING.md` - Häufige Fehler
 
 2. **GitHub Issues**:
    - Erstelle Issue mit:
