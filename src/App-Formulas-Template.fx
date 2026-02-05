@@ -889,7 +889,7 @@ GetPriorityColor(priority: Text): Color =
 //   - ToastConfig: Configuration (durations, dimensions)
 //   - AddToast/RemoveToast: Lifecycle UDFs
 //   - NotificationStack: Collection holding active toasts (initialized in App.OnStart Section 7)
-//   - NotificationCounter: ID generator for unique toast IDs
+//   - ToastState: Consolidated state (Counter, ToRemove, AnimationStart, Reverting)
 //
 // Layer 3: UI Rendering (Control-Patterns-Modern.fx, Pattern 1.9)
 //   - cnt_NotificationStack: Main container (top-right overlay, fixed position, ZIndex 1000)
@@ -914,6 +914,15 @@ ToastConfig = {
     InfoDuration: 5000,       // Auto-dismiss timeout in ms
     ErrorDuration: 0,         // Never auto-dismiss (user must close)
     AnimationDuration: 300    // Slide-in animation duration in ms
+};
+
+// Revert Callback Registry - Replaces magic numbers with named constants
+// Used by HandleRevert() to identify which undo action to execute
+// Example: NotifyDeleteWithUndo(..., RevertCallbackIDs.DELETE_UNDO)
+RevertCallbackIDs = {
+    DELETE_UNDO: 0,      // Restore deleted item
+    ARCHIVE_UNDO: 1,     // Unarchive item
+    CUSTOM: 2            // Custom user-defined revert action
 };
 
 // Get toast background color by type
@@ -1056,7 +1065,7 @@ AddToast(message: Text; toastType: Text; shouldAutoClose: Boolean; duration: Num
         NotificationStack,
         Defaults(NotificationStack),
         {
-            ID: NotificationCounter,
+            ID: ToastState.Counter,
             Message: message,
             Type: toastType,
             AutoClose: shouldAutoClose,
@@ -1066,7 +1075,7 @@ AddToast(message: Text; toastType: Text; shouldAutoClose: Boolean; duration: Num
         }
     );
     // Increment counter for next toast to ensure unique IDs
-    Set(NotificationCounter, NotificationCounter + 1)
+    Set(ToastState, Patch(ToastState, {Counter: ToastState.Counter + 1}))
 };
 
 // Remove toast from notification stack
@@ -1131,7 +1140,7 @@ AddToastWithRevert(
         NotificationStack,
         Defaults(NotificationStack),
         {
-            ID: NotificationCounter,
+            ID: ToastState.Counter,
             Message: message,
             Type: toastType,
             AutoClose: shouldAutoClose,
@@ -1147,7 +1156,7 @@ AddToastWithRevert(
             RevertError: Blank()
         }
     );
-    Set(NotificationCounter, NotificationCounter + 1)
+    Set(ToastState, Patch(ToastState, {Counter: ToastState.Counter + 1}))
 };
 
 // Handle revert/undo action (NEW)
@@ -1173,8 +1182,8 @@ HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
     // Execute callback based on ID
     Switch(
         callbackID,
-        // 0: DELETE_UNDO - Restore deleted item
-        0,
+        // DELETE_UNDO - Restore deleted item
+        RevertCallbackIDs.DELETE_UNDO,
         IfError(
             // Restore item from revertData
             Patch(Items, Defaults(Items), revertData);
@@ -1192,8 +1201,8 @@ HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
                 }
             )
         ),
-        // 1: ARCHIVE_UNDO - Unarchive item
-        1,
+        // ARCHIVE_UNDO - Unarchive item
+        RevertCallbackIDs.ARCHIVE_UNDO,
         IfError(
             // Reactivate item by setting status to Active
             Patch(Items, {ID: revertData.ItemID}, {Status: "Active"});
@@ -1211,7 +1220,7 @@ HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
                 }
             )
         ),
-        // 2+: CUSTOM - User-defined callbacks (extend as needed)
+        // CUSTOM - User-defined callbacks (extend as needed)
         // No-op: App code should extend this switch statement
         Patch(
             NotificationStack,
@@ -1283,7 +1292,7 @@ NotifyDeleteWithUndo(itemName: Text; revertData: Record): Void = {
         "Eintrag '" & itemName & "' gelöscht",
         "Rückgängig",
         revertData,
-        0  // CallbackID: DELETE_UNDO
+        RevertCallbackIDs.DELETE_UNDO
     )
 };
 
@@ -1297,7 +1306,7 @@ NotifyArchiveWithUndo(itemName: Text; revertData: Record): Void = {
         "Eintrag '" & itemName & "' archiviert",
         "Wiederherstellen",
         revertData,
-        1  // CallbackID: ARCHIVE_UNDO
+        RevertCallbackIDs.ARCHIVE_UNDO
     )
 };
 
