@@ -656,18 +656,15 @@ GetThemeColor(colorName: Text): Color =
         Lower(colorName),
         // Brand
         "primary", ThemeColors.Primary,
-        "primarylight", ThemeColors.PrimaryLight,
-        "primarydark", ThemeColors.PrimaryDark,
         "secondary", ThemeColors.Secondary,
         // Semantic
         "success", ThemeColors.Success,
-        "successlight", ThemeColors.SuccessLight,
         "warning", ThemeColors.Warning,
-        "warninglight", ThemeColors.WarningLight,
         "error", ThemeColors.Error,
-        "errorlight", ThemeColors.ErrorLight,
         "info", ThemeColors.Info,
         // Neutrals
+        "neutralbase", ThemeColors.NeutralBase,
+        "neutralgray", ThemeColors.NeutralGray,
         "background", ThemeColors.Background,
         "surface", ThemeColors.Surface,
         "surfacehover", ThemeColors.SurfaceHover,
