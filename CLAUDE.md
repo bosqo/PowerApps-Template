@@ -101,7 +101,7 @@ CanDeleteRecord(Owner.Email)          // Löschen erlaubt?
 
 ## UDF Quick Reference (35+ Funktionen)
 
-Vollständige Dokumentation: `docs/UDF-REFERENCE.md`
+Vollständige Dokumentation: `docs/reference/UDF-REFERENCE.md`
 
 ### Permission & Role (7 UDFs)
 | UDF | Returns | Beschreibung |
@@ -253,7 +253,7 @@ FirstN(
 )
 ```
 
-Siehe `docs/DELEGATION-PATTERNS.md` für vollständige Dokumentation.
+Siehe `docs/performance/DELEGATION-PATTERNS.md` für vollständige Dokumentation.
 
 ---
 
@@ -636,7 +636,7 @@ ErrorDuration: 10000  // Change in ToastConfig
 | Error auto-dismisses | `ErrorDuration` in `ToastConfig` not 0 | Change `ErrorDuration: 0` in `ToastConfig` |
 | Collection grows unbounded | Old toasts not being removed | Verify `RemoveToast()` called on close button, auto-dismiss formula working |
 
-See [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for detailed diagnosis of these and other issues.
+See [docs/troubleshooting/TROUBLESHOOTING.md](docs/troubleshooting/TROUBLESHOOTING.md) for detailed diagnosis of these and other issues.
 
 ### Toast Revert/Undo System
 
@@ -676,7 +676,7 @@ With(
 | 1 | ARCHIVE_UNDO | Archiviertes Item reaktivieren |
 | 2 | CUSTOM | Benutzerdefinierte Undo-Aktion |
 
-Siehe `docs/TOAST-REVERT-DESIGN.md` für vollständige Architektur-Dokumentation.
+Siehe `docs/notifications/TOAST-REVERT-DESIGN.md` für vollständige Architektur-Dokumentation.
 
 ---
 
@@ -703,14 +703,12 @@ Dieses Projekt enthält vollständige Deployment-Automation für den ALM-Lifecyc
 
 | Dokument | Wann nutzen? |
 |----------|--------------|
-| **[QUICK-START.md](QUICK-START.md)** | ⚡ Schnellreferenz (eine Seite zum Ausdrucken) |
-| **[DEPLOYMENT-INSTRUCTIONS.md](DEPLOYMENT-INSTRUCTIONS.md)** | 📖 Vollständige Schritt-für-Schritt Anleitung |
-| **[DEPLOYMENT-WORKFLOW.md](DEPLOYMENT-WORKFLOW.md)** | 🔄 Visuelle Workflows und Decision Trees |
-| **[DEPLOYMENT-CHEATSHEET.md](DEPLOYMENT-CHEATSHEET.md)** | 🎯 Command-Referenz für häufige Tasks |
-| **[README-DEPLOYMENT.md](README-DEPLOYMENT.md)** | 📦 Übersicht über alle Deployment-Dateien |
-| **[docs/DEPLOYMENT-GUIDE.md](docs/DEPLOYMENT-GUIDE.md)** | 🔧 Technisches Handbuch mit CI/CD |
+| **[docs/deployment/DEPLOYMENT-GUIDE.md](docs/deployment/DEPLOYMENT-GUIDE.md)** | 🔧 Technisches Handbuch mit CI/CD |
+| **[docs/deployment/QUICK-START.md](docs/deployment/QUICK-START.md)** | ⚡ Schnellreferenz für Template-Setup |
 
-**Wichtig:** Siehe [DEPLOYMENT-INSTRUCTIONS.md](DEPLOYMENT-INSTRUCTIONS.md) für erstmalige Einrichtung (PAC CLI Installation, Environment-Authentifizierung).
+> **Archiv:** Weitere Deployment-Docs (DEPLOYMENT-INSTRUCTIONS, DEPLOYMENT-WORKFLOW, DEPLOYMENT-CHEATSHEET, README-DEPLOYMENT) befinden sich in `_archive/deployment/`.
+
+**Wichtig:** Siehe [docs/deployment/DEPLOYMENT-GUIDE.md](docs/deployment/DEPLOYMENT-GUIDE.md) für erstmalige Einrichtung (PAC CLI Installation, Environment-Authentifizierung).
 
 ### PAC CLI Befehle (Manuell)
 
@@ -907,39 +905,56 @@ git pull origin main
 | `src/App-OnStart-Minimal.fx` | 952 | State-Variablen, Caching, Initialisierung |
 | `src/Control-Patterns-Modern.fx` | 1,515 | Fertige Control-Formeln für Gallery, Form, Toast |
 
-### Dokumentation (19 Dateien)
+### Dokumentation (nach Thema organisiert)
 
-**Architektur & Design:**
+**`docs/architecture/` - Architektur & Design:**
 | Datei | Beschreibung |
 |-------|-------------|
-| `docs/App-Formulas-Design.md` | Architektur-Dokumentation, Layer-Konzept |
-| `docs/UDF-REFERENCE.md` | **Vollständige API-Referenz aller 35+ UDFs** |
-| `docs/UI-DESIGN-REFERENCE.md` | Fluent Design Implementation Guide |
-| `docs/POWER-PLATFORM-BEST-PRACTICES.md` | Platform-weite Best Practices |
+| `App-Formulas-Design.md` | Architektur-Dokumentation, Layer-Konzept |
+| `App-Formulas-README.md` | Named Formulas Guide |
+| `UI-DESIGN-REFERENCE.md` | Fluent Design Implementation Guide |
 
-**Filtering & Delegation:**
+**`docs/reference/` - API & Best Practices:**
 | Datei | Beschreibung |
 |-------|-------------|
-| `docs/DELEGATION-PATTERNS.md` | 4 delegation-safe UDFs für >2000 Records |
-| `docs/FILTER-COMPOSITION-GUIDE.md` | Filter kombinieren (Role + Search + Status) |
-| `docs/GALLERY-PERFORMANCE.md` | FirstN/Skip Pagination für große Datasets |
+| `UDF-REFERENCE.md` | **Vollständige API-Referenz aller 35+ UDFs** |
+| `POWER-PLATFORM-BEST-PRACTICES.md` | Platform-weite Best Practices |
+| `DATAVERSE-ITEM-SCHEMA.md` | Dataverse Tabellen-Schema |
 
-**Toast Notifications:**
+**`docs/performance/` - Filtering & Delegation:**
 | Datei | Beschreibung |
 |-------|-------------|
-| `docs/TOAST-NOTIFICATION-GUIDE.md` | Vollständige Toast-Dokumentation |
-| `docs/TOAST-NOTIFICATION-SETUP.md` | Setup-Anleitung für neue Apps |
-| `docs/TOAST-REVERT-DESIGN.md` | Undo/Revert Architektur |
-| `docs/TOAST-REVERT-IMPLEMENTATION.md` | Revert-System Implementation |
-| `docs/TOAST-REVERT-EXAMPLES.md` | Copy-Paste Beispiele für Revert |
+| `DELEGATION-PATTERNS.md` | 4 delegation-safe UDFs für >2000 Records |
+| `FILTER-COMPOSITION-GUIDE.md` | Filter kombinieren (Role + Search + Status) |
+| `GALLERY-PERFORMANCE.md` | FirstN/Skip Pagination für große Datasets |
 
-**Deployment & Migration:**
+**`docs/notifications/` - Toast Notifications:**
 | Datei | Beschreibung |
 |-------|-------------|
-| `docs/DEPLOYMENT-GUIDE.md` | Technisches Handbuch mit CI/CD |
-| `docs/MIGRATION-GUIDE.md` | Legacy zu Modern Migration |
-| `docs/TROUBLESHOOTING.md` | Symptom-basierte Problemdiagnose |
-| `docs/DATAVERSE-ITEM-SCHEMA.md` | Dataverse Tabellen-Schema |
+| `TOAST-NOTIFICATION-GUIDE.md` | Vollständige Toast-Dokumentation |
+| `TOAST-NOTIFICATION-SETUP.md` | Setup-Anleitung für neue Apps |
+| `TOAST-REVERT-DESIGN.md` | Undo/Revert Architektur |
+| `TOAST-REVERT-IMPLEMENTATION.md` | Revert-System Implementation |
+| `TOAST-REVERT-EXAMPLES.md` | Copy-Paste Beispiele für Revert |
+
+**`docs/deployment/` - Deployment:**
+| Datei | Beschreibung |
+|-------|-------------|
+| `DEPLOYMENT-GUIDE.md` | Technisches Handbuch mit CI/CD |
+| `QUICK-START.md` | Template Quick-Start Guide |
+
+**`docs/troubleshooting/` - Problemdiagnose:**
+| Datei | Beschreibung |
+|-------|-------------|
+| `TROUBLESHOOTING.md` | Symptom-basierte Problemdiagnose |
+
+### Archivierte Dateien (`_archive/`)
+
+Abgeschlossene Planungsphasen, historische Logs und redundante Deployment-Docs:
+- `_archive/planning/phases/` - Alle 4 Phasen (PLAN + SUMMARY Dateien)
+- `_archive/log/` - Audit-Reports und Code-Reviews
+- `_archive/docs/` - MODERNIZATION-PLAN.md, MIGRATION-GUIDE.md
+- `_archive/deployment/` - Redundante Root-Level Deployment-Docs
 
 ### Projekt-Planung
 

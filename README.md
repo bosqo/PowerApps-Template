@@ -154,7 +154,7 @@ IsCorporate: EndsWith(Lower(User().Email), "@yourcompany.com"),
 
 If migrating from the old `App.OnStart` pattern:
 
-1. Read `docs/MIGRATION-GUIDE.md` for step-by-step instructions
+1. Read `_archive/docs/MIGRATION-GUIDE.md` for step-by-step instructions
 2. Start with a development copy of your app
 3. Migrate one feature at a time
 4. Test with different user roles

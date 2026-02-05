@@ -702,7 +702,7 @@ NotifySuccessWithRevert("Deleted", "Undo", {ItemID: "123"}, 0)
    - Add RevertCallbacks collection (optional)
    - Add ToastReverting variable
 
-3. **docs/TOAST-NOTIFICATION-SETUP.md**
+3. **docs/notifications/TOAST-NOTIFICATION-SETUP.md**
    - Add Step 4.3 (Revert Button)
    - Update Control Hierarchy
    - Add Integration Examples
