@@ -1033,12 +1033,149 @@ Jeder Skill enthält:
 
 ## Code-Qualität
 
+### Grundprinzipien
+
 - Schreibe sauberen, lesbaren Power Fx Code
 - Nutze UDFs für wiederverwendbare Logik (Single Responsibility)
 - Vermeide Code-Duplizierung - nutze Named Formulas
 - Kommentiere nur komplexe Logik, nicht offensichtlichen Code
 - Validiere Eingaben früh (Fail Fast)
 - Prüfe Berechtigungen VOR Aktionen (`HasPermission()`, `CanAccessRecord()`)
+
+### Power Fx Best Practices (Microsoft-Compliant)
+
+**Vollständige Dokumentation:** Siehe `docs/POWER-FX-BEST-PRACTICES.md` (755 Zeilen)
+
+#### 1. Deklarativ vor Imperativ
+
+> **Microsoft's Goldene Regel:** "Declarative is always best, so use this facility [behavior UDFs] only when you must."
+
+```powerfx
+// ✅ GUT: Deklarative Named Formula
+ThemeColors = {
+    Primary: ColorValue("#0078D4"),
+    Success: ColorValue("#107C10")
+};
+
+// ✅ GUT: Einfache Behavior UDF (nur wenn nötig)
+NotifySuccess(message: Text): Void = {
+    Notify(message, NotificationType.Success);
+    AddToast(message, "Success", true, 5000)
+};
+
+// ❌ OVER-ENGINEERED: Unnötige Abstraktion
+_InternalHelper(msg, type) = With({...}, ...);
+```
+
+**Warum einfach besser ist:**
+- Leichter zu debuggen (Fehler zeigen auf genaue Funktion)
+- Selbst-dokumentierend (Funktionsname = Verhalten)
+- Keine versteckte Indirektion
+- Einzelne Typen änderbar ohne andere zu beeinflussen
+
+#### 2. With() nur für berechnete Werte
+
+```powerfx
+// ✅ RICHTIG: Berechnung eines Wertes
+With(
+    {elapsed: Now() - ThisItem.CreatedAt},
+    If(elapsed < TimeValue("0:0:0.3"),
+       elapsed / TimeValue("0:0:0.3"),
+       1)
+)
+
+// ❌ FALSCH: Seiteneffekte in With()
+With(
+    {enumType: Switch(...)},
+    Notify(message, enumType);  // ❌ Seiteneffekt
+    AddToast(...)               // ❌ Seiteneffekt
+)
+```
+
+**Microsoft-Dokumentation:** [With Function Reference](https://learn.microsoft.com/en-us/power-platform/power-fx/reference/function-with)
+
+#### 3. Magic Numbers eliminieren
+
+```powerfx
+// ❌ SCHLECHT: Was bedeutet 0, 1, 2?
+HandleRevert(toastID, 0, data);  // Was ist 0?
+
+// ✅ GUT: Named Constants Registry
+RevertCallbackIDs = {
+    DELETE_UNDO: 0,
+    ARCHIVE_UNDO: 1,
+    CUSTOM: 2
+};
+
+HandleRevert(toastID, RevertCallbackIDs.DELETE_UNDO, data);
+```
+
+**Vorteile:**
+- Selbst-dokumentierender Code
+- IntelliSense zeigt verfügbare Optionen
+- Single Source of Truth
+- Einfach erweiterbar
+
+#### 4. State konsolidieren
+
+```powerfx
+// ❌ SCHLECHT: 4 separate globale Variablen
+Set(NotificationCounter, 0);
+Set(ToastToRemove, Blank());
+Set(ToastAnimationStart, Blank());
+Set(ToastReverting, Blank());
+
+// ✅ GUT: Konsolidiertes Record
+Set(ToastState, {
+    Counter: 0,
+    ToRemove: Blank(),
+    AnimationStart: Blank(),
+    Reverting: Blank()
+});
+```
+
+**Vorteile:**
+- Bessere Organisation
+- Einfacher zu resetten
+- Klare Zugehörigkeit
+- Weniger globale Variablen
+
+#### 5. Immer gegen Microsoft Docs validieren
+
+**Vor jedem Refactoring:**
+1. ✅ Offizielle Microsoft Power Fx Dokumentation prüfen
+2. ✅ Best Practices von Microsoft befolgen
+3. ✅ Keine "cleveren" Abstraktionen ohne klaren Nutzen
+4. ✅ Einfachheit über Komplexität
+
+**Wichtige Ressourcen:**
+- [Power Fx Overview](https://learn.microsoft.com/en-us/power-platform/power-fx/overview)
+- [Working with Formulas In-Depth](https://learn.microsoft.com/en-us/power-apps/maker/canvas-apps/working-with-formulas-in-depth)
+- [UDFs General Availability](https://www.microsoft.com/en-us/power-platform/blog/power-apps/power-apps-user-defined-functions-ga/)
+
+### Lessons Learned (Refactoring Sessions)
+
+**Session 2025-02-05: Notification System Refactoring**
+
+| Lektion | Erkenntnis |
+|---------|-----------|
+| **Docs First** | Immer zuerst gegen offizielle Microsoft-Dokumentation validieren |
+| **Simplicity Wins** | Bestehende einfache Patterns oft besser als "clevere" Refactorings |
+| **With() Misuse** | Häufiger Fehler: With() ist für berechnete Werte, NICHT für Seiteneffekte |
+| **Magic Numbers** | Named Constants machen Code selbst-dokumentierend |
+| **State Consolidation** | Records > mehrere separate Variablen für verwandten State |
+| **Over-Engineering** | DRY-Prinzip kann zu Over-Abstraction führen - Balance wichtig |
+
+**Ergebnis:** 4 gezielte Verbesserungen statt massivem Refactoring
+- ✅ RevertCallbackIDs Registry (magic numbers eliminiert)
+- ✅ Fade Animations implementiert (Microsoft-compliant With() Nutzung)
+- ✅ Cleanup Timer (Memory Leak Prevention)
+- ✅ ToastState konsolidiert (4 → 2 globale Variablen)
+
+**Verworfene Idee:** Helper-Funktion zur Reduktion von Duplikation
+- ❌ Würde unnötige Komplexität hinzufügen
+- ❌ Verletzt Microsoft's "declarative first" Prinzip
+- ❌ Macht Debugging schwieriger ohne klaren Nutzen
 
 ---
 

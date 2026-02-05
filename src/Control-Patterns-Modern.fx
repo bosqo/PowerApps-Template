@@ -1195,11 +1195,27 @@ If(
 // Comment: Hide after 5 seconds if AutoClose=true (fade-out animation handled separately via Opacity)
 // Note: For error toasts (AutoClose=false), this formula returns true indefinitely until RemoveToast() called
 
-// Opacity (fade-out effect):
+// Opacity (entrance + exit fade animation):
 // ============
-// Opacity: If(ThisItem.AutoClose && Now() - ThisItem.CreatedAt > TimeValue("0:0:4.7"), Max(0, 1 - ((Now() - ThisItem.CreatedAt - TimeValue("0:0:4.7")) / TimeValue("0:0:0.3"))), 1)
-// Comment: Fades from opacity 1.0 to 0.0 over last 300ms (4.7s to 5.0s) before Visible becomes false
-// This creates smooth fade-out animation for success/info/warning toasts before they're removed
+// Opacity:
+With(
+    {elapsed: Now() - ThisItem.CreatedAt},
+    If(
+        // Entrance fade: 0 → 1 over first 300ms
+        elapsed < TimeValue("0:0:0.3"),
+        elapsed / TimeValue("0:0:0.3"),
+        // Normal visibility OR exit fade
+        If(
+            ThisItem.AutoClose && elapsed > TimeValue("0:0:4.7"),
+            // Exit fade: 1 → 0 over last 300ms (4.7s to 5.0s)
+            Max(0, 1 - ((elapsed - TimeValue("0:0:4.7")) / TimeValue("0:0:0.3"))),
+            1  // Fully visible between 0.3s and 4.7s
+        )
+    )
+)
+// Comment: Combines entrance fade-in (0-300ms) with exit fade-out (4700-5000ms)
+// Toast fades in smoothly on appearance, stays fully visible, then fades out before removal
+// Uses With() for computed value (not side effects) - Microsoft-compliant pattern
 
 // Border Style:
 // ============
@@ -1276,77 +1292,34 @@ If(
 
 
 // -----------------------------------------------------------
-// Pattern 11.6: Toast Animation (Entrance & Exit)
+// Pattern 11.6: Toast Animation (Entrance & Exit) - IMPLEMENTED
 // -----------------------------------------------------------
 //
-// ENTRANCE ANIMATION (Slide-in):
-// Two implementation approaches:
-
-// APPROACH A: Built-in Animation Property (Recommended if available in your Power Apps version)
-// ============
-// cnt_Toast.Animation (if supported): Animation.SlideInLeft
-// Automatically slides toast from right to left on entrance
-// Duration: ~300ms (platform default)
-// Simplest implementation, but less customizable
-
-// APPROACH B: Manual X Position with Timing (Works on all Power Apps versions)
-// ============
-// This approach uses a hidden timer state to calculate animation progress
-
-// Implementation steps:
-// 1. Add hidden state variable to track animation start:
-//    ToastAnimationStart (DateTime) - stores when toast first appears
+// IMPLEMENTATION: Opacity Fade-In + Fade-Out (Pattern 11.2)
+// Uses ThisItem.CreatedAt timestamp for animation timing (no extra state needed)
 //
-// 2. Use X offset formula on cnt_Toast or wrapper container:
-//    X = Parent.Width - 400 + If(
-//        IsBlank(ToastAnimationStart),
-//        0,  // Not animating - position is final
-//        If(
-//            Now() - ToastAnimationStart < TimeValue("0:0:0.3"),  // Within 300ms animation window
-//            (ToastConfig.Width * (Now() - ToastAnimationStart)) / TimeValue("0:0:0.3"),
-//            0  // Animation complete - at final position
-//        )
-//    )
-//    This moves toast from right (ToastConfig.Width offset) to left (0 offset) over 300ms
+// The cnt_Toast.Opacity formula (see Pattern 11.2) implements:
+// - ENTRANCE: Fade from 0 to 1 over first 300ms (0s to 0.3s)
+// - VISIBLE: Opacity 1 during main display (0.3s to 4.7s)
+// - EXIT: Fade from 1 to 0 over last 300ms (4.7s to 5.0s)
 //
-// 3. Initialize ToastAnimationStart when toast appears:
-//    OnVisible event: Set(ToastAnimationStart, Now())
-//    Or: In RemoveToast UDF, clear animation state
+// Formula structure:
+//   With({elapsed: Now() - ThisItem.CreatedAt},
+//     If(elapsed < 0.3s, fade-in,
+//       If(AutoClose && elapsed > 4.7s, fade-out, 1)))
 //
-// APPROACH C: Opacity Fade-In (Simplest, less visual impact)
-// ============
-// Instead of slide, fade in toast:
-// Opacity: If(
-//     IsBlank(ToastAnimationStart),
-//     1,  // No animation state - fully opaque
-//     If(
-//         Now() - ToastAnimationStart < TimeValue("0:0:0.3"),
-//         (Now() - ToastAnimationStart) / TimeValue("0:0:0.3"),  // Fade from 0 to 1
-//         1  // Animation complete - fully opaque
-//     )
-// )
-// Toasts fade in smoothly over 300ms
-
-// EXIT ANIMATION (Fade-out):
-// Already implemented in Pattern 11.2 via Opacity formula
-// When Now() - CreatedAt > 4.7 seconds (for auto-dismiss):
-//   Opacity fades from 1.0 to 0.0 over 300ms
-//   Visible becomes false at 5.0 seconds
-// When user clicks X button:
-//   RemoveToast() immediately removes from collection
-//   Toast disappears without fade (instant removal)
-
-// RECOMMENDED APPROACH FOR PHASE 4:
-// Use APPROACH C (Opacity Fade-In) because:
-// - Works on all Power Apps versions (no platform-specific features needed)
-// - Simple to implement (single Opacity formula)
-// - Combines nicely with fade-out exit animation
-// - Creates professional "fade in, then fade out" effect
-// - No need for additional state variables or timer complexity
-
-// To implement: Add ToastAnimationStart variable to App.OnStart Section 7:
-//   Set(ToastAnimationStart, Blank());
-// Then update cnt_Toast.Opacity with the fade-in logic above
+// Benefits of this approach:
+// - No extra state variables needed (uses CreatedAt from collection)
+// - Works on all Power Apps versions
+// - Microsoft-compliant (With() for computed values, not side effects)
+// - Professional appearance (smooth entrance and exit)
+// - Simple to customize (change TimeValue durations in formula)
+//
+// Alternative approaches (not implemented, but documented for reference):
+// - Built-in Animation property (if supported): Animation.SlideInLeft
+// - Manual X position with slide animation (more complex, requires extra state)
+//
+// Current implementation provides best balance of simplicity, performance, and compatibility
 
 
 // -----------------------------------------------------------
@@ -1442,8 +1415,8 @@ ForAll(
 
 // Before publishing the app, verify:
 // [ ] NotificationStack collection initialized in App.OnStart (empty table)
-// [ ] NotificationCounter initialized in App.OnStart (set to 0)
-// [ ] ToastAnimationStart initialized in App.OnStart (set to Blank)
+// [ ] ToastState record initialized in App.OnStart (Counter: 0, etc.)
+// [ ] ToastCleanupLastRun initialized in App.OnStart (Now())
 // [ ] cnt_NotificationStack container added to main screen
 //     - Items: NotificationStack
 //     - Position: Top-right (X = Parent.Width - 400, Y = 16)
@@ -1460,6 +1433,8 @@ ForAll(
 //     - NotifySuccess, NotifyError, NotifyWarning, NotifyInfo
 //     - GetToastBackground, GetToastBorderColor, GetToastIcon, GetToastIconColor
 //     - AddToast, RemoveToast
+//     - RevertCallbackIDs registry (replaces magic numbers)
+// [ ] tim_ToastCleanup timer added (hidden, 60s repeat, Pattern 11.8)
 // [ ] Test all 8 test scenarios above
 
 
@@ -1508,6 +1483,54 @@ GetToastBackground(toastType: Text): Color =
 // 4. Create new UDF in App-Formulas:
 //    NotifyCritical(message: Text): Void = { AddToast(message, "Critical", false, 0) };
 // 5. Call NotifyCritical("message") from your code
+
+
+// -----------------------------------------------------------
+// Pattern 11.8: Toast Cleanup Timer (NEW - Prevents Memory Leaks)
+// -----------------------------------------------------------
+//
+// PURPOSE: Periodic cleanup of stale toasts from NotificationStack
+// Removes toasts older than 2 minutes that failed to auto-dismiss
+// Prevents memory leaks in long-running app sessions
+
+// tim_ToastCleanup - Hidden timer control (add to main screen)
+// PROPERTIES:
+
+// Visible: false
+// Comment: Hidden control - runs in background
+
+// Width: 0
+// Height: 0
+// Comment: No visual footprint
+
+// Duration: 60000
+// Comment: Run every 60 seconds (1 minute)
+
+// Repeat: true
+// Comment: Continuous cleanup throughout app lifetime
+
+// AutoStart: true
+// Comment: Start automatically when app loads
+
+// OnTimerEnd:
+ForAll(
+    Filter(
+        NotificationStack,
+        // Remove toasts older than 2 minutes (120 seconds)
+        Now() - CreatedAt > TimeValue("0:2:0")
+    ),
+    Remove(NotificationStack, ThisRecord)
+);
+// Update last cleanup timestamp (optional - for debugging)
+Set(ToastCleanupLastRun, Now())
+
+// SAFETY NET: This timer handles edge cases where:
+// - Auto-dismiss fails (rare Power Apps timing bug)
+// - RemoveToast() errors (network issues, collection corruption)
+// - Manual close button not clicked (user forgets to dismiss error toasts)
+//
+// Result: NotificationStack never grows unbounded, even in worst-case scenarios
+// Performance impact: Negligible (runs once per minute, filters small collection)
 
 
 // ============================================================

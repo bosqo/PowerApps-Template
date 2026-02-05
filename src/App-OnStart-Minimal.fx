@@ -653,22 +653,18 @@ Set(AppState,
 // Will be populated as users trigger actions (save, delete, etc.)
 ClearCollect(NotificationStack, Table());
 
-// Counter: Unique ID for each toast (incremented in AddToast UDF)
-// Ensures every toast has a unique ID for proper removal via RemoveToast
-Set(NotificationCounter, 0);
+// Consolidated toast state (replaces 4 separate global variables)
+// Benefits: Better organization, easier to reset, single source of truth
+Set(ToastState, {
+    Counter: 0,              // Unique ID generator (incremented in AddToast UDF)
+    ToRemove: Blank(),       // Current toast ID being dismissed (for auto-dismiss tracking)
+    AnimationStart: Blank(), // Animation start timestamp (for entrance fade-in)
+    Reverting: Blank()       // Current toast ID being reverted (prevents concurrent reverts)
+});
 
-// For auto-dismiss: Store current toast ID being dismissed
-// Used by timer control in UI layer (04-02) to track which toast is being removed
-Set(ToastToRemove, Blank());
-
-// Animation state: Track when toast appears for entrance animation
-// Used by cnt_Toast.Opacity formula to create fade-in effect over 300ms
-// Set to Blank() at startup; will be updated by toast controls when rendered
-Set(ToastAnimationStart, Blank());
-
-// NEW (Phase 4 - Revert System): Track which toast is currently reverting
-// Used to prevent multiple simultaneous reverts and show loading state
-Set(ToastReverting, Blank());
+// Cleanup timer state: Track last cleanup run (for debugging)
+// Used by tim_ToastCleanup control (Pattern 11.8) to prevent memory leaks
+Set(ToastCleanupLastRun, Now());
 
 // NEW (Phase 4 - Revert System): Optional collection for revert callback registry
 // Maps callback ID to handler name (informational, not required for functionality)
@@ -681,16 +677,9 @@ ClearCollect(
     )
 );
 
-// OPTIONAL: Periodic cleanup of old toasts (safety net)
-// Uncomment if you notice NotificationStack growing unbounded
-// (Usually handled by auto-dismiss timers in UI, but this provides fallback)
-// ForAll(
-//     Filter(
-//         NotificationStack,
-//         Now() - CreatedAt > TimeValue("0:0:30")  // Remove toasts older than 30 seconds
-//     ),
-//     Remove(NotificationStack, @Value)
-// );
+// NOTE: Periodic cleanup now handled by tim_ToastCleanup control (see Control-Patterns Pattern 11.8)
+// The timer runs every 60 seconds and removes toasts older than 2 minutes
+// This provides a safety net against memory leaks if auto-dismiss fails
 
 // TIMING: Section 7 - Notification Stack END
 
