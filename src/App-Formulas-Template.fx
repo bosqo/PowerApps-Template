@@ -759,6 +759,10 @@ GetPressedColor(baseColor: Color): Color =
 GetDisabledColor(baseColor: Color): Color =
     ColorFade(baseColor, ColorIntensity.Disabled);
 
+// Get focus border color (10% darker)
+GetFocusColor(baseColor: Color): Color =
+    ColorFade(baseColor, ColorIntensity.Focus);
+
 
 // -----------------------------------------------------------
 // Notification Functions (Notify*)
