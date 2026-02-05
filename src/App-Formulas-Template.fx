@@ -80,6 +80,16 @@ ThemeColors = {
     Shadow: ColorValue("#00000029")           // Drop shadow (16% black)
 };
 
+// Color Intensity - State Transformations
+// Controls how much colors darken/lighten for interactive states
+// Range: -1.0 (fully darken) to 1.0 (fully lighten)
+ColorIntensity = {
+    Hover: -0.20,      // Darken 20% on hover
+    Pressed: -0.30,    // Darken 30% when pressed
+    Disabled: 0.60,    // Lighten 60% when disabled (washed out)
+    Focus: -0.10       // Darken 10% for focus border
+};
+
 // Typography Sizes (for reference in controls)
 Typography = {
     // Font Sizes
