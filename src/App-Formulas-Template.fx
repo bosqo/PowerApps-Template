@@ -47,37 +47,50 @@
 //
 // Dependency order: Static formulas have no dependencies on each other or user formulas
 
-// Theme Colors - Microsoft Fluent Design System
+// Theme Colors - Simplified 2-Color System
+// CUSTOMER CUSTOMIZATION: Change Primary and Secondary only
 ThemeColors = {
-    // Brand Colors
-    Primary: ColorValue("#0078D4"),          // Microsoft Blue
-    PrimaryLight: ColorValue("#2B88D8"),     // Lighter blue for hover
-    PrimaryDark: ColorValue("#005A9E"),      // Darker blue for pressed
-    Secondary: ColorValue("#50E6FF"),         // Accent cyan
+    // ========================================
+    // CUSTOMER COLORS (Change per project)
+    // ========================================
+    Primary: ColorValue("#0078D4"),      // Main brand color
+    Secondary: ColorValue("#50E6FF"),     // Accent (badges, highlights only)
 
-    // Semantic Colors
-    Success: ColorValue("#107C10"),           // Green - confirmations
-    SuccessLight: ColorValue("#DFF6DD"),      // Light green background
-    Warning: ColorValue("#FFB900"),           // Amber - caution
-    WarningLight: ColorValue("#FFF4CE"),      // Light amber background
-    Error: ColorValue("#D13438"),             // Red - errors
-    ErrorLight: ColorValue("#FDE7E9"),        // Light red background
-    Info: ColorValue("#0078D4"),              // Blue - information
+    // ========================================
+    // STATIC SEMANTIC COLORS (Never change)
+    // ========================================
+    Success: ColorValue("#107C10"),       // Green - all apps
+    Warning: ColorValue("#FFB900"),       // Amber - all apps
+    Error: ColorValue("#D13438"),         // Red - all apps
+    Info: ColorValue("#0078D4"),          // Blue - all apps
 
-    // Neutrals
-    Background: ColorValue("#F3F2F1"),        // Page background
-    Surface: ColorValue("#FFFFFF"),           // Card/panel background
-    SurfaceHover: ColorValue("#F5F5F5"),      // Hover state
-    Text: ColorValue("#201F1E"),              // Primary text
-    TextSecondary: ColorValue("#605E5C"),     // Secondary text
-    TextDisabled: ColorValue("#A19F9D"),      // Disabled text
-    Border: ColorValue("#EDEBE9"),            // Standard border
-    BorderStrong: ColorValue("#8A8886"),      // Emphasized border
-    Divider: ColorValue("#E1DFDD"),           // Divider lines
+    // ========================================
+    // NEUTRAL BASE VALUES
+    // ========================================
+    NeutralBase: ColorValue("#F3F2F1"),   // Base gray
+    NeutralGray: ColorValue("#8A8886"),   // For gray buttons
 
-    // Overlay
-    Overlay: ColorValue("#00000066"),         // Modal backdrop (40% black)
-    Shadow: ColorValue("#00000029")           // Drop shadow (16% black)
+    Text: ColorValue("#201F1E"),          // Primary text (black)
+
+    // ========================================
+    // DERIVED NEUTRALS (Auto-calculated)
+    // ========================================
+    TextSecondary: ColorFade(ColorValue("#201F1E"), 0.60),     // Lighter text
+    TextDisabled: ColorFade(ColorValue("#201F1E"), 0.75),      // Disabled text
+
+    Background: ColorValue("#F3F2F1"),                          // Page background
+    Surface: ColorFade(ColorValue("#F3F2F1"), -0.08),          // White cards
+    SurfaceHover: ColorFade(ColorValue("#F3F2F1"), 0.05),      // Hover state for cards
+
+    Border: ColorFade(ColorValue("#F3F2F1"), 0.10),            // Default borders
+    BorderStrong: ColorFade(ColorValue("#F3F2F1"), 0.25),      // Emphasized borders
+    Divider: ColorFade(ColorValue("#F3F2F1"), 0.15),           // Separators
+
+    // ========================================
+    // UTILITY COLORS (Overlays, Shadows)
+    // ========================================
+    Overlay: RGBA(0, 0, 0, 0.4),          // Modal backdrop
+    Shadow: RGBA(0, 0, 0, 0.1)            // Drop shadows
 };
 
 // Color Intensity - State Transformations
