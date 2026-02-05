@@ -38,6 +38,46 @@ Modern approach replaces legacy `App.*` pattern (pre-2023):
 
 ---
 
+## Design System (2-Color Simplified)
+
+**Customer Customization:** Only 2 colors need changing per project
+- `ThemeColors.Primary` - Main brand color
+- `ThemeColors.Secondary` - Accent color (minimal usage)
+
+**All interactive states auto-derived via ColorFade:**
+```powerfx
+ColorIntensity = {
+    Hover: -0.20,      // 20% darker
+    Pressed: -0.30,    // 30% darker
+    Disabled: 0.60,    // 60% lighter (washed out)
+    Focus: -0.10       // 10% darker border
+};
+```
+
+**State UDFs:**
+- `GetHoverColor(baseColor)` - 20% darker for hover states
+- `GetPressedColor(baseColor)` - 30% darker for pressed states
+- `GetDisabledColor(baseColor)` - 60% lighter for disabled states
+- `GetFocusColor(baseColor)` - 10% darker for focus borders
+
+**Button Patterns (4 types):**
+| Type | Usage | Base Color |
+|------|-------|------------|
+| Primary | Submit, Save, Create | `ThemeColors.Primary` |
+| Secondary | Cancel, Back, Close | `ThemeColors.NeutralGray` |
+| Outline | View, Edit, Download | White + Text border |
+| Accent | Special highlights (rare) | `ThemeColors.Secondary` |
+
+**Semantic colors static across all apps:**
+- Success: Green (#107C10)
+- Warning: Amber (#FFB900)
+- Error: Red (#D13438)
+- Info: Blue (#0078D4)
+
+See `docs/plans/2026-02-05-design-system-refactor-design.md` for full architecture.
+
+---
+
 ## Roles & Permissions (6 Roles)
 
 | Role | Permissions |
@@ -131,6 +171,26 @@ glr_Items.Items = FilteredGalleryData(
 | `NotifyValidationError(field, msg)` | Warning | 5s |
 
 **Setup:** Defined in `App-Formulas-Template.fx:950-1000+`. Never call `Notify()` directly.
+
+### Theme & Color (8)
+| UDF | Returns | Use |
+|-----|---------|-----|
+| `GetThemeColor(name)` | Color | Named color (primary, success, error, etc.) |
+| `GetStatusColor(status)` | Color | Status color (active=green, pending=amber) |
+| `GetPriorityColor(priority)` | Color | Priority color (critical=red, high=orange) |
+| `GetHoverColor(baseColor)` | Color | Hover state (20% darker) |
+| `GetPressedColor(baseColor)` | Color | Pressed state (30% darker) |
+| `GetDisabledColor(baseColor)` | Color | Disabled state (60% lighter) |
+| `GetFocusColor(baseColor)` | Color | Focus border (10% darker) |
+| `GetStatusIcon(status)` | Text | Icon for status values |
+
+**Usage:**
+```powerfx
+// Button with automatic states
+btn_Submit.Fill = ThemeColors.Primary
+btn_Submit.HoverFill = GetHoverColor(ThemeColors.Primary)
+btn_Submit.PressedFill = GetPressedColor(ThemeColors.Primary)
+```
 
 ### Date & Time (8)
 | UDF | Returns | Example |
