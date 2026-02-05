@@ -742,6 +742,15 @@ GetPriorityColor(priority: Text): Color =
         ThemeColors.Text
     );
 
+// ============================================================
+// STATE COLOR UDFs (Interactive States)
+// ============================================================
+// Apply consistent ColorFade transformations for interactive states
+
+// Get hover state color (20% darker)
+GetHoverColor(baseColor: Color): Color =
+    ColorFade(baseColor, ColorIntensity.Hover);
+
 
 // -----------------------------------------------------------
 // Notification Functions (Notify*)
