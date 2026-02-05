@@ -510,29 +510,121 @@ GetRoleBadgeColor()
 
 
 // -----------------------------------------------------------
-// Pattern 3.4: Theme Color References
+// Pattern 3.4: Button Control Patterns (2-Color System)
 // -----------------------------------------------------------
 
+// =========================================
+// PRIMARY BUTTON (Main CTA)
+// =========================================
+// Use for: btn_Submit, btn_Create, btn_Save
+
 // btn_Primary.Fill
-GetThemeColor("Primary")
+ThemeColors.Primary
 
 // btn_Primary.HoverFill
-GetThemeColor("PrimaryLight")
+GetHoverColor(ThemeColors.Primary)
 
 // btn_Primary.PressedFill
-GetThemeColor("PrimaryDark")
+GetPressedColor(ThemeColors.Primary)
 
-// cnt_Surface.Fill
-GetThemeColor("Surface")
+// btn_Primary.DisabledFill
+GetDisabledColor(ThemeColors.Primary)
 
-// lbl_Secondary.Color
-GetThemeColor("TextSecondary")
+// btn_Primary.BorderColor
+Color.Transparent
 
-// rec_Divider.Fill
-GetThemeColor("Divider")
+// btn_Primary.Color
+Color.White
 
-// cnt_Error.Fill
-GetThemeColor("ErrorLight")
+// btn_Primary.DisabledColor
+Color.White
+
+
+// =========================================
+// SECONDARY BUTTON (Gray, no border)
+// =========================================
+// Use for: btn_Cancel, btn_Back, btn_Close
+
+// btn_Secondary.Fill
+ThemeColors.NeutralGray
+
+// btn_Secondary.HoverFill
+GetHoverColor(ThemeColors.NeutralGray)
+
+// btn_Secondary.PressedFill
+GetPressedColor(ThemeColors.NeutralGray)
+
+// btn_Secondary.DisabledFill
+GetDisabledColor(ThemeColors.NeutralGray)
+
+// btn_Secondary.BorderColor
+Color.Transparent
+
+// btn_Secondary.Color
+Color.White
+
+// btn_Secondary.DisabledColor
+Color.White
+
+
+// =========================================
+// OUTLINE BUTTON (White + Border)
+// =========================================
+// Use for: btn_ViewDetails, btn_Edit, btn_Download
+
+// btn_Outline.Fill
+ThemeColors.Surface
+
+// btn_Outline.HoverFill
+GetHoverColor(ThemeColors.NeutralBase)
+
+// btn_Outline.PressedFill
+GetPressedColor(ThemeColors.NeutralBase)
+
+// btn_Outline.DisabledFill
+ThemeColors.Surface
+
+// btn_Outline.BorderColor
+ThemeColors.Text
+
+// btn_Outline.HoverBorderColor
+GetHoverColor(ThemeColors.Text)
+
+// btn_Outline.DisabledBorderColor
+GetDisabledColor(ThemeColors.Text)
+
+// btn_Outline.Color
+ThemeColors.Text
+
+// btn_Outline.DisabledColor
+ThemeColors.TextDisabled
+
+
+// =========================================
+// ACCENT BUTTON (Uses Secondary - rare)
+// =========================================
+// Use for: btn_Highlight, btn_Feature (special actions only)
+
+// btn_Accent.Fill
+ThemeColors.Secondary
+
+// btn_Accent.HoverFill
+GetHoverColor(ThemeColors.Secondary)
+
+// btn_Accent.PressedFill
+GetPressedColor(ThemeColors.Secondary)
+
+// btn_Accent.DisabledFill
+GetDisabledColor(ThemeColors.Secondary)
+
+// btn_Accent.BorderColor
+Color.Transparent
+
+// btn_Accent.Color
+ThemeColors.Text
+
+// btn_Accent.DisabledColor
+ThemeColors.TextDisabled
 
 
 // -----------------------------------------------------------
