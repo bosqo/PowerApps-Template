@@ -751,6 +751,10 @@ GetPriorityColor(priority: Text): Color =
 GetHoverColor(baseColor: Color): Color =
     ColorFade(baseColor, ColorIntensity.Hover);
 
+// Get pressed state color (30% darker)
+GetPressedColor(baseColor: Color): Color =
+    ColorFade(baseColor, ColorIntensity.Pressed);
+
 
 // -----------------------------------------------------------
 // Notification Functions (Notify*)
