@@ -158,8 +158,7 @@ Set(AppState, {
 // Initialized from UDFs and AppConfig, modified via UI controls
 //
 // Schema:
-// - UserScope: Text - User data scope from GetUserScope() ("All", "My", "Department", or user email)
-// - DepartmentScope: Text - Department scope from GetDepartmentScope() (department name or Blank for all)
+// - UserScope: Text - User data scope from GetUserScope() (Blank = all, or user email)
 // - IncludeArchived: Boolean - Include archived records in views (false = active only, true = include archived)
 // - StatusFilter: Text - Selected status value (Blank = all statuses, specific value = filter by that status)
 // - DateRangeFilter: Text - Date range preset ("All", "Today", "ThisWeek", "ThisMonth", "Custom")
@@ -171,7 +170,6 @@ Set(AppState, {
 // - OwnerFilter: Text - Filter by owner email (Blank = all owners)
 // - ShowMyItemsOnly: Boolean - Filter to show only current user's items (used by CanViewRecord)
 // - SelectedStatus: Text - Selected status filter value (empty string = all statuses)
-// - SearchTerm: Text - Text search query across searchable fields (empty = no search)
 //
 // Usage:
 // - Update single filter: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "query"}))
@@ -189,7 +187,6 @@ Set(AppState, {
 Set(ActiveFilters, {
     // Scope Filters (initialized from UDFs)
     UserScope: GetUserScope(),
-    DepartmentScope: GetDepartmentScope(),
 
     // Status Filters
     IncludeArchived: false,  // false = show active only, true = include archived
@@ -276,89 +273,46 @@ Set(UIState, {
 // Load critical data required for app to function safely.
 // App blocks user interaction until this completes (IsInitializing: true).
 //
-// Sequential execution order (NOT parallel via Concurrent):
-// 1. Initialize cache collections and timestamp
-// 2. Fetch user profile from Office365Users.MyProfileV2()
-// 3. Determine user roles via Office365Groups checks (cached)
-// 4. Calculate permissions from cached roles (no API calls)
+// Sequential execution order:
+// 1. Initialize roles cache collection
+// 2. Determine user roles via Office365Groups checks (cached)
+// 3. Calculate permissions from cached roles (no API calls)
 //
 // Dependencies:
-// - UserProfile Named Formula depends on CachedProfileCache
+// - UserProfile Named Formula uses built-in User() function (no API calls)
 // - UserRoles Named Formula depends on CachedRolesCache
 // - UserPermissions Named Formula depends on UserRoles (derived, no API calls)
 //
 // Cache TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
 // Cache Scope: Session-based (cleared when app closes)
 //
-// Error Handling:
-// - IfError() wraps Office365 calls for graceful degradation
-// - Fallback values: "Unbekannt" for missing/failed data
-// - If critical path fails, app stays locked (IsInitializing: true)
-//
 
-// Initialize cache collections and timestamp
-Set(CacheTimestamp, Now());
-ClearCollect(CachedProfileCache, {});  // Will be populated by Office365Users call
+// Initialize roles cache collection
 ClearCollect(CachedRolesCache, {});    // Will be populated by Office365Groups calls
 
 // Ensure app stays locked during critical path execution
 Set(AppState, Patch(AppState, {IsInitializing: true}));
 
 // CRITICAL PATH: Sequential load ensures permissions calculated from complete role data
-// Step 1: Fetch user profile from Office365Users with error handling
-// Pattern: Wrap Office365 call in IfError() with user-friendly German error messages
-ClearCollect(
-    CachedProfileCache,
-    IfError(
-        {
-            DisplayName: Office365Users.MyProfileV2().DisplayName,
-            Email: Office365Users.MyProfileV2().UserPrincipalName,
-            Department: Office365Users.MyProfileV2().Department,
-            JobTitle: Office365Users.MyProfileV2().JobTitle,
-            MobilePhone: Office365Users.MyProfileV2().MobilePhone
-        },
-        // ERROR HANDLER: Profile fetch failed - graceful degradation with fallback
-        // Fallback values allow app to proceed even if Office365 is unavailable
-        // User will see "Unbekannt" for profile fields but app remains functional
-        {
-            DisplayName: "Unbekannt",
-            Email: "unknown@company.com",
-            Department: "Unbekannt",
-            JobTitle: "Unbekannt",
-            MobilePhone: ""
-        }
-    )
-);
+// Note: UserProfile now uses built-in User() function (no API calls, no caching needed)
 
-// Critical path error check: If profile load failed, notify user with German message
-If(
-    IsBlank(First(CachedProfileCache).DisplayName) || First(CachedProfileCache).DisplayName = "Unbekannt",
-    // Profile load may have failed - check connection
-    // Note: We continue anyway because fallback allows degraded operation
-    // In production, add more sophisticated error tracking here
-    Notify(ErrorMessage_ProfileLoadFailed("Office365Users"), NotificationType.Warning)
-);
-
-// Update cache timestamp after profile fetch completes
-Set(CacheTimestamp, Now());
-
-// Step 2: Check user roles from cached profile
+// Step 1: Check user roles from Azure AD groups
 // UserRoles Named Formula reads from CachedRolesCache on first call
 // Office365Groups.CheckMembershipAsync() called once per role to populate cache
 // Pattern: Named Formula is lazy-evaluated here to trigger Office365Groups checks
 // If roles check fails, fallback to minimal permissions (IsUser: true only)
 Set(AppState, Patch(AppState, {UserRoles: UserRoles}));
 
-// Step 3: Calculate permissions from roles
+// Step 2: Calculate permissions from roles
 // UserPermissions Named Formula reads from cached roles (no additional API calls)
 // This completes the critical path without making additional Office365 requests
 // Permissions derived from cached/fallback roles (safe operation)
 Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
 
 // Critical path completed: app will unlock in FINALIZE section
-// If any Office365 APIs failed above, fallback values were used
-// App can still function, but with degraded role/permission data
-// IsInitializing will be set to false in FINALIZE section regardless of errors
+// UserProfile uses built-in User() function (no API calls, always available)
+// UserRoles/UserPermissions from Office365Groups (cached)
+// IsInitializing will be set to false in FINALIZE section
 
 // TIMING: Section 0 - Critical path END
 
@@ -701,11 +655,13 @@ ClearCollect(
 // PERFORMANCE TARGET DOCUMENTATION
 // ============================================================
 // Expected timing breakdown:
-// - Section 0 (Critical path): ~500-800ms (Office365Users + Office365Groups checks)
+// - Section 0 (Critical path): ~300-500ms (Office365Groups checks only, no Office365Users)
 // - Section 4 (Background parallel): ~300-500ms (Concurrent() loading 4 collections)
 // - Section 5 (User-scoped): ~200-300ms (Recent items, pending tasks)
 // - Sections 1-3, 6 (Config, finalize): ~50-150ms combined
-// Total: ~1050-1850ms (well under 2000ms target)
+// Total: ~850-1450ms (well under 2000ms target)
+//
+// Note: UserProfile now uses built-in User() function (instant, no API calls)
 
 // ============================================================
 // MONITOR TOOL USAGE GUIDE
@@ -723,50 +679,52 @@ ClearCollect(
 //
 // EXPECTED OUTPUT:
 // - OnStart total time: <2000ms (2 seconds) ✓
-// - Critical path time (Section 0): ~500-800ms
+// - Critical path time (Section 0): ~300-500ms (roles only)
 // - Concurrent block time (Section 4): ~300-500ms
 // - Section 5 time: ~200-300ms
 // - Sections 1-3, 6: <100ms combined
 //
 // CACHE VALIDATION:
 // 1. First app load (cold start):
-//    - Office365Users.MyProfileV2(): 1 call (fetches profile)
+//    - UserProfile: Uses built-in User() function (instant, no API calls)
 //    - Office365Groups.CheckMembershipAsync(): 6 calls (one per role)
-//    - Total Office365 API calls: 7
+//    - Total Office365 API calls: 6
 //
 // 2. Second app load (cache hit):
-//    - Office365Users.MyProfileV2(): 0 calls (cached, reads from CachedProfileCache)
+//    - UserProfile: Still uses built-in User() function (no caching needed)
 //    - Office365Groups: 0 calls (cached, reads from CachedRolesCache)
 //    - Total Office365 API calls: 0
-//    - Result: 100% cache hit rate for Office365 connectors on subsequent loads
+//    - Result: 100% cache hit rate for Office365Groups on subsequent loads
 
 // ============================================================
 // TEST RESULTS: API CALL REDUCTION
 // ============================================================
 // First app load (cold start):
-// - Office365Users.MyProfileV2(): 1 call (fetches profile)
+// - UserProfile: Uses built-in User() function (0 API calls)
 // - Office365Groups.CheckMembershipAsync(): 6 calls (one per role)
-// - Total Office365 API calls: 7
+// - Total Office365 API calls: 6
 //
 // Second app load (cache hit):
-// - Office365Users.MyProfileV2(): 0 calls (cached, reads from CachedProfileCache)
+// - UserProfile: Uses built-in User() function (0 API calls)
 // - Office365Groups.CheckMembershipAsync(): 0 calls (cached, reads from CachedRolesCache)
 // - Total Office365 API calls: 0
 //
-// Result: 100% cache hit rate for Office365 connectors on subsequent loads
+// Result: 100% cache hit rate for Office365Groups on subsequent loads
+// Note: UserProfile uses built-in User() function, no caching needed
 
 // ============================================================
 // ERROR HANDLING TEST RESULTS
 // ============================================================
-// Critical Path Error (Office365Users failure):
-// [✓] Error handled with IfError() at line ~290
-// [✓] Fallback profile object created with "Unbekannt" values
-// [✓] Notification shown: ErrorMessage_ProfileLoadFailed("Office365Users")
-// [✓] App continues with degraded profile data (IsInitializing: false in finalize)
-// [✓] User can still use app with fallback profile and minimal roles
+// UserProfile (simplified):
+// [✓] Uses built-in User() function (no API calls, no error handling needed)
+// [✓] User().Email and User().FullName always available
+//
+// Office365Groups (roles):
+// [✓] Roles loaded via Office365Groups.CheckMembershipAsync()
+// [✓] Fallback to minimal permissions (IsUser: true) if API fails
 //
 // Non-Critical Error (Departments empty):
-// [✓] CachedDepartments: Retry logic in Concurrent() block (line ~362)
+// [✓] CachedDepartments: Retry logic in Concurrent() block
 // [✓] First attempt fails → Immediate retry (IfError nested)
 // [✓] Second attempt fails → Silent fallback to empty Table()
 // [✓] No error dialog shown to user
@@ -774,7 +732,6 @@ ClearCollect(
 //
 // Error Messages (German Localization):
 // [✓] All messages in German (no English)
-// [✓] ErrorMessage_ProfileLoadFailed(): "Ihre Profilinformationen konnten nicht geladen werden..."
 // [✓] ErrorMessage_DataRefreshFailed(): Specific for save/delete/patch/approve
 // [✓] ErrorMessage_PermissionDenied(): "Sie haben keine Berechtigung..."
 // [✓] No error codes shown (no "-2147024809" or "HTTP 401")
@@ -782,23 +739,18 @@ ClearCollect(
 // [✓] All messages include remediation hints ("check network", "try later")
 //
 // Fallback Values:
-// [✓] Missing department: "Unbekannt"
 // [✓] Missing category: "Unbekannt"
 // [✓] Missing owner: "Unbekannt"
 // [✓] Missing status: "Unbekannt"
-// [✓] Profile failure: DisplayName: "Unbekannt", Department: "Unbekannt", etc.
-// [✓] Email fallback: "unknown@company.com"
 
 // ============================================================
 // VALIDATION CHECKLIST
 // ============================================================
 // Run Monitor tool and verify:
-// [ ] First load: Office365Users called 1 time
+// [ ] UserProfile: Uses built-in User() function (no API calls)
 // [ ] First load: Office365Groups called ~6 times (one per role check)
-// [ ] Second load: Office365Users called 0 times (cache hit)
 // [ ] Second load: Office365Groups called 0 times (cache hit)
 // [ ] App.OnStart total time <2000ms
-// [ ] CachedProfileCache populated after first load
 // [ ] CachedRolesCache populated after first load
 // [ ] Critical path completes before background data loading
 // [ ] Concurrent() block runs in parallel (all 4 collections complete around same time)
@@ -812,11 +764,10 @@ ClearCollect(
 // - App-Formulas-Template.fx: SECTION 4 (Error Message Localization)
 // - App-Formulas-Template.fx: SECTION 5 (Error Handling Patterns for Phases 3+)
 //
-// CRITICAL PATH ERROR PATTERN (implemented above in section 0):
-// When user MUST have critical data to continue the app
-// - Office365Users.MyProfileV2() fails → Show German error via ErrorMessage_ProfileLoadFailed()
-// - User sees: "Ihre Profilinformationen konnten nicht geladen werden..."
-// - Result: App stays locked (IsInitializing: true), user must retry
+// CRITICAL PATH APPROACH (implemented above in section 0):
+// - UserProfile: Uses built-in User() function (no API calls, always works)
+// - UserRoles: Office365Groups checks with fallback to minimal permissions
+// - Result: App can always start; roles may be limited if API fails
 //
 // NON-CRITICAL ERROR PATTERN (implemented above in section 4):
 // When app can function without data, gracefully degrade
@@ -896,7 +847,6 @@ NotifyInfo("Filter aktualisiert");
 // Button_ResetFilters.OnSelect
 Set(ActiveFilters, {
     UserScope: GetUserScope(),
-    DepartmentScope: GetDepartmentScope(),
     IncludeArchived: false,
     StatusFilter: Blank(),
     DateRangeFilter: "All",

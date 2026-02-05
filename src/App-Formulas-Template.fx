@@ -149,60 +149,23 @@ AppConfig = {
 //
 // CACHE SCOPE: Session-scoped (cleared on app close/restart)
 // CACHE TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
-// CACHE STORAGE: Collections (CachedProfileCache, CachedRolesCache)
+// CACHE STORAGE: Collections (CachedRolesCache)
 //
 // CRITICAL DATA CACHE:
-// - UserProfile: Cached from Office365Users.MyProfileV2()
+// - UserProfile: Uses built-in User() function (no caching needed, instant)
 // - UserRoles: Cached from Office365Groups membership checks
 // - UserPermissions: Derived from UserRoles (no cache needed, no API calls)
 //
-// CACHE TTL CHECK:
-// Compare current time (Now()) with CacheTimestamp
-// If Now() - CacheTimestamp > 5 minutes: Cache expired, fetch fresh
-// If Now() - CacheTimestamp < 5 minutes: Cache valid, use cached value
+// NOTE: UserProfile was simplified to use only User().Email and User().FullName
+// which are built-in Power Apps functions requiring no API calls or caching.
 //
 // CACHE INVALIDATION TRIGGERS:
 // 1. Session end: User closes app → cache cleared (new session starts)
 // 2. TTL expiry: After 5 minutes of session time → can manually refresh
 // 3. Explicit refresh: User clicks "Refresh" button → manually re-fetch data
-// 4. Role change: If user's Azure AD groups change → not auto-detected (Phase 4+ feature)
+// 4. Role change: If user's Azure AD groups change → not auto-detected
 //
-// CACHE MISS BEHAVIOR:
-// - First app load: Cache is empty → Call APIs to populate cache
-// - After 5-minute TTL: Cache expired → Can call RefreshData() to re-populate
-// - On app crash/restart: New session → Cache cleared, fresh API calls
-//
-// CACHE HIT BEHAVIOR:
-// - Subsequent formula evaluations: Read from cache collections, no API calls
-// - Performance benefit: Office365Users calls reduced from per-evaluation to once per session
-// - Typical session: 7 API calls total (1 × MyProfileV2, 6 × Office365Groups)
-//
-// REFRESH PATTERN (for Phase 3+ features):
-// When user clicks "Refresh", manually re-fetch critical data:
-// Set(CacheTimestamp, Now() - TimeValue("0:6:0"));  // Expire cache by setting old timestamp
-// Re-run App.OnStart critical path logic
-// Or: Set(AppState, Patch(AppState, {IsLoading: true}));
-//     ClearCollect(CachedProfileCache, Office365Users.MyProfileV2());
-//     Set(CacheTimestamp, Now());
-//     Set(AppState, Patch(AppState, {IsLoading: false}));
-//
-// SCALABILITY NOTES:
-// - Current cache: In-app collections (good for <10,000 sessions)
-// - Future optimization: Dataverse cache table (scales to 100,000+ sessions)
-// - Future optimization: Service principal cache in backend flow (reduces API calls per user)
-//
-// CACHE COLLECTION SCHEMAS
-//
-// CachedProfileCache: Record (single user profile)
-// Schema: {
-//   DisplayName: Text,
-//   Email: Text,
-//   Department: Text,
-//   JobTitle: Text,
-//   MobilePhone: Text
-// }
-// Size: ~1KB per user
-// Updated: Once per session (or on explicit refresh)
+// CACHE COLLECTION SCHEMA
 //
 // CachedRolesCache: Record (user roles)
 // Schema: {
@@ -219,53 +182,14 @@ AppConfig = {
 // CACHING BEST PRACTICES
 //
 // DO:
-// ✓ Cache static or slow-changing data (user profile, roles)
-// ✓ Cache data that comes from expensive APIs (Office365Users, Office365Groups)
-// ✓ Set reasonable TTL based on data freshness requirements
-// ✓ Document cache invalidation triggers for your cache
-// ✓ Test cache behavior (verify cache hits via Monitor tool)
+// ✓ Cache static or slow-changing data (roles)
+// ✓ Cache data that comes from expensive APIs (Office365Groups)
+// ✓ Use built-in functions when available (User().Email, User().FullName)
 //
 // DON'T:
 // ✗ Cache frequently changing data (current time, temporary form values)
 // ✗ Cache data without TTL (stale data risk)
-// ✗ Add caching without understanding data freshness requirements
 // ✗ Cache sensitive data that changes outside the app (e.g., Azure AD role changes)
-// ✗ Implement custom cache without documenting invalidation strategy
-
-// ============================================================
-// SECTION 1B: USER PROFILE CACHING
-// Cached Office365Users API results for session-scoped reuse
-// ============================================================
-//
-// Depends on:
-// - CachedProfileCache collection (initialized in App.OnStart)
-// - CacheTimestamp variable (set in App.OnStart, for TTL comparison)
-// - Office365Users.MyProfileV2() connector (fallback if cache miss)
-//
-// Used by:
-// - UserProfile Named Formula (replaces the With() pattern in early evaluation)
-// - User authentication and profile-dependent features
-//
-// Cache Invalidation:
-// - TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
-// - Scope: Session-based (cleared when app closes)
-// - Strategy: If cache exists and is < 5 minutes old, use cached value
-//
-CachedUserProfile =
-    If(
-        IsBlank(CachedProfileCache) || Now() - CacheTimestamp > TimeValue("0:5:0"),
-        // Cache miss or expired - fetch from Office365Users API
-        {
-            DisplayName: Office365Users.MyProfileV2().DisplayName,
-            Email: Office365Users.MyProfileV2().UserPrincipalName,
-            Department: Office365Users.MyProfileV2().Department,
-            JobTitle: Office365Users.MyProfileV2().JobTitle,
-            MobilePhone: Office365Users.MyProfileV2().MobilePhone
-        },
-        // Cache hit - return first (and only) cached record
-        First(CachedProfileCache)
-    );
-
 
 // Date Range Calculations - Auto-refresh when date changes
 //
@@ -312,54 +236,33 @@ DateRanges = {
 // These auto-refresh when their dependencies change
 // ============================================================
 
-// User Profile - Session-cached from Office365Users connector
-// Reads from CachedProfileCache (populated in App.OnStart critical path)
-// Falls back to API call if cache is empty or expired (>5 minutes old)
+// User Profile - Simplified (no API calls, no caching)
+// Uses built-in User() function only - instant evaluation, zero network calls
 //
 // Depends on:
-// - CachedProfileCache collection (initialized in App.OnStart)
-// - CacheTimestamp variable (set in App.OnStart, for TTL comparison)
-// - CachedUserProfile Named Formula (cache-aware lookup logic)
 // - User() function (built-in Power Apps identity)
 //
 // Used by:
-// - UserRoles (for email-based group membership checks)
 // - GetUserScope() UDF
-// - GetDepartmentScope() UDF
 // - Control bindings that display user profile info
 //
-// Cache Strategy:
-// - First access: Calls Office365Users.MyProfileV2() and caches result
-// - Subsequent accesses (within 5 min): Returns cached value
-// - After 5 minutes: Cache expires, fetches fresh data on next access
-// - Session scope: Cache cleared when app closes
+// Fields:
+// - Email: User's email from built-in User().Email
+// - DisplayName: User's full name with email fallback
+// - Initials: Computed from full name (e.g., "MM" for "Max Mustermann")
 //
-UserProfile = With(
-    { profile: CachedUserProfile },
-    {
-        // Identity
-        Email: User().Email,
-        FullName: User().FullName,
-        Id: Lower(User().Email),  // Use email as unique ID
-
-        // Office365 Profile Data (from cache or fresh API call)
-        Department: Coalesce(profile.Department, ""),
-
-        // Computed Display Values
-        DisplayName: Coalesce(
+UserProfile = {
+    Email: User().Email,
+    DisplayName: Coalesce(User().FullName, Text(User().Email)),
+    Initials: Upper(
+        Left(User().FullName, 1) &
+        Mid(
             User().FullName,
-            Text(User().Email)
-        ),
-        Initials: Upper(
-            Left(User().FullName, 1) &
-            Mid(
-                User().FullName,
-                Find(" ", User().FullName & " ") + 1,
-                1
-            )
+            Find(" ", User().FullName & " ") + 1,
+            1
         )
-    }
-);
+    )
+};
 
 // User Roles - Determined from Security Groups (with caching)
 // Cached results from Office365Groups membership checks
@@ -525,11 +428,6 @@ FeatureFlags = {
 // Default Filter Configuration (reactive to permissions)
 DefaultFilters = {
     UserScope: If(UserPermissions.CanViewAll, Blank(), User().Email),
-    DepartmentScope: If(
-        UserRoles.IsAdmin,
-        Blank(),
-        UserProfile.Department
-    ),
     ActiveOnly: true,
     IncludeArchived: false
 };
@@ -625,25 +523,11 @@ GetRoleBadge(): Text = RoleBadgeText;
 GetUserScope(): Text =
     If(UserPermissions.CanViewAll, Blank(), User().Email);
 
-// Get effective department scope for datasource filtering
-GetDepartmentScope(): Text =
-    If(UserRoles.IsAdmin, Blank(), UserProfile.Department);
-
 // Check if current user can access a specific record by owner
 CanAccessRecord(ownerEmail: Text): Boolean =
     UserPermissions.CanViewAll ||
     IsBlank(ownerEmail) ||
     Lower(ownerEmail) = Lower(User().Email);
-
-// Check if current user can access records in a department
-CanAccessDepartment(recordDepartment: Text): Boolean =
-    UserRoles.IsAdmin ||
-    IsBlank(recordDepartment) ||
-    recordDepartment = UserProfile.Department;
-
-// Combined access check for owner AND department
-CanAccessItem(ownerEmail: Text, department: Text): Boolean =
-    CanAccessRecord(ownerEmail) && CanAccessDepartment(department);
 
 // Check if user can edit a specific record
 CanEditRecord(ownerEmail: Text, status: Text): Boolean =
