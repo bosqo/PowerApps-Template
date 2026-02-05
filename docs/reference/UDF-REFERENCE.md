@@ -140,6 +140,10 @@ Functions for retrieving colors based on semantic meaning (status, priority, the
 | `GetStatusColor` | `status: Text` | `Color` | Returns semantic color for status values (active=green, pending=amber, etc.) |
 | `GetStatusIcon` | `status: Text` | `Text` | Returns built-in icon name for status values |
 | `GetPriorityColor` | `priority: Text` | `Color` | Returns color for priority levels (critical=red, high=orange, etc.) |
+| `GetHoverColor` | `baseColor: Color` | `Color` | Returns hover state color (20% darker via ColorFade) |
+| `GetPressedColor` | `baseColor: Color` | `Color` | Returns pressed state color (30% darker via ColorFade) |
+| `GetDisabledColor` | `baseColor: Color` | `Color` | Returns disabled state color (60% lighter via ColorFade) |
+| `GetFocusColor` | `baseColor: Color` | `Color` | Returns focus border color (10% darker via ColorFade) |
 | `GetToastBackground` | `toastType: Text` | `Color` | Returns background color for toast notifications |
 | `GetToastBorderColor` | `toastType: Text` | `Color` | Returns border color for toast notifications |
 | `GetToastIcon` | `toastType: Text` | `Text` | Returns icon character for toast notifications |
@@ -161,9 +165,15 @@ lbl_StatusBadge.Fill = GetStatusColor(ThisItem.Status)
 // Priority indicator
 ico_Priority.Color = GetPriorityColor(ThisItem.Priority)
 
-// Theme-aware button
-btn_Primary.Fill = GetThemeColor("primary")
-btn_Primary.HoverFill = GetThemeColor("primarylight")
+// Primary button with automatic states
+btn_Submit.Fill = ThemeColors.Primary
+btn_Submit.HoverFill = GetHoverColor(ThemeColors.Primary)
+btn_Submit.PressedFill = GetPressedColor(ThemeColors.Primary)
+btn_Submit.DisabledFill = GetDisabledColor(ThemeColors.Primary)
+
+// Dynamic status button with hover
+btn_StatusAction.Fill = GetStatusColor(ThisItem.Status)
+btn_StatusAction.HoverFill = GetHoverColor(GetStatusColor(ThisItem.Status))
 ```
 
 ---
