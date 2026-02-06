@@ -248,20 +248,30 @@ Set(ActiveFilters,
 // Pattern 1.7: Filtered Gallery with Active Filter UI (FILT-05)
 // -----------------------------------------------------------
 
-// For galleries with datasets >2000 records using multi-condition filters
+// For galleries with datasets <2000 records using multi-condition filters
 // Purpose: Show filtered records (status, role-based, search) with UI controls
-// Uses FilteredGalleryData() composition from App-Formulas
+// Uses inline Filter pattern (FILT-05 from App-Formulas)
 // Filters are applied via ActiveFilters state variable (updated by UI controls)
 //
-// Key principle: Gallery.Items calls FilteredGalleryData with current filter values
-// Gallery automatically updates when any filter value in ActiveFilters changes
+// NOTE: For >2000 records, use delegable inline expressions (see CLAUDE.md)
+// UDFs inside Filter() are NEVER delegable per Microsoft docs
 
-glr_Items_FilteredGallery_Items: Table =
-  FilteredGalleryData(
-    ActiveFilters.ShowMyItemsOnly,
-    ActiveFilters.SelectedStatus,
-    ActiveFilters.SearchTerm
-  );
+// glr_Items.Items
+Filter(
+    Items,
+    // Layer 1: Status filtering (most restrictive first)
+    MatchesStatusFilter(Status, ActiveFilters.SelectedStatus),
+    // Layer 2: Role-based scoping + ownership check
+    CanViewRecord(Owner.Email),
+    // Layer 3: User-specific filtering (My Items toggle)
+    If(ActiveFilters.ShowMyItemsOnly, Owner.Email = User().Email, true),
+    // Layer 4: Text search (most expensive - last)
+    Or(
+        MatchesSearchTerm(Title, ActiveFilters.SearchTerm),
+        MatchesSearchTerm(Description, ActiveFilters.SearchTerm),
+        MatchesSearchTerm(Owner.DisplayName, ActiveFilters.SearchTerm)
+    )
+)
 
 // Status Dropdown Control
 // Populated with distinct status values from Items table
@@ -302,8 +312,8 @@ lbl_FilterSummary_Text: Text =
   );
 
 // Record Count Label (shows how many records match current filters)
-lbl_RecordCount_Text: Text =
-  Concatenate(CountRows(glr_Items_FilteredGallery_Items), " Einträge gefunden");
+// lbl_RecordCount.Text (use glr_Items.AllItems to count gallery's filtered records)
+CountRows(glr_Items.AllItems) & " Einträge gefunden"
 
 
 // ============================================================
@@ -321,72 +331,79 @@ lbl_RecordCount_Text: Text =
 // ✓ CORRECT: FirstN(Skip(Filter(...), ...))
 // ✗ INCORRECT: Filter(FirstN(Skip(...)), ...) — pagination BEFORE filtering breaks delegation
 
-glr_Items_Pagination_Items_Property: Table =
-  FirstN(
+// glr_Items.Items (with pagination)
+FirstN(
     Skip(
-      FilteredGalleryData(
-        ActiveFilters.ShowMyItemsOnly,
-        ActiveFilters.SelectedStatus,
-        ActiveFilters.SearchTerm
-      ),
-      (AppState.CurrentPage - 1) * AppState.PageSize  // Skip previous pages
+        Filter(
+            Items,
+            MatchesStatusFilter(Status, ActiveFilters.SelectedStatus),
+            CanViewRecord(Owner.Email),
+            If(ActiveFilters.ShowMyItemsOnly, Owner.Email = User().Email, true),
+            Or(
+                MatchesSearchTerm(Title, ActiveFilters.SearchTerm),
+                MatchesSearchTerm(Description, ActiveFilters.SearchTerm),
+                MatchesSearchTerm(Owner.DisplayName, ActiveFilters.SearchTerm)
+            )
+        ),
+        (AppState.CurrentPage - 1) * AppState.PageSize  // Skip previous pages
     ),
     AppState.PageSize  // Show this many records on current page
-  );
+)
 
 // Page Number Calculation
 // Calculate total pages from filtered dataset
-glr_Items_TotalPages_Calculation: Number =
-  RoundUp(
+// lbl_TotalPages.Text
+RoundUp(
     CountRows(
-      FilteredGalleryData(
-        ActiveFilters.ShowMyItemsOnly,
-        ActiveFilters.SelectedStatus,
-        ActiveFilters.SearchTerm
-      )
+        Filter(
+            Items,
+            MatchesStatusFilter(Status, ActiveFilters.SelectedStatus),
+            CanViewRecord(Owner.Email),
+            If(ActiveFilters.ShowMyItemsOnly, Owner.Email = User().Email, true),
+            Or(
+                MatchesSearchTerm(Title, ActiveFilters.SearchTerm),
+                MatchesSearchTerm(Description, ActiveFilters.SearchTerm),
+                MatchesSearchTerm(Owner.DisplayName, ActiveFilters.SearchTerm)
+            )
+        )
     ) / AppState.PageSize,
     0
-  );
+)
 
 // Page Indicator Label
-// Shows "Page N of M" format
-lbl_PageIndicator_Text: Text =
-  Concatenate("Seite ", AppState.CurrentPage, " von ", glr_Items_TotalPages_Calculation);
+// lbl_PageIndicator.Text
+// NOTE: AppState.TotalPages should be updated when filters change
+"Seite " & AppState.CurrentPage & " von " & AppState.TotalPages
 
-// Previous Button OnSelect
-btn_Previous_OnSelect: Boolean =
-  If(
+// btn_Previous.OnSelect
+If(
     AppState.CurrentPage > 1,
     Set(AppState, Patch(AppState, {CurrentPage: AppState.CurrentPage - 1})),
     Notify("Bereits auf der ersten Seite", NotificationType.Information)
-  );
+)
 
-// Next Button OnSelect
-btn_Next_OnSelect: Boolean =
-  If(
-    AppState.CurrentPage < glr_Items_TotalPages_Calculation,
+// btn_Next.OnSelect
+If(
+    AppState.CurrentPage < AppState.TotalPages,
     Set(AppState, Patch(AppState, {CurrentPage: AppState.CurrentPage + 1})),
     Notify("Bereits auf der letzten Seite", NotificationType.Information)
-  );
+)
 
-// Previous Button DisplayMode (disable if on page 1)
-btn_Previous_DisplayMode: DisplayMode =
-  If(AppState.CurrentPage > 1, DisplayMode.Edit, DisplayMode.Disabled);
+// btn_Previous.DisplayMode (disable if on page 1)
+If(AppState.CurrentPage > 1, DisplayMode.Edit, DisplayMode.Disabled)
 
-// Next Button DisplayMode (disable if on last page)
-btn_Next_DisplayMode: DisplayMode =
-  If(AppState.CurrentPage < glr_Items_TotalPages_Calculation, DisplayMode.Edit, DisplayMode.Disabled);
+// btn_Next.DisplayMode (disable if on last page)
+If(AppState.CurrentPage < AppState.TotalPages, DisplayMode.Edit, DisplayMode.Disabled)
 
-// Clear All Filters Button OnSelect
-btn_ClearAll_OnSelect: Boolean =
-  Set(ActiveFilters, {
+// btn_ClearAllPaginated.OnSelect (includes date range reset + page reset)
+Set(ActiveFilters, {
     ShowMyItemsOnly: false,
     SelectedStatus: "",
     SearchTerm: "",
     StartDate: Blank(),
     EndDate: Blank()
-  });
-  // Note: Page reset to 1 handled automatically via filter change detection in App.OnStart
+});
+Set(AppState, Patch(AppState, {CurrentPage: 1}))
 
 
 // ============================================================
@@ -1597,13 +1614,11 @@ GetToastBackground(toastType: Text): Color =
 // Comment: Start automatically when app loads
 
 // OnTimerEnd:
-ForAll(
-    Filter(
-        NotificationStack,
-        // Remove toasts older than 2 minutes (120 seconds)
-        Now() - CreatedAt > TimeValue("0:2:0")
-    ),
-    Remove(NotificationStack, ThisRecord)
+// RemoveIf is safer than ForAll+Remove (avoids modifying collection while iterating)
+RemoveIf(
+    NotificationStack,
+    // Remove toasts older than 2 minutes (120 seconds)
+    Now() - CreatedAt > TimeValue("0:2:0")
 );
 // Update last cleanup timestamp (optional - for debugging)
 Set(ToastCleanupLastRun, Now())
