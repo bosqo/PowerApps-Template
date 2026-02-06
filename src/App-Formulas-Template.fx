@@ -520,45 +520,53 @@ CanDeleteRecord(ownerEmail: Text): Boolean =
 // All 4 of these are delegation-safe and work with large datasets
 // -----------------------------------------------------------
 
-// FILT-01: Delegation-friendly filter for role-based data scoping
+// FILT-01: Delegation-friendly check for role-based data scoping
 // Returns: true if user has ViewAll permission (can see all records)
 // Returns: false if user lacks ViewAll permission (can only see Owner=CurrentUser)
 // Delegation: SAFE (references Named Formula, no filtering)
 // Use case: Filter(Items, CanViewAllData() || Owner = User().Email)
-CanViewAllData: Boolean = UserPermissions.CanViewAll;
+CanViewAllData(): Boolean = UserPermissions.CanViewAll;
 
-// FILT-02: Delegation-friendly text search UDF
-// Parameters: field = Text field to search in (e.g., Title, Description)
-//             term = Search term to match (case-insensitive substring)
-// Returns: true if field contains term, false otherwise
-// Delegation: SAFE via Search() function (delegable for SharePoint)
-// Use case: Filter(Items, MatchesSearchTerm(Title, ActiveFilters.SearchTerm))
-MatchesSearchTerm: Function(field As Text, term As Text): Boolean =
+// FILT-02: Text search helper UDF
+// Parameters: field = Text field value to search in (e.g., ThisItem.Title)
+//             term = Search term to match (case-insensitive prefix match)
+// Returns: true if field starts with term, false otherwise
+// Delegation: NOTE - UDFs inside Filter() are NOT delegable per Microsoft docs.
+//   For delegable text search, use StartsWith() directly in Filter():
+//   Filter(Items, StartsWith(Title, searchTerm))
+//   Or use Search() at the table level: Search(Items, searchTerm, "Title", "Description")
+// Use case (non-delegable, <2000 records): Filter(Items, MatchesSearchTerm(Title, txt_Search.Text))
+MatchesSearchTerm(field: Text, term: Text): Boolean =
     If(
         IsBlank(term),
         true,  // Blank search term matches everything
-        Not(IsBlank(Search(field, term)))  // Search() is delegable if term is constant
+        StartsWith(Lower(field), Lower(term))
     );
 
-// FILT-03: Delegation-friendly status filter UDF
-// Parameters: statusValue = Status value to match (e.g., "Active", "Pending", "Completed")
-// Returns: true if ThisItem.Status matches statusValue, false otherwise
-// Delegation: SAFE via equality check (=), must be used in Filter() or Gallery context
-// Usage: Filter(Items, MatchesStatusFilter("Active"))
-MatchesStatusFilter: Function(statusValue As Text): Boolean =
+// FILT-03: Status filter helper UDF
+// Parameters: recordStatus = Status field value from the current record (e.g., ThisItem.Status)
+//             filterValue = Status value to filter by (e.g., "Active", "Pending", "Completed")
+// Returns: true if recordStatus matches filterValue, or if filterValue is blank (no filter)
+// Delegation: NOTE - UDFs inside Filter() are NOT delegable per Microsoft docs.
+//   For delegable status filtering, use equality directly:
+//   Filter(Items, IsBlank(selectedStatus) || Status = selectedStatus)
+// Usage: Filter(Items, MatchesStatusFilter(Status, ActiveFilters.SelectedStatus))
+MatchesStatusFilter(recordStatus: Text, filterValue: Text): Boolean =
     If(
-        IsBlank(statusValue),
-        true,  // Blank status = no filter applied
-        ThisItem.Status = statusValue
+        IsBlank(filterValue),
+        true,  // Blank filter = no filter applied (show all)
+        recordStatus = filterValue
     );
 
-// FILT-04: Delegation-friendly user-based record filtering
-// Parameters: ownerEmail = Owner email field from record (e.g., ThisItem.Owner)
+// FILT-04: User-based record filtering UDF
+// Parameters: ownerEmail = Owner email field value from the current record (e.g., ThisItem.Owner.Email)
 // Returns: true if user has ViewAll permission OR owns record, false otherwise
-// Delegation: SAFE via equality check and CanViewAllData reference
-// Usage: Filter(Items, CanViewRecord(Owner))
+// Delegation: NOTE - UDFs inside Filter() are NOT delegable per Microsoft docs.
+//   For delegable owner filtering, use inline logic:
+//   Filter(Items, UserPermissions.CanViewAll || Owner.Email = User().Email)
+// Usage (non-delegable, <2000 records): Filter(Items, CanViewRecord(Owner.Email))
 // Security: Default-deny for blank owners (safe pattern)
-CanViewRecord: Function(ownerEmail As Text): Boolean =
+CanViewRecord(ownerEmail: Text): Boolean =
     If(
         IsBlank(ownerEmail),
         false,  // Blank owner = cannot determine access, deny access
@@ -571,28 +579,34 @@ CanViewRecord: Function(ownerEmail As Text): Boolean =
 // Multi-layer filter combining all 4 filter UDFs
 // -----------------------------------------------------------
 
-// FILT-05: Delegation-friendly filter composition
-// Combines status filter (FILT-03), role scoping (FILT-01), text search (FILT-02), and user filtering (FILT-04)
-// Layer 1 (Status): MatchesStatusFilter(selectedStatus) — most restrictive, applied first for performance
-// Layer 2 (Role + Ownership): CanViewRecord(Owner) — security filter
+// FILT-05: Multi-layer filter composition UDF
+// Combines status filter, role scoping, text search, and user filtering
+// Layer 1 (Status): Status equality check — most restrictive, applied first for performance
+// Layer 2 (Role + Ownership): CanViewRecord(Owner.Email) — security filter
 // Layer 3 (My Items): If(showMyItemsOnly, Owner = User().Email, true) — optional user-only restriction
-// Layer 4 (Search): Or(...MatchesSearchTerm...) — most expensive, applied last
-// Delegation: SAFE via composition of delegation-safe functions
+// Layer 4 (Search): StartsWith text matching — most expensive, applied last
+//
+// DELEGATION WARNING: This UDF is NOT delegable when used as Gallery.Items because
+//   UDFs inside Filter() are never delegable (Microsoft docs). For datasets >2000 records,
+//   use inline Filter() with delegable operators directly in Gallery.Items instead.
+//   For datasets <2000 records, this composition pattern works correctly.
+//
 // Returns: Table of Items meeting all 4 conditions (AND logic between layers)
-FilteredGalleryData: Function(showMyItemsOnly As Logical, selectedStatus As Text, searchTerm As Text): Table =
+FilteredGalleryData(showMyItemsOnly: Boolean, selectedStatus: Text, searchTerm: Text): /*Table*/ =
   Filter(
     Items,
     // Layer 1: Status filtering (most restrictive - filters down dataset first)
-    MatchesStatusFilter(selectedStatus),
+    MatchesStatusFilter(Status, selectedStatus),
     // Layer 2: Role-based scoping + ownership check
-    CanViewRecord(Owner),
+    CanViewRecord(Owner.Email),
     // Layer 3: User-specific filtering (My Items toggle)
-    If(showMyItemsOnly, Owner = User().Email, true),
+    If(showMyItemsOnly, Owner.Email = User().Email, true),
     // Layer 4: Text search (most expensive operation - last)
+    // Uses StartsWith for case-insensitive prefix matching
     Or(
       MatchesSearchTerm(Title, searchTerm),
       MatchesSearchTerm(Description, searchTerm),
-      MatchesSearchTerm(Owner, searchTerm)
+      MatchesSearchTerm(Owner.DisplayName, searchTerm)
     )
   );
 
@@ -803,14 +817,16 @@ RevertCallbackIDs = {
 };
 
 // Get toast background color by type
+// Uses ColorFade() to derive light variants from semantic colors (Microsoft-documented function)
+// ColorFade(color, 0.85) = 85% lighter toward white = subtle tinted background
 GetToastBackground(toastType: Text): Color =
     Switch(
         toastType,
-        "Success", ThemeColors.SuccessLight,      // Light green
-        "Error", ThemeColors.ErrorLight,          // Light red
-        "Warning", ThemeColors.WarningLight,      // Light amber
-        "Info", ColorValue("#E7F4FF"),            // Light blue
-        ThemeColors.Surface                       // Default white
+        "Success", ColorFade(ThemeColors.Success, 0.85),    // Light green
+        "Error", ColorFade(ThemeColors.Error, 0.85),        // Light red
+        "Warning", ColorFade(ThemeColors.Warning, 0.85),    // Light amber
+        "Info", ColorFade(ThemeColors.Info, 0.85),           // Light blue
+        ThemeColors.Surface                                  // Default white
     );
 
 // Get toast border color by type
