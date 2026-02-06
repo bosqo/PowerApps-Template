@@ -367,6 +367,11 @@ Set(
 // - UserPermissions → re-derives permission flags
 // - RoleColor, RoleBadgeText → re-derive display properties
 
+// Re-initialize UserScope now that role is determined
+// (ActiveFilters was set in Section 2 before CachedActiveRole was available,
+// so UserScope defaulted to User().Email. Now we can set the correct scope.)
+Set(ActiveFilters, Patch(ActiveFilters, {UserScope: GetUserScope()}));
+
 // TIMING: Section 0 - Critical path END
 
 // TIMING: Section 4 - Background data loading (parallel) BEGIN
@@ -448,63 +453,31 @@ Concurrent(
         )
     ),
 
-    // Statuses (for dropdowns) - static table with retry and fallback
-    // Static tables rarely fail, but we maintain consistency
+    // Statuses (for dropdowns) - static in-memory table
+    // No IfError needed: Table() with static data cannot fail (no network calls)
     ClearCollect(
         CachedStatuses,
-        IfError(
-            // First attempt: Create static status table
-            Table(
-                {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
-                {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
-                {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
-                {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
-                {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
-                {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
-                {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
-            ),
-            // First error: Retry immediately (attempt 2)
-            IfError(
-                Table(
-                    {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
-                    {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
-                    {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
-                    {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
-                    {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
-                    {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
-                    {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
-                ),
-                // Second attempt also failed: Use empty fallback
-                Table()
-            )
+        Table(
+            {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
+            {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
+            {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
+            {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
+            {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
+            {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
+            {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
         )
     ),
 
-    // Priorities (for dropdowns) - static table with retry and fallback
-    // Static tables rarely fail, but we maintain consistency
+    // Priorities (for dropdowns) - static in-memory table
+    // No IfError needed: Table() with static data cannot fail (no network calls)
     ClearCollect(
         CachedPriorities,
-        IfError(
-            // First attempt: Create static priority table
-            Table(
-                {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
-                {Value: "High", DisplayName: "Hoch", SortOrder: 2},
-                {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
-                {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
-                {Value: "None", DisplayName: "Keine", SortOrder: 5}
-            ),
-            // First error: Retry immediately (attempt 2)
-            IfError(
-                Table(
-                    {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
-                    {Value: "High", DisplayName: "Hoch", SortOrder: 2},
-                    {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
-                    {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
-                    {Value: "None", DisplayName: "Keine", SortOrder: 5}
-                ),
-                // Second attempt also failed: Use empty fallback
-                Table()
-            )
+        Table(
+            {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
+            {Value: "High", DisplayName: "Hoch", SortOrder: 2},
+            {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
+            {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
+            {Value: "None", DisplayName: "Keine", SortOrder: 5}
         )
     )
 );
@@ -559,13 +532,16 @@ Concurrent(
 // Uses UDFs for access control
 
 // My Recent Items (user's own or all if admin)
+// DELEGATION NOTE: CanAccessRecord() UDF inside Filter() is NOT delegable.
+// For Items tables with >2000 records, replace with inline delegable logic:
+//   Filter(Items, (UserPermissions.CanViewAll || Owner.Email = User().Email) && Status <> "Archived")
 ClearCollect(
     MyRecentItems,
     FirstN(
         Sort(
             Filter(
                 Items,
-                // Use UDF for access control
+                // Use UDF for access control (not delegable for >2000 records)
                 CanAccessRecord(Owner.Email),
                 // Active records only
                 Status <> "Archived"
@@ -594,6 +570,9 @@ ClearCollect(
 );
 
 // Dashboard Counts (KPI data)
+// DELEGATION NOTE: CountRows(Filter(Items, UDF)) is NOT delegable.
+// For Items tables with >2000 records, these counts will be capped at the delegation limit.
+// Alternative for large datasets: use Dataverse aggregate functions or pre-computed views.
 Set(DashboardCounts, {
     TotalItems: CountRows(
         Filter(
@@ -613,7 +592,7 @@ Set(DashboardCounts, {
     OverdueTasks: CountRows(
         Filter(
             MyPendingTasks,
-            'Due Date' < Today()
+            'Due Date' < GetCETToday()  // CET timezone for correct overdue detection
         )
     )
 });

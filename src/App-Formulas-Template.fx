@@ -82,9 +82,9 @@ ThemeColors = {
     Surface: ColorFade(ColorValue("#F3F2F1"), -0.08),          // White cards
     SurfaceHover: ColorFade(ColorValue("#F3F2F1"), 0.05),      // Hover state for cards
 
-    Border: ColorFade(ColorValue("#F3F2F1"), 0.10),            // Default borders
-    BorderStrong: ColorFade(ColorValue("#F3F2F1"), 0.25),      // Emphasized borders
-    Divider: ColorFade(ColorValue("#F3F2F1"), 0.15),           // Separators
+    Border: ColorFade(ColorValue("#F3F2F1"), -0.10),            // Default borders (10% darker)
+    BorderStrong: ColorFade(ColorValue("#F3F2F1"), -0.25),      // Emphasized borders (25% darker)
+    Divider: ColorFade(ColorValue("#F3F2F1"), -0.15),           // Separators (15% darker)
 
     // ========================================
     // UTILITY COLORS (Overlays, Shadows)
@@ -219,11 +219,12 @@ DateRanges = {
     Yesterday: Today() - 1,
     Tomorrow: Today() + 1,
 
-    // Week Calculations
-    StartOfWeek: Today() - Weekday(Today()) + 1,
-    EndOfWeek: Today() - Weekday(Today()) + 7,
-    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
-    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+    // Week Calculations (Monday-based, German standard)
+    // Weekday(..., StartOfWeek.Monday) returns 1=Monday, 7=Sunday
+    StartOfWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 1,
+    EndOfWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 7,
+    StartOfLastWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 7 - 7,
 
     // Month Calculations
     StartOfMonth: Date(Year(Today()), Month(Today()), 1),
@@ -516,8 +517,9 @@ CanDeleteRecord(ownerEmail: Text): Boolean =
 
 
 // -----------------------------------------------------------
-// DELEGATION PATTERN: Filter UDFs for SharePoint >2000 records
-// All 4 of these are delegation-safe and work with large datasets
+// FILTER UDFs: Convenience helpers for datasets <2000 records
+// WARNING: UDFs inside Filter() are NEVER delegable (Microsoft docs).
+// For datasets >2000 records, use inline delegable expressions instead.
 // -----------------------------------------------------------
 
 // FILT-01: Delegation-friendly check for role-based data scoping
@@ -1090,7 +1092,7 @@ HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
                 LookUp(NotificationStack, ID = toastID),
                 {
                     IsReverting: false,
-                    RevertError: "Wiederherstellung fehlgeschlagen: " & Error.Message
+                    RevertError: "Wiederherstellung fehlgeschlagen: " & FirstError.Message
                 }
             )
         ),
@@ -1109,7 +1111,7 @@ HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
                 LookUp(NotificationStack, ID = toastID),
                 {
                     IsReverting: false,
-                    RevertError: "Reaktivierung fehlgeschlagen: " & Error.Message
+                    RevertError: "Reaktivierung fehlgeschlagen: " & FirstError.Message
                 }
             )
         ),
@@ -1253,11 +1255,12 @@ IsAlphanumeric(input: Text): Boolean =
     !IsBlank(input) &&
     IsMatch(input, "^[a-zA-Z0-9]+$");
 
-// Validate date is not in the past
+// Validate date is not in the past (CET timezone)
 // Returns false for blank input (graceful handling)
+// Uses GetCETToday() instead of Today() for correct CET timezone comparison
 IsNotPastDate(inputDate: Date): Boolean =
     !IsBlank(inputDate) &&
-    inputDate >= Today();
+    inputDate >= GetCETToday();
 
 // Validate date is within acceptable range
 // Returns false for any blank input
@@ -1474,18 +1477,18 @@ ErrorMessage_DataRefreshFailed(operationType: Text): Text =
 ErrorMessage_PermissionDenied(actionName: Text): Text =
     "Sie haben keine Berechtigung zum Ausführen dieser Aktion: " & actionName;
 
-// Generic error fallback
-ErrorMessage_Generic: Text = "Ein Fehler ist aufgetreten. Bitte versuchen Sie später erneut.";
+// Generic error fallback (Named Formula: no type annotation)
+ErrorMessage_Generic = "Ein Fehler ist aufgetreten. Bitte versuchen Sie später erneut.";
 
 // Validation error messages
 ErrorMessage_ValidationFailed(fieldName: Text, reason: Text): Text =
     "Validierung fehlgeschlagen für " & fieldName & ": " & reason;
 
-// Network/connection errors
-ErrorMessage_NetworkError: Text = "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihr Netzwerk und versuchen Sie erneut.";
+// Network/connection errors (Named Formula: no type annotation)
+ErrorMessage_NetworkError = "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihr Netzwerk und versuchen Sie erneut.";
 
-// Timeout errors
-ErrorMessage_TimeoutError: Text = "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie später erneut.";
+// Timeout errors (Named Formula: no type annotation)
+ErrorMessage_TimeoutError = "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie später erneut.";
 
 // Not found errors
 ErrorMessage_NotFound(itemType: Text): Text =
