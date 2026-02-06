@@ -315,7 +315,7 @@ lbl_RecordCount_Text: Text =
 //
 // Purpose: Show filtered records with pagination controls
 // Page size: 50 records per page (configurable via AppState.PageSize)
-// Total pages: Calculated as Ceiling(CountRows(AllFilteredRecords) / PageSize)
+// Total pages: Calculated as RoundUp(CountRows(AllFilteredRecords) / PageSize)
 //
 // Key principle: Filter first, then paginate
 // ✓ CORRECT: FirstN(Skip(Filter(...), ...))
@@ -337,14 +337,15 @@ glr_Items_Pagination_Items_Property: Table =
 // Page Number Calculation
 // Calculate total pages from filtered dataset
 glr_Items_TotalPages_Calculation: Number =
-  Ceiling(
+  RoundUp(
     CountRows(
       FilteredGalleryData(
         ActiveFilters.ShowMyItemsOnly,
         ActiveFilters.SelectedStatus,
         ActiveFilters.SearchTerm
       )
-    ) / AppState.PageSize
+    ) / AppState.PageSize,
+    0
   );
 
 // Page Indicator Label
@@ -1081,7 +1082,7 @@ Text(
             Tasks,
             CanAccessRecord('Assigned To'.Email),
             'Due Date' < GetCETToday(),
-            Status in ["Active", "In Progress", "Pending"]
+            (Status = "Active" || Status = "In Progress" || Status = "Pending")
         )
     )
 )

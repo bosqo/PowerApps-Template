@@ -585,8 +585,8 @@ ClearCollect(
             Tasks,
             // Assigned to current user
             'Assigned To'.Email = User().Email,
-            // Not completed
-            Status in ["Active", "Pending", "In Progress"]
+            // Not completed (using || instead of 'in' operator for SharePoint delegation compatibility)
+            (Status = "Active" || Status = "Pending" || Status = "In Progress")
         ),
         'Due Date',
         SortOrder.Ascending

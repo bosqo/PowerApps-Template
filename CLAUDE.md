@@ -31,10 +31,62 @@
 - `UIState` - Selections, dialogs, forms
 - `Concurrent(ClearCollect(...))` - Parallel data loading
 
-Modern approach replaces legacy `App.*` pattern (pre-2023):
+Modern approach replaces legacy patterns (pre-2023):
 - Lazy evaluation vs eager startup execution
 - Auto-reactive vs manual refresh
 - Named Formulas + UDFs vs copy-paste duplication
+
+---
+
+## Power Fx Syntax Rules (Microsoft-Verified)
+
+**Full reference:** `.claude/skills/powerfx-syntax/SKILL.md`
+
+Before writing or modifying any Power Fx code, verify against these rules:
+
+### Named Formula Syntax
+```powerfx
+// CORRECT: No type annotation, ends with semicolon
+ThemeColors = { Primary: ColorValue("#0078D4") };
+UserEmail = User().Email;
+
+// WRONG: Type annotations on Named Formulas
+MyValue: Text = "hello";        // This is NOT valid Named Formula syntax
+MyFlag: Boolean = true;         // Use UDF syntax if you need typed declarations
+```
+
+### UDF Syntax
+```powerfx
+// CORRECT: FunctionName(Param: Type): ReturnType = Expression;
+HasRole(roleName: Text): Boolean = ActiveRole = roleName;
+
+// CORRECT: No-parameter UDF (empty parentheses REQUIRED)
+CanViewAllData(): Boolean = UserPermissions.CanViewAll;
+
+// CORRECT: Behavior UDF (Void + curly braces)
+NotifySuccess(message: Text): Void = { Notify(message, NotificationType.Success) };
+
+// WRONG: Function() syntax with As keyword
+MyFunc: Function(x As Text): Boolean = !IsBlank(x);
+
+// WRONG: ThisItem inside UDFs (pass values as parameters instead)
+CheckStatus: Function(s As Text): Boolean = ThisItem.Status = s;
+```
+
+### Functions That Don't Exist in Power Fx
+- `Ceiling()` -- use `RoundUp(value, 0)`
+- `Search(textValue, term)` -- `Search()` takes a TABLE as first argument: `Search(Table, term, "Col1")`
+
+### Delegation-Critical Rules
+- **UDFs inside Filter() are NEVER delegable** regardless of content
+- **`in` operator is NOT delegable** with SharePoint: use `Status = "A" || Status = "B"`
+- **`IsBlank(Column)` is NOT delegable** with SharePoint: use `Column = Blank()`
+- **`Search()` is NOT delegable** with SharePoint: use `StartsWith()` instead
+- **`CountRows(Filter(...))` is NOT delegable** with SharePoint
+- For >2000 records, write delegable logic **inline** in `Filter()`, not via UDFs
+
+### Reserved Names
+- `App` is a reserved system object -- never use `Set(App, {...})`
 
 ---
 
@@ -130,21 +182,34 @@ CanDeleteRecord(email)              // Delete allowed
 | `CanEditRecord(email, status)` | Boolean | Edit allowed (status-aware) |
 | `CanDeleteRecord(email)` | Boolean | Delete allowed |
 
-### Delegation-Safe Filtering (5)
+### Filtering UDFs (5)
 | UDF | Use |
 |-----|-----|
-| `CanViewAllData()` | User has ViewAll |
-| `MatchesSearchTerm(field, term)` | Text search (delegation-safe) |
-| `MatchesStatusFilter(status)` | Status equality (delegation-safe) |
-| `CanViewRecord(email)` | ViewAll OR Ownership |
-| `FilteredGalleryData(my, status, search)` | Combined filter layer |
+| `CanViewAllData()` | User has ViewAll permission |
+| `MatchesSearchTerm(field, term)` | StartsWith text match (NOT delegable in Filter) |
+| `MatchesStatusFilter(recordStatus, filterValue)` | Status equality check (NOT delegable in Filter) |
+| `CanViewRecord(ownerEmail)` | ViewAll OR ownership check (NOT delegable in Filter) |
+| `FilteredGalleryData(showMy, status, search)` | Combined filter (NOT delegable, use for <2000 records) |
 
-**Gallery formula:**
+**DELEGATION WARNING:** These UDFs are NOT delegable when used inside `Filter()`.
+For datasets >2000 records, use inline delegable expressions directly in Gallery.Items.
+
+**Gallery formula (<2000 records):**
 ```powerfx
 glr_Items.Items = FilteredGalleryData(
     tog_MyItemsOnly.Value,
     drp_StatusFilter.Selected.Value,
     txt_Search.Text
+)
+```
+
+**Gallery formula (>2000 records, delegable):**
+```powerfx
+glr_Items.Items = Filter(
+    Items,
+    (IsBlank(drp_StatusFilter.Selected.Value) || Status = drp_StatusFilter.Selected.Value) &&
+    (UserPermissions.CanViewAll || Owner.Email = User().Email) &&
+    StartsWith(Title, txt_Search.Text)
 )
 ```
 
@@ -233,20 +298,35 @@ ConvertUTCToCET(ThisItem.'Created On')
 
 ## Delegation Patterns (>2000 Records)
 
-SharePoint/Dataverse limit queries to **2000 records**. Use delegation-safe patterns:
+SharePoint/Dataverse limit queries to **2000 records** (default 500, configurable up to 2000).
 
-**Delegable operations:**
-- `=` equality, `Search()`, `&&`/`||`, comparison operators
-- Use `FirstN(Skip())` for pagination
+**Delegable with SharePoint:**
+- `=`, `<>`, `<`, `>`, `<=`, `>=` operators
+- `&&` (And), `||` (Or)
+- `StartsWith()` (text fields only)
+- `Filter()`, `LookUp()`, `Sort()`, `SortByColumns()`, `First()`
 
-**Non-delegable (avoid):**
-- `CountRows()`, UDFs in `Filter()`, `in` operator
+**NOT delegable with SharePoint (avoid for large datasets):**
+- `Search()` -- use `StartsWith()` instead
+- `CountRows()` on filtered data
+- `in` operator -- use `Status = "A" || Status = "B"` instead
+- `IsBlank(Column)` -- use `Column = Blank()` instead
+- `Not` (!) operator
+- **Any UDF inside Filter()** -- UDFs are never delegated
+- `Trim`, `Len`, `Lower`, `Upper` inside Filter
 
 **Large dataset pagination:**
 ```powerfx
+// Use inline delegable expressions, not UDFs
 FirstN(
     Skip(
-        FilteredGalleryData(...),
+        Sort(
+            Filter(Items,
+                (IsBlank(statusFilter) || Status = statusFilter) &&
+                (UserPermissions.CanViewAll || Owner.Email = User().Email)
+            ),
+            'Created On', SortOrder.Descending
+        ),
         (AppState.CurrentPage - 1) * 50
     ),
     50
@@ -321,10 +401,14 @@ Connect these before using App.OnStart:
 
 | Problem | Cause | Solution |
 |---------|-------|----------|
-| Delegation failures (>2000 records) | Non-delegable functions used | Use `Filter()` with simple conditions, `Search()` for text, `FirstN(Skip())` for pagination |
-| Timezone bugs | `Today()` vs SharePoint UTC dates | Always use `GetCETToday()` |
+| Delegation failures (>2000 records) | Non-delegable functions used | Write inline delegable expressions, not UDFs, in `Filter()` |
+| UDF not delegated | UDF used inside Filter() | UDFs are **never** delegated. Write logic inline for >2000 records |
+| `in` operator warning | `Status in ["A","B"]` with SharePoint | Use `Status = "A" \|\| Status = "B"` instead |
+| `Search()` not delegated | SharePoint doesn't delegate Search | Use `StartsWith()` for text search on SharePoint |
+| `Ceiling()` error | Function doesn't exist in Power Fx | Use `RoundUp(value, 0)` |
+| Timezone bugs | `Today()` vs SharePoint UTC dates | Always use `GetCETToday()` for SharePoint DateTime fields |
 | API timeouts | Redundant Office365 calls | Cache results in collections (session-scoped, 5-min TTL) |
-| Empty roles | Azure AD groups not configured | Update `App-Formulas-Template.fx:186-217` |
+| Empty roles | Azure AD groups not configured | Update `App-Formulas-Template.fx:293-299` |
 | Flow timeouts | Flows break after 30 days | Use Child-Flows |
 | License limits | API quota exceeded | Implement batch operations + throttling |
 
@@ -507,12 +591,15 @@ gh pr create --head feature/my-feature --base main
 
 ### Principles
 
+- **Verify against Microsoft docs before writing Power Fx** (see `.claude/skills/powerfx-syntax/SKILL.md`)
 - Write clean, readable Power Fx code
 - Use UDFs for reusable logic (Single Responsibility)
 - Avoid duplication → Named Formulas
 - Comment only complex logic, not obvious code
 - Validate inputs early (Fail Fast)
 - Check permissions BEFORE actions
+- Never use functions that don't exist in Power Fx (`Ceiling`, `Floor`, etc.)
+- Test delegation with Monitor tool for datasets >500 records
 
 ### Power Fx Best Practices (Microsoft-Compliant)
 
@@ -620,6 +707,7 @@ Analyzes how work was done (techniques, patterns, lessons learned).
 ### Claude Skills
 
 Domain-specific guides (auto-loaded when relevant):
+- `.claude/skills/powerfx-syntax/SKILL.md` - **Power Fx syntax reference (Microsoft-verified)**
 - `.claude/skills/power-apps/SKILL.md` - Canvas/Model-Driven apps
 - `.claude/skills/power-automate/SKILL.md` - Cloud flows
 - `.claude/skills/dataverse/SKILL.md` - Entity/Table modeling
