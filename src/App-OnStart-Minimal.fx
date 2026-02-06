@@ -132,9 +132,10 @@ Set(AppState, {
     // Connectivity
     IsOnline: Connection.Connected,
 
-    // Authentication & Authorization (populated in critical path)
-    UserRoles: Blank(),      // Populated in critical path after Office365Groups checks
-    UserPermissions: Blank(), // Populated in critical path after roles determined
+    // Authentication & Authorization
+    // ActiveRole is a Named Formula (auto-reactive, no need to store in AppState)
+    // UserPermissions is a Named Formula (derived from ActiveRole, auto-reactive)
+    // CachedActiveRole variable is set in critical path below
 
     // Pagination (for galleries with >2000 record datasets)
     CurrentPage: 1,           // Current page number (1-based)
@@ -265,54 +266,106 @@ Set(UIState, {
 });
 
 
-// TIMING: Section 0 - Critical path (user profile, roles, permissions) BEGIN
+// TIMING: Section 0 - Critical path (user profile, role determination) BEGIN
 
 // ============================================================
-// 0. CRITICAL PATH - SEQUENTIAL USER IDENTITY & AUTHORIZATION
+// 0. CRITICAL PATH - HIGHEST ROLE DETERMINATION
 // ============================================================
-// Load critical data required for app to function safely.
+// Determines the user's highest role via Entra ID Security Group membership.
 // App blocks user interaction until this completes (IsInitializing: true).
 //
-// Sequential execution order:
-// 1. Initialize roles cache collection
-// 2. Determine user roles via Office365Groups checks (cached)
-// 3. Calculate permissions from cached roles (no API calls)
+// "Highest Role Wins" Pattern:
+// Uses If() short-circuit evaluation to check groups from highest to lowest priority.
+// Stops at the first match → 1-2 API calls max (not N calls for N roles).
+//
+//   Priority 1: Admin        → Full access
+//   Priority 2: Teamleitung  → Team management
+//   Priority 3: User         → Default fallback (no API call needed)
 //
 // Dependencies:
+// - RoleConfig Named Formula (Entra ID Security Group IDs)
 // - UserProfile Named Formula uses built-in User() function (no API calls)
-// - UserRoles Named Formula depends on CachedRolesCache
-// - UserPermissions Named Formula depends on UserRoles (derived, no API calls)
+// - ActiveRole Named Formula reads from CachedActiveRole (set below)
+// - UserPermissions Named Formula derives from ActiveRole (no API calls)
 //
-// Cache TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
-// Cache Scope: Session-based (cleared when app closes)
+// Connector: Office365Groups.ListGroupMembers()
+//   Standard license connector. Fetches group member list and checks if
+//   the current user's email is present. For large groups (>500 members),
+//   consider switching to the premium AzureAD.CheckMemberGroupsV2() connector.
 //
-
-// Initialize roles cache collection
-ClearCollect(CachedRolesCache, {});    // Will be populated by Office365Groups calls
+// Alternative (Premium): AzureAD.CheckMemberGroupsV2(User().Email, ["groupId"])
+//   More efficient for large groups (boolean check, no member list fetch).
+//   Requires Azure AD Premium connector license.
+//
 
 // Ensure app stays locked during critical path execution
 Set(AppState, Patch(AppState, {IsInitializing: true}));
 
-// CRITICAL PATH: Sequential load ensures permissions calculated from complete role data
-// Note: UserProfile now uses built-in User() function (no API calls, no caching needed)
+// Determine user's highest role from Entra ID Security Groups
+// Pattern: Check from highest to lowest priority, first match wins
+// If() short-circuit means lower-priority checks are skipped once a role is found
+Set(
+    CachedActiveRole,
+    IfError(
+        If(
+            // ── Priority 1: Admin ──────────────────────────────────
+            // ACTIVATE: Replace 'false' with one of these patterns:
+            //
+            // Option A - Standard license (Office365Groups connector):
+            // !IsEmpty(
+            //     Filter(
+            //         Office365Groups.ListGroupMembers(RoleConfig.AdminGroupId).value,
+            //         Lower(mail) = Lower(User().Email)
+            //     )
+            // ),
+            //
+            // Option B - Premium license (AzureAD / Entra ID connector):
+            // !IsEmpty(
+            //     AzureAD.CheckMemberGroupsV2(
+            //         User().Email,
+            //         [RoleConfig.AdminGroupId]
+            //     ).value
+            // ),
+            //
+            false,  // ← Placeholder: replace with group check above
+            "Admin",
 
-// Step 1: Check user roles from Azure AD groups
-// UserRoles Named Formula reads from CachedRolesCache on first call
-// Office365Groups.CheckMembershipAsync() called once per role to populate cache
-// Pattern: Named Formula is lazy-evaluated here to trigger Office365Groups checks
-// If roles check fails, fallback to minimal permissions (IsUser: true only)
-Set(AppState, Patch(AppState, {UserRoles: UserRoles}));
+            // ── Priority 2: Teamleitung ────────────────────────────
+            // ACTIVATE: Replace 'false' with one of these patterns:
+            //
+            // Option A - Standard license:
+            // !IsEmpty(
+            //     Filter(
+            //         Office365Groups.ListGroupMembers(RoleConfig.TeamleitungGroupId).value,
+            //         Lower(mail) = Lower(User().Email)
+            //     )
+            // ),
+            //
+            // Option B - Premium license:
+            // !IsEmpty(
+            //     AzureAD.CheckMemberGroupsV2(
+            //         User().Email,
+            //         [RoleConfig.TeamleitungGroupId]
+            //     ).value
+            // ),
+            //
+            false,  // ← Placeholder: replace with group check above
+            "Teamleitung",
 
-// Step 2: Calculate permissions from roles
-// UserPermissions Named Formula reads from cached roles (no additional API calls)
-// This completes the critical path without making additional Office365 requests
-// Permissions derived from cached/fallback roles (safe operation)
-Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
+            // ── Priority 3: User (Default) ─────────────────────────
+            // No API call needed - all authenticated users get this role
+            "User"
+        ),
+        // Error fallback: If any group check fails, default to "User" (least privilege)
+        "User"
+    )
+);
 
-// Critical path completed: app will unlock in FINALIZE section
-// UserProfile uses built-in User() function (no API calls, always available)
-// UserRoles/UserPermissions from Office365Groups (cached)
-// IsInitializing will be set to false in FINALIZE section
+// Named Formulas auto-react to CachedActiveRole change:
+// - ActiveRole → re-evaluates to new role string
+// - UserRoles → re-derives boolean flags
+// - UserPermissions → re-derives permission flags
+// - RoleColor, RoleBadgeText → re-derive display properties
 
 // TIMING: Section 0 - Critical path END
 
@@ -644,13 +697,14 @@ ClearCollect(
 // PERFORMANCE TARGET DOCUMENTATION
 // ============================================================
 // Expected timing breakdown:
-// - Section 0 (Critical path): ~300-500ms (Office365Groups checks only, no Office365Users)
+// - Section 0 (Critical path): ~200-400ms (1-2 Entra ID group checks via If() short-circuit)
 // - Section 4 (Background parallel): ~300-500ms (Concurrent() loading 4 collections)
 // - Section 5 (User-scoped): ~200-300ms (Recent items, pending tasks)
 // - Sections 1-3, 6 (Config, finalize): ~50-150ms combined
-// Total: ~850-1450ms (well under 2000ms target)
+// Total: ~750-1350ms (well under 2000ms target)
 //
-// Note: UserProfile now uses built-in User() function (instant, no API calls)
+// Note: UserProfile uses built-in User() function (instant, no API calls)
+// Note: If() short-circuit means Admin users make 1 API call, Teamleitung 2, User 0
 
 // ============================================================
 // MONITOR TOOL USAGE GUIDE
@@ -667,50 +721,30 @@ ClearCollect(
 //    - Each timing comment above (TIMING: Section X) shows where to look
 //
 // EXPECTED OUTPUT:
-// - OnStart total time: <2000ms (2 seconds) ✓
-// - Critical path time (Section 0): ~300-500ms (roles only)
+// - OnStart total time: <2000ms (2 seconds)
+// - Critical path time (Section 0): ~200-400ms (role determination)
 // - Concurrent block time (Section 4): ~300-500ms
 // - Section 5 time: ~200-300ms
 // - Sections 1-3, 6: <100ms combined
 //
-// CACHE VALIDATION:
-// 1. First app load (cold start):
-//    - UserProfile: Uses built-in User() function (instant, no API calls)
-//    - Office365Groups.CheckMembershipAsync(): 6 calls (one per role)
-//    - Total Office365 API calls: 6
+// ROLE DETERMINATION API CALLS:
+// - Admin user: 1 API call (Admin group check → match → stop)
+// - Teamleitung user: 2 API calls (Admin check → no match, Teamleitung check → match)
+// - User (default): 2 API calls (Admin check → no, Teamleitung check → no → fallback)
 //
-// 2. Second app load (cache hit):
-//    - UserProfile: Still uses built-in User() function (no caching needed)
-//    - Office365Groups: 0 calls (cached, reads from CachedRolesCache)
-//    - Total Office365 API calls: 0
-//    - Result: 100% cache hit rate for Office365Groups on subsequent loads
+// Compared to previous 6-role system: 2 max API calls vs 5-6 calls
 
 // ============================================================
-// TEST RESULTS: API CALL REDUCTION
-// ============================================================
-// First app load (cold start):
-// - UserProfile: Uses built-in User() function (0 API calls)
-// - Office365Groups.CheckMembershipAsync(): 6 calls (one per role)
-// - Total Office365 API calls: 6
-//
-// Second app load (cache hit):
-// - UserProfile: Uses built-in User() function (0 API calls)
-// - Office365Groups.CheckMembershipAsync(): 0 calls (cached, reads from CachedRolesCache)
-// - Total Office365 API calls: 0
-//
-// Result: 100% cache hit rate for Office365Groups on subsequent loads
-// Note: UserProfile uses built-in User() function, no caching needed
-
-// ============================================================
-// ERROR HANDLING TEST RESULTS
+// ERROR HANDLING RESULTS
 // ============================================================
 // UserProfile (simplified):
 // [✓] Uses built-in User() function (no API calls, no error handling needed)
 // [✓] User().Email and User().FullName always available
 //
-// Office365Groups (roles):
-// [✓] Roles loaded via Office365Groups.CheckMembershipAsync()
-// [✓] Fallback to minimal permissions (IsUser: true) if API fails
+// Role Determination:
+// [✓] Highest role determined via Entra ID Security Group checks
+// [✓] IfError() wraps entire role check → fallback to "User" (least privilege)
+// [✓] If() short-circuit prevents unnecessary API calls
 //
 // Non-Critical Error (Departments empty):
 // [✓] CachedDepartments: Retry logic in Concurrent() block
@@ -721,26 +755,18 @@ ClearCollect(
 //
 // Error Messages (German Localization):
 // [✓] All messages in German (no English)
-// [✓] ErrorMessage_DataRefreshFailed(): Specific for save/delete/patch/approve
-// [✓] ErrorMessage_PermissionDenied(): "Sie haben keine Berechtigung..."
 // [✓] No error codes shown (no "-2147024809" or "HTTP 401")
-// [✓] No stack traces or technical jargon
 // [✓] All messages include remediation hints ("check network", "try later")
-//
-// Fallback Values:
-// [✓] Missing category: "Unbekannt"
-// [✓] Missing owner: "Unbekannt"
-// [✓] Missing status: "Unbekannt"
 
 // ============================================================
 // VALIDATION CHECKLIST
 // ============================================================
 // Run Monitor tool and verify:
 // [ ] UserProfile: Uses built-in User() function (no API calls)
-// [ ] First load: Office365Groups called ~6 times (one per role check)
-// [ ] Second load: Office365Groups called 0 times (cache hit)
+// [ ] CachedActiveRole set to correct role string ("Admin", "Teamleitung", or "User")
+// [ ] ActiveRole Named Formula reflects CachedActiveRole value
+// [ ] UserPermissions derived correctly from ActiveRole
 // [ ] App.OnStart total time <2000ms
-// [ ] CachedRolesCache populated after first load
 // [ ] Critical path completes before background data loading
 // [ ] Concurrent() block runs in parallel (all 4 collections complete around same time)
 // [ ] IsInitializing: true during startup, false after finalization
@@ -755,8 +781,8 @@ ClearCollect(
 //
 // CRITICAL PATH APPROACH (implemented above in section 0):
 // - UserProfile: Uses built-in User() function (no API calls, always works)
-// - UserRoles: Office365Groups checks with fallback to minimal permissions
-// - Result: App can always start; roles may be limited if API fails
+// - CachedActiveRole: Entra ID group checks with IfError() → "User" fallback
+// - Result: App can always start; role defaults to "User" if API fails
 //
 // NON-CRITICAL ERROR PATTERN (implemented above in section 4):
 // When app can function without data, gracefully degrade

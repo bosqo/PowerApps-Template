@@ -171,48 +171,36 @@ AppConfig = {
 // ============================================================
 //
 // CACHE SCOPE: Session-scoped (cleared on app close/restart)
-// CACHE TTL: 5 minutes (AppConfig.CacheExpiryMinutes)
-// CACHE STORAGE: Collections (CachedRolesCache)
+// CACHE STORAGE: CachedActiveRole variable (Text)
 //
 // CRITICAL DATA CACHE:
 // - UserProfile: Uses built-in User() function (no caching needed, instant)
-// - UserRoles: Cached from Office365Groups membership checks
-// - UserPermissions: Derived from UserRoles (no cache needed, no API calls)
+// - ActiveRole: Cached from Entra ID Security Group membership checks
+// - UserPermissions: Derived from ActiveRole (no cache needed, no API calls)
 //
-// NOTE: UserProfile was simplified to use only User().Email and User().FullName
-// which are built-in Power Apps functions requiring no API calls or caching.
+// ROLE DETERMINATION (Highest Role Wins):
+// App.OnStart checks Entra ID Security Groups in priority order:
+//   1. Admin group → If member, ActiveRole = "Admin" (stop)
+//   2. Teamleitung group → If member, ActiveRole = "Teamleitung" (stop)
+//   3. Default fallback → ActiveRole = "User"
+// Uses If() short-circuit: 1-2 API calls max (not N calls for N roles)
+//
+// CACHE VARIABLE SCHEMA:
+// CachedActiveRole: Text ("Admin" | "Teamleitung" | "User")
+// Size: <100 bytes
+// Updated: Once per session (set in App.OnStart critical path)
 //
 // CACHE INVALIDATION TRIGGERS:
-// 1. Session end: User closes app → cache cleared (new session starts)
-// 2. TTL expiry: After 5 minutes of session time → can manually refresh
-// 3. Explicit refresh: User clicks "Refresh" button → manually re-fetch data
-// 4. Role change: If user's Azure AD groups change → not auto-detected
+// 1. Session end: User closes app → variable cleared (new session starts)
+// 2. Explicit refresh: User clicks "Refresh" button → re-run role check
+// 3. Group change: If user's Entra ID groups change → not auto-detected
 //
-// CACHE COLLECTION SCHEMA
-//
-// CachedRolesCache: Record (user roles)
-// Schema: {
-//   IsAdmin: Boolean,
-//   IsManager: Boolean,
-//   IsHR: Boolean,
-//   IsGF: Boolean,
-//   IsSachbearbeiter: Boolean,
-//   IsUser: Boolean
-// }
-// Size: <1KB per user
-// Updated: Once per session (or on explicit refresh)
-//
-// CACHING BEST PRACTICES
-//
-// DO:
+// CACHING BEST PRACTICES:
 // ✓ Cache static or slow-changing data (roles)
-// ✓ Cache data that comes from expensive APIs (Office365Groups)
+// ✓ Cache data that comes from expensive APIs (Entra ID group checks)
 // ✓ Use built-in functions when available (User().Email, User().FullName)
-//
-// DON'T:
-// ✗ Cache frequently changing data (current time, temporary form values)
-// ✗ Cache data without TTL (stale data risk)
-// ✗ Cache sensitive data that changes outside the app (e.g., Azure AD role changes)
+// ✗ Don't cache frequently changing data (current time, temporary form values)
+// ✗ Don't cache data without TTL awareness (stale data risk)
 
 // Date Range Calculations - Auto-refresh when date changes
 //
@@ -287,152 +275,121 @@ UserProfile = {
     )
 };
 
-// User Roles - Determined from Security Groups (with caching)
-// Cached results from Office365Groups membership checks
+// ============================================================
+// ROLE CONFIGURATION - Entra ID Security Group IDs
+// ============================================================
+//
+// SETUP: Replace placeholder GUIDs with your Entra ID Security Group IDs
+// Find your Group IDs: Entra Admin Center → Groups → Select group → Object ID
+//
+// Role Hierarchy (higher priority = more permissions):
+//   Priority 1: Admin        → Full access (CRUD, ViewAll, Approve, Delete)
+//   Priority 2: Teamleitung  → Team management (Create, Edit, ViewAll, Approve)
+//   Priority 3: User         → Default fallback (Read own records only)
+//
+// The "highest role wins" pattern means a user in both Admin and Teamleitung
+// groups will be assigned the Admin role (highest priority).
+//
+RoleConfig = {
+    // ========================================
+    // CONFIGURATION: Replace with your Entra ID Security Group Object IDs
+    // ========================================
+    AdminGroupId: "00000000-aaaa-bbbb-cccc-111111111111",
+    TeamleitungGroupId: "00000000-aaaa-bbbb-cccc-222222222222"
+};
+
+// Active Role - Single string representing the user's highest role
+// Determined in App.OnStart via sequential Entra ID group checks
+// Cached in CachedActiveRole variable (session-scoped)
+// Falls back to "User" if variable not yet initialized or group check fails
 //
 // Depends on:
-// - CachedRolesCache collection (initialized in App.OnStart critical path)
-// - Office365Groups.CheckMembershipAsync() connector (called once per role on cache miss)
-// - UserProfile (for email in group checks)
+// - CachedActiveRole variable (set in App.OnStart critical path)
 //
 // Used by:
-// - UserPermissions (derives permissions from role booleans)
-// - Permission check UDFs (HasRole, HasAnyRole)
-// - UI visibility checks (role-based feature access)
-// - RoleColor and RoleBadgeText Named Formulas
+// - UserRoles (derived boolean record for backward compatibility)
+// - UserPermissions (permission flags derived from role)
+// - RoleColor, RoleBadgeText (display properties)
+// - HasRole(), GetRoleLabel() UDFs
 //
-// IMPORTANT CONFIGURATION REQUIRED:
-// Replace GROUP_ID placeholders with your actual Azure AD Security Group IDs:
-// 1. AdminGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-// 2. ManagerGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-// 3. HRGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-// 4. GFGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-// 5. SachbearbeiterGroupId = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-//
-// Cache Strategy:
-// - First call (App.OnStart critical path): Calls Office365Groups for each role, caches result
-// - Subsequent calls: Returns cached roles (no API calls) until cache expires (5 minutes)
-// - Session scope: Cache cleared when app closes
-//
-UserRoles = If(
-    // Cache miss: CachedRolesCache is empty or first evaluation
-    IsBlank(CachedRolesCache),
-    // FIRST CALL: Populate cache by checking each role via Office365Groups
-    {
-        // Administrator - Full system access
-        // Replace "YOUR_ADMIN_GROUP_ID" with actual Azure AD Security Group ID
-        IsAdmin: false,
-        /*
-        Office365Groups.CheckMembershipAsync(
-            "YOUR_ADMIN_GROUP_ID",
-            User().Email
-        ).value
-        */
+ActiveRole = Coalesce(CachedActiveRole, "User");
 
-        // Manager - Team/department management
-        // Replace "YOUR_MANAGER_GROUP_ID" with actual Azure AD Security Group ID
-        IsManager: false,
-        /*
-        Office365Groups.CheckMembershipAsync(
-            "YOUR_MANAGER_GROUP_ID",
-            User().Email
-        ).value
-        */
-
-        // HR - Human Resources department
-        // Replace "YOUR_HR_GROUP_ID" with actual Azure AD Security Group ID
-        IsHR: false,
-        /*
-        Office365Groups.CheckMembershipAsync(
-            "YOUR_HR_GROUP_ID",
-            User().Email
-        ).value
-        */
-
-        // GF - Geschäftsführung (Business Management)
-        // Replace "YOUR_GF_GROUP_ID" with actual Azure AD Security Group ID
-        IsGF: false,
-        /*
-        Office365Groups.CheckMembershipAsync(
-            "YOUR_GF_GROUP_ID",
-            User().Email
-        ).value
-        */
-
-        // Sachbearbeiter - Operator/Administrator
-        // Replace "YOUR_SACHBEARBEITER_GROUP_ID" with actual Azure AD Security Group ID
-        IsSachbearbeiter: false,
-        /*
-        Office365Groups.CheckMembershipAsync(
-            "YOUR_SACHBEARBEITER_GROUP_ID",
-            User().Email
-        ).value
-        */
-
-        // User - Default role for all authenticated users
-        IsUser: true
-    },
-    // Cache hit: CachedRolesCache has data from previous call
-    // Return cached roles (no API calls on subsequent accesses)
-    First(CachedRolesCache)
-);
-
-// User Permissions - Derived from Cached Roles (NO API CALLS)
-// Permissions are calculated from UserRoles without making any Office365 API requests
-// Automatically updates when UserRoles changes
+// User Roles - Derived from ActiveRole (backward-compatible boolean record)
+// No API calls - purely computed from the cached ActiveRole string
 //
 // Depends on:
-// - UserRoles.IsAdmin, UserRoles.IsManager, UserRoles.IsHR, UserRoles.IsSachbearbeiter (role booleans)
-// - Note: UserRoles comes from cache after critical path (no redundant API calls)
+// - ActiveRole Named Formula
+//
+// Used by:
+// - Permission check UDFs (HasRole, HasAnyRole)
+// - FeatureFlags (admin-only debug features)
+// - UI visibility checks (role-based feature access)
+//
+UserRoles = {
+    IsAdmin: ActiveRole = "Admin",
+    IsTeamleitung: ActiveRole = "Teamleitung",
+    IsUser: true  // All authenticated users have base User role
+};
+
+// User Permissions - Derived from ActiveRole (NO API CALLS)
+// Permissions are calculated from the single ActiveRole string
+// Automatically updates when ActiveRole changes
+//
+// Depends on:
+// - ActiveRole Named Formula ("Admin" | "Teamleitung" | "User")
 //
 // Used by:
 // - Permission check UDFs (HasPermission, CanAccessRecord, CanEditRecord, CanDeleteRecord)
 // - Button visibility checks (CanCreate, CanEdit, CanDelete)
-// - Filter initialization (GetUserScope, GetDepartmentScope)
+// - Filter initialization (GetUserScope)
 // - All permission-dependent control bindings
 //
-// Cache Strategy:
-// - Called once during App.OnStart critical path
-// - Subsequent app operations read from cached UserRoles
-// - No Office365 API calls (permissions are purely derived from cached roles)
-// - TTL: 5 minutes (inherited from UserRoles cache)
+// Permission Matrix:
+// ┌──────────────┬───────┬──────────────┬──────┐
+// │ Permission   │ Admin │ Teamleitung  │ User │
+// ├──────────────┼───────┼──────────────┼──────┤
+// │ CanCreate    │  ✓    │      ✓       │      │
+// │ CanRead      │  ✓    │      ✓       │  ✓   │
+// │ CanEdit      │  ✓    │      ✓       │      │
+// │ CanDelete    │  ✓    │              │      │
+// │ CanViewAll   │  ✓    │      ✓       │      │
+// │ CanViewOwn   │  ✓    │      ✓       │  ✓   │
+// │ CanApprove   │  ✓    │              │      │
+// │ CanReject    │  ✓    │              │      │
+// │ CanArchive   │  ✓    │      ✓       │      │
+// └──────────────┴───────┴──────────────┴──────┘
 //
 UserPermissions = {
     // CRUD Permissions
-    CanCreate: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsSachbearbeiter,
+    CanCreate: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
     CanRead: true,  // All users can read (filtered by scope)
-    CanEdit: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsSachbearbeiter,
-    CanDelete: UserRoles.IsAdmin,
+    CanEdit: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
+    CanDelete: ActiveRole = "Admin",
 
     // Scope Permissions
-    CanViewAll: UserRoles.IsAdmin || UserRoles.IsManager || UserRoles.IsHR,
+    CanViewAll: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
     CanViewOwn: true,
 
     // Special Permissions
-    CanApprove: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanReject: UserRoles.IsAdmin || UserRoles.IsManager,
-    CanArchive: UserRoles.IsAdmin || UserRoles.IsManager
+    CanApprove: ActiveRole = "Admin",
+    CanReject: ActiveRole = "Admin",
+    CanArchive: ActiveRole = "Admin" || ActiveRole = "Teamleitung"
 };
 
 // Dynamic Role-Based Color
+// Derived from ActiveRole - one color per role for badges, headers, indicators
 RoleColor = Switch(
-    true,
-    UserRoles.IsAdmin, ThemeColors.Error,        // Red for Admin
-    UserRoles.IsGF, ThemeColors.PrimaryDark,     // Dark Blue for GF
-    UserRoles.IsManager, ThemeColors.Primary,     // Blue for Manager
-    UserRoles.IsHR, ThemeColors.Warning,          // Amber for HR
-    UserRoles.IsSachbearbeiter, ThemeColors.Info, // Blue for Sachbearbeiter
-    ThemeColors.Success                           // Green for User
+    ActiveRole,
+    "Admin", ThemeColors.Error,            // Red for Admin
+    "Teamleitung", ThemeColors.Primary,    // Blue for Teamleitung
+    ThemeColors.Success                    // Green for User (default)
 );
 
-// Role Badge Text
+// Role Badge Text - Short label for UI badges
 RoleBadgeText = Switch(
-    true,
-    UserRoles.IsAdmin, "Admin",
-    UserRoles.IsGF, "GF",
-    UserRoles.IsManager, "Manager",
-    UserRoles.IsHR, "HR",
-    UserRoles.IsSachbearbeiter, "Sachbearbeiter",
+    ActiveRole,
+    "Admin", "Admin",
+    "Teamleitung", "TL",
     "User"
 );
 
@@ -442,9 +399,9 @@ FeatureFlags = {
     EnableKeyboardShortcuts: true,
     EnableNotifications: true,
 
-    // Debug Features (Development only)
-    ShowDebugInfo: Param("debug") = "true" && UserRoles.IsAdmin,
-    ShowPerformanceMetrics: Param("perf") = "true" && UserRoles.IsAdmin,
+    // Debug Features (Development only, Admin-restricted)
+    ShowDebugInfo: Param("debug") = "true" && ActiveRole = "Admin",
+    ShowPerformanceMetrics: Param("perf") = "true" && ActiveRole = "Admin",
     EnableMockData: Param("mock") = "true" && AppConfig.IsDevelopment
 };
 
@@ -483,14 +440,12 @@ HasPermission(permissionName: Text): Boolean =
     );
 
 // Check if user has a specific role by name
+// Valid role names: "Admin", "Teamleitung", "User" (case-insensitive)
 HasRole(roleName: Text): Boolean =
     Switch(
         Lower(roleName),
         "admin", UserRoles.IsAdmin,
-        "gf", UserRoles.IsGF,
-        "manager", UserRoles.IsManager,
-        "hr", UserRoles.IsHR,
-        "sachbearbeiter", UserRoles.IsSachbearbeiter,
+        "teamleitung", UserRoles.IsTeamleitung,
         "user", UserRoles.IsUser,
         false
     );
@@ -517,15 +472,12 @@ HasAllRoles(roleNames: Text): Boolean =
         )
     ) = 0;
 
-// Get user's highest role as display label
+// Get user's active role as display label (German)
 GetRoleLabel(): Text =
     Switch(
-        true,
-        UserRoles.IsAdmin, "Administrator",
-        UserRoles.IsGF, "Geschäftsführer",
-        UserRoles.IsManager, "Manager",
-        UserRoles.IsHR, "HR",
-        UserRoles.IsSachbearbeiter, "Sachbearbeiter",
+        ActiveRole,
+        "Admin", "Administrator",
+        "Teamleitung", "Teamleitung",
         "Benutzer"
     );
 
