@@ -219,11 +219,11 @@ DateRanges = {
     Yesterday: Today() - 1,
     Tomorrow: Today() + 1,
 
-    // Week Calculations
-    StartOfWeek: Today() - Weekday(Today()) + 1,
-    EndOfWeek: Today() - Weekday(Today()) + 7,
-    StartOfLastWeek: Today() - Weekday(Today()) + 1 - 7,
-    EndOfLastWeek: Today() - Weekday(Today()) + 7 - 7,
+    // Week Calculations (Monday = start of week for German locale)
+    StartOfWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 1,
+    EndOfWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 7,
+    StartOfLastWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 1 - 7,
+    EndOfLastWeek: Today() - Weekday(Today(), StartOfWeek.Monday) + 7 - 7,
 
     // Month Calculations
     StartOfMonth: Date(Year(Today()), Month(Today()), 1),
@@ -579,36 +579,36 @@ CanViewRecord(ownerEmail: Text): Boolean =
 // Multi-layer filter combining all 4 filter UDFs
 // -----------------------------------------------------------
 
-// FILT-05: Multi-layer filter composition UDF
+// FILT-05: Multi-layer filter composition PATTERN
 // Combines status filter, role scoping, text search, and user filtering
 // Layer 1 (Status): Status equality check — most restrictive, applied first for performance
 // Layer 2 (Role + Ownership): CanViewRecord(Owner.Email) — security filter
 // Layer 3 (My Items): If(showMyItemsOnly, Owner = User().Email, true) — optional user-only restriction
 // Layer 4 (Search): StartsWith text matching — most expensive, applied last
 //
-// DELEGATION WARNING: This UDF is NOT delegable when used as Gallery.Items because
-//   UDFs inside Filter() are never delegable (Microsoft docs). For datasets >2000 records,
-//   use inline Filter() with delegable operators directly in Gallery.Items instead.
-//   For datasets <2000 records, this composition pattern works correctly.
+// NOTE: This is an INLINE PATTERN, not a UDF, because:
+//   1. UDFs cannot return Table types without User Defined Types (UDTs)
+//   2. UDFs inside Filter() are NEVER delegable (Microsoft docs)
+//   For datasets <2000 records, copy this pattern directly into Gallery.Items.
+//   For datasets >2000 records, use delegable inline expressions (see CLAUDE.md).
 //
-// Returns: Table of Items meeting all 4 conditions (AND logic between layers)
-FilteredGalleryData(showMyItemsOnly: Boolean, selectedStatus: Text, searchTerm: Text): /*Table*/ =
-  Filter(
-    Items,
-    // Layer 1: Status filtering (most restrictive - filters down dataset first)
-    MatchesStatusFilter(Status, selectedStatus),
-    // Layer 2: Role-based scoping + ownership check
-    CanViewRecord(Owner.Email),
-    // Layer 3: User-specific filtering (My Items toggle)
-    If(showMyItemsOnly, Owner.Email = User().Email, true),
-    // Layer 4: Text search (most expensive operation - last)
-    // Uses StartsWith for case-insensitive prefix matching
-    Or(
-      MatchesSearchTerm(Title, searchTerm),
-      MatchesSearchTerm(Description, searchTerm),
-      MatchesSearchTerm(Owner.DisplayName, searchTerm)
-    )
-  );
+// USAGE: Copy directly into glr_Items.Items property:
+//
+// Filter(
+//   Items,
+//   // Layer 1: Status filtering
+//   MatchesStatusFilter(Status, ActiveFilters.SelectedStatus),
+//   // Layer 2: Role-based scoping + ownership check
+//   CanViewRecord(Owner.Email),
+//   // Layer 3: User-specific filtering (My Items toggle)
+//   If(ActiveFilters.ShowMyItemsOnly, Owner.Email = User().Email, true),
+//   // Layer 4: Text search (most expensive operation - last)
+//   Or(
+//     MatchesSearchTerm(Title, ActiveFilters.SearchTerm),
+//     MatchesSearchTerm(Description, ActiveFilters.SearchTerm),
+//     MatchesSearchTerm(Owner.DisplayName, ActiveFilters.SearchTerm)
+//   )
+// )
 
 
 // -----------------------------------------------------------
@@ -807,6 +807,11 @@ ToastConfig = {
     AnimationDuration: 300    // Slide-in animation duration in ms
 };
 
+// User Defined Type for Revert Data
+// Requires UDTs to be enabled: Settings > Updates > User-Defined Types
+// Customize fields to match your Items table schema as needed
+RevertDataType := Type({ItemID: Text, ItemName: Text});
+
 // Revert Callback Registry - Replaces magic numbers with named constants
 // Used by HandleRevert() to identify which undo action to execute
 // Example: NotifyDeleteWithUndo(..., RevertCallbackIDs.DELETE_UNDO)
@@ -951,7 +956,7 @@ NotifyValidationError(fieldName: Text, message: Text): Void = {
 //   shouldAutoClose: Boolean - Should auto-dismiss after duration (errors: false)
 //   duration: Number - Duration in milliseconds before auto-dismiss (0 = never)
 // Note: Auto-dismiss logic is handled by UI timer control in 04-02
-AddToast(message: Text; toastType: Text; shouldAutoClose: Boolean; duration: Number): Void = {
+AddToast(message: Text, toastType: Text, shouldAutoClose: Boolean, duration: Number): Void = {
     // Patch new toast into NotificationStack collection with schema:
     // ID (unique identifier), Message, Type, AutoClose, Duration, CreatedAt, IsVisible
     Patch(
@@ -1009,24 +1014,24 @@ RemoveToast(toastID: Number): Void = {
 //   duration: Number - Auto-dismiss timeout in milliseconds
 //   hasRevert: Boolean - Show revert button? (NEW)
 //   revertLabel: Text - Revert button text (e.g., "Undo", "Restore") (NEW)
-//   revertData: Record - Data needed to revert action (e.g., {ItemID: "123"}) (NEW)
+//   revertData: RevertDataType - Data needed to revert action (e.g., {ItemID: "123"}) (NEW)
 //   revertCallbackID: Number - Callback handler ID (0=Delete, 1=Archive, 2=Custom) (NEW)
 //
 // Schema added to NotificationStack:
 //   HasRevert: Boolean - whether toast shows revert button
 //   RevertLabel: Text - button text
-//   RevertData: Record - serialized data for revert
+//   RevertData: RevertDataType - serialized data for revert
 //   RevertCallbackID: Number - handler identifier
 //   IsReverting: Boolean - revert in progress (loading state)
 //   RevertError: Text - error message if revert fails
 AddToastWithRevert(
-    message: Text;
-    toastType: Text;
-    shouldAutoClose: Boolean;
-    duration: Number;
-    hasRevert: Boolean;
-    revertLabel: Text;
-    revertData: Record;
+    message: Text,
+    toastType: Text,
+    shouldAutoClose: Boolean,
+    duration: Number,
+    hasRevert: Boolean,
+    revertLabel: Text,
+    revertData: RevertDataType,
     revertCallbackID: Number
 ): Void = {
     Patch(
@@ -1058,13 +1063,13 @@ AddToastWithRevert(
 // Parameters:
 //   toastID: Number - Toast ID to revert
 //   callbackID: Number - Callback type (0=Delete Undo, 1=Archive Undo, 2=Custom)
-//   revertData: Record - Data for executing revert (e.g., {ItemID: "123"})
+//   revertData: RevertDataType - Data for executing revert (e.g., {ItemID: "123"})
 //
 // Callback IDs:
 //   0: DELETE_UNDO - Restore deleted item
 //   1: ARCHIVE_UNDO - Unarchive item
 //   2: CUSTOM - Custom revert handler (extend in app code)
-HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
+HandleRevert(toastID: Number, callbackID: Number, revertData: RevertDataType): Void = {
     // Mark toast as reverting (shows loading spinner in UI)
     Patch(
         NotificationStack,
@@ -1125,10 +1130,10 @@ HandleRevert(toastID: Number; callbackID: Number; revertData: Record): Void = {
 
 // Generic notification with optional revert (NEW)
 NotifyWithRevert(
-    message: Text;
-    notificationType: Text;
-    revertLabel: Text;
-    revertData: Record;
+    message: Text,
+    notificationType: Text,
+    revertLabel: Text,
+    revertData: RevertDataType,
     revertCallbackID: Number
 ): Void = {
     Notify(
@@ -1161,9 +1166,9 @@ NotifyWithRevert(
 
 // Success notification with revert button (NEW)
 NotifySuccessWithRevert(
-    message: Text;
-    revertLabel: Text;
-    revertData: Record;
+    message: Text,
+    revertLabel: Text,
+    revertData: RevertDataType,
     revertCallbackID: Number
 ): Void = {
     NotifyWithRevert(
@@ -1179,8 +1184,8 @@ NotifySuccessWithRevert(
 // Convenience function: pre-configured for delete/undo workflow
 // Parameters:
 //   itemName: Text - Name of deleted item (for message)
-//   revertData: Record - Must contain: {ItemID, ItemName, [ItemData]}
-NotifyDeleteWithUndo(itemName: Text; revertData: Record): Void = {
+//   revertData: RevertDataType - Must contain: {ItemID, ItemName}
+NotifyDeleteWithUndo(itemName: Text, revertData: RevertDataType): Void = {
     NotifySuccessWithRevert(
         "Eintrag '" & itemName & "' gelöscht",
         "Rückgängig",
@@ -1193,8 +1198,8 @@ NotifyDeleteWithUndo(itemName: Text; revertData: Record): Void = {
 // Convenience function: pre-configured for archive/restore workflow
 // Parameters:
 //   itemName: Text - Name of archived item (for message)
-//   revertData: Record - Must contain: {ItemID, ItemName}
-NotifyArchiveWithUndo(itemName: Text; revertData: Record): Void = {
+//   revertData: RevertDataType - Must contain: {ItemID, ItemName}
+NotifyArchiveWithUndo(itemName: Text, revertData: RevertDataType): Void = {
     NotifySuccessWithRevert(
         "Eintrag '" & itemName & "' archiviert",
         "Wiederherstellen",
@@ -1296,7 +1301,7 @@ GetPageRangeText(currentPage: Number, pageSize: Number, totalItems: Number): Tex
             startItem: GetSkipCount(currentPage, pageSize) + 1,
             endItem: Min(GetSkipCount(currentPage, pageSize) + pageSize, totalItems)
         },
-        Text(startItem) & "-" & Text(endItem) & " of " & Text(totalItems)
+        Text(startItem) & "-" & Text(endItem) & " von " & Text(totalItems)
     );
 
 
@@ -1475,17 +1480,17 @@ ErrorMessage_PermissionDenied(actionName: Text): Text =
     "Sie haben keine Berechtigung zum Ausführen dieser Aktion: " & actionName;
 
 // Generic error fallback
-ErrorMessage_Generic: Text = "Ein Fehler ist aufgetreten. Bitte versuchen Sie später erneut.";
+ErrorMessage_Generic = "Ein Fehler ist aufgetreten. Bitte versuchen Sie später erneut.";
 
 // Validation error messages
 ErrorMessage_ValidationFailed(fieldName: Text, reason: Text): Text =
     "Validierung fehlgeschlagen für " & fieldName & ": " & reason;
 
 // Network/connection errors
-ErrorMessage_NetworkError: Text = "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihr Netzwerk und versuchen Sie erneut.";
+ErrorMessage_NetworkError = "Verbindung fehlgeschlagen. Bitte überprüfen Sie Ihr Netzwerk und versuchen Sie erneut.";
 
 // Timeout errors
-ErrorMessage_TimeoutError: Text = "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie später erneut.";
+ErrorMessage_TimeoutError = "Die Anfrage hat zu lange gedauert. Bitte versuchen Sie später erneut.";
 
 // Not found errors
 ErrorMessage_NotFound(itemType: Text): Text =

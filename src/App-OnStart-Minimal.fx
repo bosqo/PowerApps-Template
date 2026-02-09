@@ -175,7 +175,7 @@ Set(AppState, {
 // Usage:
 // - Update single filter: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "query"}))
 // - Reset all filters: Set(ActiveFilters, Patch(ActiveFilters, {SearchTerm: "", SelectedStatus: "", ShowMyItemsOnly: false}))
-// - Gallery Items: FilteredGalleryData(ActiveFilters.ShowMyItemsOnly, ActiveFilters.SelectedStatus, ActiveFilters.SearchTerm)
+// - Gallery Items: Use inline Filter pattern (FILT-05) from App-Formulas-Template.fx
 // - Date range: Filter(DataSource,
 //     Switch(ActiveFilters.DateRangeFilter,
 //         "Today", DateValue(Created) = Today(),
@@ -613,7 +613,7 @@ Set(DashboardCounts, {
     OverdueTasks: CountRows(
         Filter(
             MyPendingTasks,
-            'Due Date' < Today()
+            'Due Date' < GetCETToday()
         )
     )
 });
