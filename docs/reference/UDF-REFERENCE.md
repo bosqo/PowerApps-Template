@@ -530,6 +530,110 @@ If(
 
 ---
 
+## Named Formulas - Data Layers
+
+### UserScopedItems
+
+**Type:** Table (Items)
+**Purpose:** Permission-filtered view of Items table
+**Returns:** All items if user has ViewAll permission, otherwise only user's own items
+
+**Formula:**
+```powerfx
+UserScopedItems = If(
+    UserPermissions.CanViewAll,
+    Items,
+    Filter(Items, Owner.Email = User().Email)
+);
+```
+
+**Usage:**
+```powerfx
+// Use in galleries
+glr_AllItems.Items = UserScopedItems
+
+// Use in calculations
+CountRows(UserScopedItems)
+```
+
+---
+
+### ActiveItems
+
+**Type:** Table (Items)
+**Purpose:** Active items only (Status = "Active")
+**Returns:** Subset of UserScopedItems where Status = "Active"
+
+**Formula:**
+```powerfx
+ActiveItems = Filter(UserScopedItems, Status = "Active");
+```
+
+**Usage:**
+```powerfx
+// Dashboard count
+lbl_ActiveCount.Text = CountRows(ActiveItems)
+
+// Gallery
+glr_ActiveItems.Items = ActiveItems
+```
+
+---
+
+### InactiveItems
+
+**Type:** Table (Items)
+**Purpose:** Inactive items only (Status = "Inactive")
+**Returns:** Subset of UserScopedItems where Status = "Inactive"
+
+**Formula:**
+```powerfx
+InactiveItems = Filter(UserScopedItems, Status = "Inactive");
+```
+
+**Usage:**
+```powerfx
+// Archive screen
+glr_Archive.Items = InactiveItems
+```
+
+---
+
+### FilteredItems
+
+**Type:** Table (Items)
+**Purpose:** Reactive multi-filter combination
+**Returns:** UserScopedItems filtered by Status, Department, DateRange, SearchTerm
+**Delegation:** All expressions are delegable (no UDFs inside Filter)
+
+**Formula:**
+```powerfx
+FilteredItems = Filter(
+    UserScopedItems,
+    (IsBlank(ActiveFilters.Status) || Status = ActiveFilters.Status) &&
+    (IsBlank(ActiveFilters.Department) || Department = ActiveFilters.Department) &&
+    (IsBlank(ActiveFilters.DateRange) || 'Modified On' >= DateRanges[ActiveFilters.DateRange].Start) &&
+    (IsBlank(ActiveFilters.SearchTerm) || StartsWith(Title, ActiveFilters.SearchTerm))
+);
+```
+
+**Usage:**
+```powerfx
+// Gallery binding
+glr_Items.Items = FilteredItems
+
+// Count
+lbl_Count.Text = CountRows(FilteredItems)
+```
+
+**Key Features:**
+- ✅ Reactive: Auto-recalculates when ActiveFilters changes
+- ✅ Delegable: All Filter expressions are SharePoint-compatible
+- ✅ Composable: Combines all dropdown filters in one place
+- ✅ No ClearCollect needed: Gallery refreshes automatically
+
+---
+
 ## Quick Reference Table (All UDFs)
 
 | # | UDF | Category | Returns | Line |

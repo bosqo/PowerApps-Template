@@ -237,10 +237,55 @@ DateRanges = {
 
     // Relative Ranges
     Last7Days: Today() - 7,
+    Last14Days: Today() - 14,
     Last30Days: Today() - 30,
     Last90Days: Today() - 90
 };
 
+// ============================================================================
+// BASE DATA LAYERS (Permission-Filtered)
+// ============================================================================
+// Purpose: Reusable base layers for galleries and dashboards
+// Depends on: UserPermissions.CanViewAll, User().Email
+// Used by: FilteredItems, dashboard KPIs, multiple galleries
+
+// All items visible to current user (respects ViewAll permission)
+UserScopedItems = If(
+    UserPermissions.CanViewAll,
+    Items,
+    Filter(Items, Owner.Email = User().Email)
+);
+
+// Active items only (Status = "Active")
+ActiveItems = Filter(UserScopedItems, Status = "Active");
+
+// Inactive items only (Status = "Inactive")
+InactiveItems = Filter(UserScopedItems, Status = "Inactive");
+
+// ============================================================================
+// DYNAMIC FILTER LAYER (Reactive to ActiveFilters state)
+// ============================================================================
+// Purpose: Combines all dropdown filters - fully reactive
+// Depends on: ActiveFilters state (Status, Department, DateRange, SearchTerm)
+// Used by: Gallery.Items property
+// Delegation: All filter expressions are delegable (no UDFs inside Filter)
+
+FilteredItems = Filter(
+    UserScopedItems,
+    // Status dropdown (blank = show all)
+    (IsBlank(ActiveFilters.Status) || Status = ActiveFilters.Status) &&
+
+    // Department dropdown (blank = show all)
+    (IsBlank(ActiveFilters.Department) || Department = ActiveFilters.Department) &&
+
+    // Date range dropdown (blank = show all)
+    (IsBlank(ActiveFilters.DateRange) ||
+     'Modified On' >= DateRanges[ActiveFilters.DateRange].Start) &&
+
+    // Display name search (blank = show all)
+    (IsBlank(ActiveFilters.SearchTerm) ||
+     StartsWith(Title, ActiveFilters.SearchTerm))
+);
 
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS

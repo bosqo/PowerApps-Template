@@ -204,7 +204,12 @@ Set(ActiveFilters, {
     PriorityFilter: Blank(),
     OwnerFilter: Blank(),
     ShowMyItemsOnly: false,   // Filter to show only current user's items
-    SelectedStatus: ""        // Selected status filter value
+    SelectedStatus: "",       // Selected status filter value
+
+    // === NEW FIELDS ===
+    Status: Blank(),          // Selected status (or Blank() for "All")
+    Department: Blank(),      // Selected department (or Blank() for "All")
+    DateRange: Blank()        // Selected date range key (or Blank() for "All")
 });
 
 
