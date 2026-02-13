@@ -404,9 +404,9 @@ See `docs/performance/DELEGATION-PATTERNS.md` for details.
 - ❌ `varAppState`, `gActiveFilters`
 
 **Collections:** Prefix + PascalCase
-- `Cached*` - Lookup data (e.g., `CachedDepartments`)
-- `My*` - User-scoped (e.g., `MyRecentItems`)
-- `Filter*` - Filtered views (e.g., `FilteredOrders`)
+- ~~`Cached*`~~ - REMOVED: No caching in OnStart (data accessed via Named Formulas)
+- ~~`My*`~~ - REMOVED: No cached user data (accessed directly via Named Formulas)
+- `Filter*` - Filtered views (if needed for complex filtering)
 
 **Controls:** Type prefix + name (3-char prefix)
 
@@ -448,7 +448,7 @@ Connect these before using App.OnStart:
 | `Search()` not delegated | SharePoint doesn't delegate Search | Use `StartsWith()` for text search on SharePoint |
 | `Ceiling()` error | Function doesn't exist in Power Fx | Use `RoundUp(value, 0)` |
 | Timezone bugs | `Today()` vs SharePoint UTC dates | Always use `GetCETToday()` for SharePoint DateTime fields |
-| API timeouts | Redundant Office365 calls | Cache results in collections (session-scoped, 5-min TTL) |
+| API timeouts | Redundant Office365 calls | Optimize queries, use Named Formulas (evaluated on-demand) |
 | Empty roles | Azure AD groups not configured | Update `App-Formulas-Template.fx:293-299` |
 | Flow timeouts | Flows break after 30 days | Use Child-Flows |
 | License limits | API quota exceeded | Implement batch operations + throttling |
@@ -459,49 +459,52 @@ Connect these before using App.OnStart:
 
 ## Performance Best Practices
 
-### Target: App.OnStart <2 Seconds
+### Target: App.OnStart <2 Seconds (NO CACHING)
 
-**Techniques:**
-- Sequential critical path: User → Roles → Permissions
-- Parallel background: `Concurrent()` for independent data
-- API caching: Collections with 5-min TTL (100% cache-hit after first load)
+**Simplified approach:**
+- No caching in App.OnStart
+- All data loaded on-demand via Named Formulas
+- State variables initialization only
 - Error tolerance: Graceful fallback for non-critical errors
 
-**Expected timing breakdown:**
+**Expected timing breakdown (NO CACHING):**
 ```
-Critical path (sequential):  500-800ms   (Office365 profile + roles)
-Background (concurrent):    300-500ms   (Departments, Categories, Statuses, Priorities)
-User-scoped data:           200-300ms   (Recent items, pending tasks)
-Config + finalize:          <100ms
+State initialization:  50-150ms   (AppState, ActiveFilters, UIState)
+Finalization:          50ms       (Mark as initialized)
+Notification stack:    100ms      (Initialize toast system)
 
-TOTAL: ~1050-1850ms (under 2000ms target)
+TOTAL: ~200-300ms (well under 2000ms target)
 ```
 
 **Monitor:** Power Apps Monitor (F12) → Network tab → Filter "OnStart"
-- OnStart total: <2000ms ✅
-- Office365Users calls: 1 (cold), 0 (warm) ✅
-- Office365Groups calls: 6 (cold), 0 (warm) ✅
+- OnStart total: ~200-300ms ✅ (much faster without caching)
+- No Office365 calls during OnStart (role checks in Named Formulas)
 
-### Concurrent() for Parallel Loading
+### On-Demand Data Loading
 
-**Critical path (sequential):**
+**All data accessed via Named Formulas:**
 ```powerfx
-ClearCollect(CachedProfileCache, Office365Users.MyProfileV2());
-Set(AppState, Patch(AppState, {UserRoles: UserRoles}));
-Set(AppState, Patch(AppState, {UserPermissions: UserPermissions}));
+// ActiveRole Named Formula checks Entra ID groups on-demand
+ActiveRole = IfError(
+  If(
+    !IsEmpty(Filter(...Office365Groups...)), "Admin",
+    !IsEmpty(Filter(...Office365Groups...)), "Teamleitung",
+    "User"
+  ),
+  "User"
+)
+
+// FilteredItems Named Formula loads data reactively
+FilteredItems = Filter(
+  UserScopedItems,
+  (IsBlank(ActiveFilters.Status) || Status = ActiveFilters.Status)
+)
 ```
 
-**Background path (parallel):**
-```powerfx
-Concurrent(
-  ClearCollect(CachedDepartments, Filter(Departments, Status = "Active")),
-  ClearCollect(CachedCategories, Filter(Categories, Status = "Active")),
-  ClearCollect(CachedStatuses, {...}),
-  ClearCollect(CachedPriorities, {...})
-);
-```
-
-**Improvement:** Parallel max(300, 200, 50) = 300ms vs sequential 500ms = ~60% faster.
+**Benefits:**
+- Simpler code (no caching logic)
+- Always fresh data (no cache invalidation needed)
+- Faster startup (no data loading in OnStart)
 
 ### Error Handling Strategy
 

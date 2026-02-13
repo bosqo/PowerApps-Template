@@ -18,10 +18,12 @@
 //
 // REQUIRED DATA SOURCES:
 // Connect these tables before using this template:
-// 1. Departments (Dataverse/SharePoint) - columns: Name, Status
-// 2. Categories (Dataverse/SharePoint) - columns: Name, Status
-// 3. Items (Dataverse/SharePoint) - columns: Owner, Status, 'Modified On'
-// 4. Tasks (Dataverse/SharePoint) - columns: 'Assigned To', Status, 'Due Date'
+// 1. Departments (Dataverse/SharePoint) - columns: Name, Status (accessed via Named Formulas)
+// 2. Categories (Dataverse/SharePoint) - columns: Name, Status (accessed via Named Formulas)
+// 3. Items (Dataverse/SharePoint) - columns: Owner, Status, 'Modified On' (accessed via Named Formulas)
+// 4. Tasks (Dataverse/SharePoint) - columns: 'Assigned To', Status, 'Due Date' (accessed via Named Formulas)
+//
+// NOTE: No data is cached in App.OnStart. All data is loaded on-demand via Named Formulas.
 //
 // ============================================================
 
@@ -43,10 +45,10 @@
 // - ActiveFilters: User-modifiable filter state
 // - UIState: UI component state (panels, dialogs, selections)
 //
-// COLLECTIONS (ClearCollect): PascalCase with prefix
-// - Cached*: Static lookup data loaded at startup (e.g., CachedDepartments)
-// - My*: User-scoped data (e.g., MyRecentItems, MyPendingTasks)
-// - Filter*: Filtered views of data (if needed)
+// COLLECTIONS: NO CACHED COLLECTIONS IN APP.ONSTART
+// - All data accessed on-demand via Named Formulas in App.Formulas
+// - No Cached* collections (removed for simplicity)
+// - No My* collections (accessed directly via Named Formulas)
 //
 // All variable names must be PascalCase (no underscores, no prefixes)
 //
@@ -271,357 +273,10 @@ Set(UIState, {
 });
 
 
-// TIMING: Section 0 - Critical path (user profile, role determination) BEGIN
-
-// ============================================================
-// 0. CRITICAL PATH - HIGHEST ROLE DETERMINATION
-// ============================================================
-// Determines the user's highest role via Entra ID Security Group membership.
-// App blocks user interaction until this completes (IsInitializing: true).
-//
-// "Highest Role Wins" Pattern:
-// Uses If() short-circuit evaluation to check groups from highest to lowest priority.
-// Stops at the first match → 1-2 API calls max (not N calls for N roles).
-//
-//   Priority 1: Admin        → Full access
-//   Priority 2: Teamleitung  → Team management
-//   Priority 3: User         → Default fallback (no API call needed)
-//
-// Dependencies:
-// - RoleConfig Named Formula (Entra ID Security Group IDs)
-// - UserProfile Named Formula uses built-in User() function (no API calls)
-// - ActiveRole Named Formula reads from CachedActiveRole (set below)
-// - UserPermissions Named Formula derives from ActiveRole (no API calls)
-//
-// Connector: Office365Groups.ListGroupMembers()
-//   Standard license connector. Fetches group member list and checks if
-//   the current user's email is present. For large groups (>500 members),
-//   consider switching to the premium AzureAD.CheckMemberGroupsV2() connector.
-//
-// Alternative (Premium): AzureAD.CheckMemberGroupsV2(User().Email, ["groupId"])
-//   More efficient for large groups (boolean check, no member list fetch).
-//   Requires Azure AD Premium connector license.
-//
-
-// Ensure app stays locked during critical path execution
-Set(AppState, Patch(AppState, {IsInitializing: true}));
-
-// Determine user's highest role from Entra ID Security Groups
-// Pattern: Check from highest to lowest priority, first match wins
-// If() short-circuit means lower-priority checks are skipped once a role is found
-Set(
-    CachedActiveRole,
-    IfError(
-        If(
-            // ── Priority 1: Admin ──────────────────────────────────
-            // ACTIVATE: Replace 'false' with one of these patterns:
-            //
-            // Option A - Standard license (Office365Groups connector):
-            // !IsEmpty(
-            //     Filter(
-            //         Office365Groups.ListGroupMembers(RoleConfig.AdminGroupId).value,
-            //         Lower(mail) = Lower(User().Email)
-            //     )
-            // ),
-            //
-            // Option B - Premium license (AzureAD / Entra ID connector):
-            // !IsEmpty(
-            //     AzureAD.CheckMemberGroupsV2(
-            //         User().Email,
-            //         [RoleConfig.AdminGroupId]
-            //     ).value
-            // ),
-            //
-            false,  // ← Placeholder: replace with group check above
-            "Admin",
-
-            // ── Priority 2: Teamleitung ────────────────────────────
-            // ACTIVATE: Replace 'false' with one of these patterns:
-            //
-            // Option A - Standard license:
-            // !IsEmpty(
-            //     Filter(
-            //         Office365Groups.ListGroupMembers(RoleConfig.TeamleitungGroupId).value,
-            //         Lower(mail) = Lower(User().Email)
-            //     )
-            // ),
-            //
-            // Option B - Premium license:
-            // !IsEmpty(
-            //     AzureAD.CheckMemberGroupsV2(
-            //         User().Email,
-            //         [RoleConfig.TeamleitungGroupId]
-            //     ).value
-            // ),
-            //
-            false,  // ← Placeholder: replace with group check above
-            "Teamleitung",
-
-            // ── Priority 3: User (Default) ─────────────────────────
-            // No API call needed - all authenticated users get this role
-            "User"
-        ),
-        // Error fallback: If any group check fails, default to "User" (least privilege)
-        "User"
-    )
-);
-
-// Named Formulas auto-react to CachedActiveRole change:
-// - ActiveRole → re-evaluates to new role string
-// - UserRoles → re-derives boolean flags
-// - UserPermissions → re-derives permission flags
-// - RoleColor, RoleBadgeText → re-derive display properties
-
-// TIMING: Section 0 - Critical path END
-
-// TIMING: Section 4 - Background data loading (parallel) BEGIN
-
-// ============================================================
-// 4. BACKGROUND DATA - Parallel Lookup Data Loading
-// ============================================================
-// Load commonly used lookup/reference data in parallel (not sequentially)
-// These are independent non-critical collections that don't block startup
-//
-// WHY CONCURRENT():
-// - All non-critical collections load in parallel for faster startup
-// - Each ClearCollect is independent (no data dependencies between them)
-// - Failures in one collection do not block others or the app
-// - Critical data (section 0) loads before this section to ensure user is authenticated
-//
-// PERFORMANCE:
-// - Sequential loading time: ~500ms per collection = ~2000ms total
-// - Concurrent loading time: ~500ms (all execute simultaneously)
-// - Improvement: ~75% faster non-critical data loading
-
-Concurrent(
-    // Departments (for dropdowns) - from Dataverse with retry and fallback
-    ClearCollect(
-        CachedDepartments,
-        IfError(
-            // First attempt: Load from Departments table
-            Sort(
-                Filter(
-                    Departments,
-                    Status = "Active"
-                ),
-                Name,
-                SortOrder.Ascending
-            ),
-            // First error: Retry immediately (attempt 2)
-            IfError(
-                Sort(
-                    Filter(
-                        Departments,
-                        Status = "Active"
-                    ),
-                    Name,
-                    SortOrder.Ascending
-                ),
-                // Second attempt also failed: Use empty fallback
-                // Empty table means gallery shows empty state, not error
-                Table()
-            )
-        )
-    ),
-
-    // Categories (for dropdowns) - from Dataverse with retry and fallback
-    ClearCollect(
-        CachedCategories,
-        IfError(
-            // First attempt: Load from Categories table
-            Sort(
-                Filter(
-                    Categories,
-                    Status = "Active"
-                ),
-                Name,
-                SortOrder.Ascending
-            ),
-            // First error: Retry immediately (attempt 2)
-            IfError(
-                Sort(
-                    Filter(
-                        Categories,
-                        Status = "Active"
-                    ),
-                    Name,
-                    SortOrder.Ascending
-                ),
-                // Second attempt also failed: Use empty fallback
-                Table()
-            )
-        )
-    ),
-
-    // Statuses (for dropdowns) - static table with retry and fallback
-    // Static tables rarely fail, but we maintain consistency
-    ClearCollect(
-        CachedStatuses,
-        IfError(
-            // First attempt: Create static status table
-            Table(
-                {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
-                {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
-                {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
-                {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
-                {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
-                {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
-                {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
-            ),
-            // First error: Retry immediately (attempt 2)
-            IfError(
-                Table(
-                    {Value: "Active", DisplayName: "Aktiv", SortOrder: 1},
-                    {Value: "Pending", DisplayName: "Ausstehend", SortOrder: 2},
-                    {Value: "In Progress", DisplayName: "In Bearbeitung", SortOrder: 3},
-                    {Value: "On Hold", DisplayName: "Wartend", SortOrder: 4},
-                    {Value: "Completed", DisplayName: "Abgeschlossen", SortOrder: 5},
-                    {Value: "Cancelled", DisplayName: "Storniert", SortOrder: 6},
-                    {Value: "Archived", DisplayName: "Archiviert", SortOrder: 7}
-                ),
-                // Second attempt also failed: Use empty fallback
-                Table()
-            )
-        )
-    ),
-
-    // Priorities (for dropdowns) - static table with retry and fallback
-    // Static tables rarely fail, but we maintain consistency
-    ClearCollect(
-        CachedPriorities,
-        IfError(
-            // First attempt: Create static priority table
-            Table(
-                {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
-                {Value: "High", DisplayName: "Hoch", SortOrder: 2},
-                {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
-                {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
-                {Value: "None", DisplayName: "Keine", SortOrder: 5}
-            ),
-            // First error: Retry immediately (attempt 2)
-            IfError(
-                Table(
-                    {Value: "Critical", DisplayName: "Kritisch", SortOrder: 1},
-                    {Value: "High", DisplayName: "Hoch", SortOrder: 2},
-                    {Value: "Medium", DisplayName: "Mittel", SortOrder: 3},
-                    {Value: "Low", DisplayName: "Niedrig", SortOrder: 4},
-                    {Value: "None", DisplayName: "Keine", SortOrder: 5}
-                ),
-                // Second attempt also failed: Use empty fallback
-                Table()
-            )
-        )
-    )
-);
-
-
-// ============================================================
-// 4B. FALLBACK VALUES FOR MISSING DATA
-// ============================================================
-// When non-critical data fails to load (collections are empty), galleries and
-// dropdowns handle the empty state gracefully using fallback patterns.
-//
-// FALLBACK PHILOSOPHY:
-// - User experience: App fully functional, but with limited options until data loads
-// - No technical errors shown: Empty collections degrade gracefully
-// - "Unbekannt" pattern: Standardized German fallback for missing lookup data
-//
-// IMPLEMENTATION PATTERNS:
-//
-// 1. Gallery fallback when collection is empty:
-//    Gallery.Items = If(IsEmpty(CachedDepartments), Table({Name: "Unbekannt", Value: ""}), CachedDepartments)
-//    Result: Shows single "Unbekannt" placeholder option instead of empty gallery
-//
-// 2. Dropdown fallback for missing lookup:
-//    Dropdown.Items = If(IsEmpty(CachedStatuses), Table({Value: "Unbekannt", DisplayName: "Unbekannt"}), CachedStatuses)
-//    Result: Single fallback option ensures dropdown is never truly empty
-//
-// 3. Display text fallback for blank fields:
-//    Label.Text = If(IsBlank(ThisItem.Department), "Unbekannt", ThisItem.Department)
-//    Result: Shows "Unbekannt" instead of blank field
-//
-// 4. Conditional display based on data availability:
-//    Filter_Panel.Visible = !IsEmpty(CachedCategories)
-//    Result: Filter panel hidden if category lookup data unavailable
-//
-// COLLECTIONS MONITORED:
-// - CachedDepartments → galleries, dropdowns, filters
-// - CachedCategories → category filters and selectors
-// - CachedStatuses → status dropdowns and filters
-// - CachedPriorities → priority selectors and filters
-//
-// NOTE: Control-level fallback implementations deferred to Phase 4 (control patterns work)
-// This task focuses on App.OnStart infrastructure and documentation
-
-// TIMING: Section 4 - Background data loading END
-
-// TIMING: Section 5 - User-scoped data
-
-// ============================================================
-// 5. USER-SCOPED DATA CACHE
-// ============================================================
-// Pre-filtered data based on user's access scope
-// Uses UDFs for access control
-
-// My Recent Items (user's own or all if admin)
-ClearCollect(
-    MyRecentItems,
-    FirstN(
-        Sort(
-            Filter(
-                Items,
-                // Use UDF for access control
-                CanAccessRecord(Owner.Email),
-                // Active records only
-                Status <> "Archived"
-            ),
-            'Modified On',
-            SortOrder.Descending
-        ),
-        50  // Limit to 50 most recent
-    )
-);
-
-// My Pending Tasks (user's assigned tasks)
-ClearCollect(
-    MyPendingTasks,
-    Sort(
-        Filter(
-            Tasks,
-            // Assigned to current user
-            'Assigned To'.Email = User().Email,
-            // Not completed (using || instead of 'in' operator for SharePoint delegation compatibility)
-            (Status = "Active" || Status = "Pending" || Status = "In Progress")
-        ),
-        'Due Date',
-        SortOrder.Ascending
-    )
-);
-
-// Dashboard Counts (KPI data)
-Set(DashboardCounts, {
-    TotalItems: CountRows(
-        Filter(
-            Items,
-            CanAccessRecord(Owner.Email),
-            Status <> "Archived"
-        )
-    ),
-    ActiveItems: CountRows(
-        Filter(
-            Items,
-            CanAccessRecord(Owner.Email),
-            Status = "Active"
-        )
-    ),
-    PendingTasks: CountRows(MyPendingTasks),
-    OverdueTasks: CountRows(
-        Filter(
-            MyPendingTasks,
-            'Due Date' < GetCETToday()
-        )
-    )
-});
+// NO CACHING - Data loaded on-demand via Named Formulas
+// All dropdown data (Departments, Categories, Statuses, Priorities)
+// is accessed directly from data sources via Named Formulas in App.Formulas
+// User-scoped data (Recent Items, Pending Tasks) also accessed via Named Formulas
 
 
 // TIMING: Section 6 - Finalize (IsInitializing = false)
@@ -701,15 +356,15 @@ ClearCollect(
 // ============================================================
 // PERFORMANCE TARGET DOCUMENTATION
 // ============================================================
-// Expected timing breakdown:
-// - Section 0 (Critical path): ~200-400ms (1-2 Entra ID group checks via If() short-circuit)
-// - Section 4 (Background parallel): ~300-500ms (Concurrent() loading 4 collections)
-// - Section 5 (User-scoped): ~200-300ms (Recent items, pending tasks)
-// - Sections 1-3, 6 (Config, finalize): ~50-150ms combined
-// Total: ~750-1350ms (well under 2000ms target)
+// Expected timing breakdown (NO CACHING):
+// - Sections 1-3 (State initialization): ~50-150ms
+// - Section 6 (Finalize): ~50ms
+// - Section 7 (Notification stack): ~100ms
+// Total: ~200-300ms (well under 2000ms target)
 //
+// Note: All data (departments, categories, role checks) loaded on-demand via Named Formulas
 // Note: UserProfile uses built-in User() function (instant, no API calls)
-// Note: If() short-circuit means Admin users make 1 API call, Teamleitung 2, User 0
+// Note: Role determination moved to Named Formulas (ActiveRole, UserRoles, UserPermissions)
 
 // ============================================================
 // MONITOR TOOL USAGE GUIDE
@@ -721,23 +376,19 @@ ClearCollect(
 // 3. Reload app (Ctrl+Shift+F5) to trigger App.OnStart
 // 4. Open Monitor tool (F12 or Settings > Monitor)
 // 5. Filter Network tab: search for "OnStart"
-// 6. Look for total duration (should be <2000ms)
+// 6. Look for total duration (should be ~200-300ms without caching)
 // 7. Click on OnStart timeline to see breakdown by section
-//    - Each timing comment above (TIMING: Section X) shows where to look
 //
-// EXPECTED OUTPUT:
-// - OnStart total time: <2000ms (2 seconds)
-// - Critical path time (Section 0): ~200-400ms (role determination)
-// - Concurrent block time (Section 4): ~300-500ms
-// - Section 5 time: ~200-300ms
-// - Sections 1-3, 6: <100ms combined
+// EXPECTED OUTPUT (NO CACHING):
+// - OnStart total time: ~200-300ms (much faster without caching)
+// - State initialization (Sections 1-3): ~50-150ms
+// - Finalization (Section 6): ~50ms
+// - Notification stack (Section 7): ~100ms
 //
-// ROLE DETERMINATION API CALLS:
-// - Admin user: 1 API call (Admin group check → match → stop)
-// - Teamleitung user: 2 API calls (Admin check → no match, Teamleitung check → match)
-// - User (default): 2 API calls (Admin check → no, Teamleitung check → no → fallback)
-//
-// Compared to previous 6-role system: 2 max API calls vs 5-6 calls
+// ROLE DETERMINATION:
+// - Moved to Named Formulas (ActiveRole in App.Formulas)
+// - Evaluated on-demand when needed (no API calls during OnStart)
+// - No caching means always fresh data
 
 // ============================================================
 // ERROR HANDLING RESULTS
@@ -747,16 +398,15 @@ ClearCollect(
 // [✓] User().Email and User().FullName always available
 //
 // Role Determination:
-// [✓] Highest role determined via Entra ID Security Group checks
-// [✓] IfError() wraps entire role check → fallback to "User" (least privilege)
-// [✓] If() short-circuit prevents unnecessary API calls
+// [✓] Moved to Named Formulas (ActiveRole in App.Formulas)
+// [✓] Evaluated on-demand when needed
+// [✓] No caching means simpler error handling
 //
-// Non-Critical Error (Departments empty):
-// [✓] CachedDepartments: Retry logic in Concurrent() block
-// [✓] First attempt fails → Immediate retry (IfError nested)
-// [✓] Second attempt fails → Silent fallback to empty Table()
-// [✓] No error dialog shown to user
-// [✓] App continues loading normally (other lookups in parallel)
+// No Cached Collections:
+// [✓] All data loaded on-demand via Named Formulas
+// [✓] Departments, Categories accessed directly from data sources
+// [✓] No retry logic needed (data queried fresh each time)
+// [✓] Simpler code, easier to maintain
 //
 // Error Messages (German Localization):
 // [✓] All messages in German (no English)
@@ -768,13 +418,11 @@ ClearCollect(
 // ============================================================
 // Run Monitor tool and verify:
 // [ ] UserProfile: Uses built-in User() function (no API calls)
-// [ ] CachedActiveRole set to correct role string ("Admin", "Teamleitung", or "User")
-// [ ] ActiveRole Named Formula reflects CachedActiveRole value
+// [ ] ActiveRole Named Formula evaluates correctly ("Admin", "Teamleitung", or "User")
 // [ ] UserPermissions derived correctly from ActiveRole
-// [ ] App.OnStart total time <2000ms
-// [ ] Critical path completes before background data loading
-// [ ] Concurrent() block runs in parallel (all 4 collections complete around same time)
+// [ ] App.OnStart total time <2000ms (should be ~200-300ms without caching)
 // [ ] IsInitializing: true during startup, false after finalization
+// [ ] All data loaded on-demand via Named Formulas (no cached collections)
 
 // ============================================================
 // ERROR HANDLING REFERENCE
@@ -784,16 +432,11 @@ ClearCollect(
 // - App-Formulas-Template.fx: SECTION 4 (Error Message Localization)
 // - App-Formulas-Template.fx: SECTION 5 (Error Handling Patterns for Phases 3+)
 //
-// CRITICAL PATH APPROACH (implemented above in section 0):
+// NO CACHING APPROACH:
 // - UserProfile: Uses built-in User() function (no API calls, always works)
-// - CachedActiveRole: Entra ID group checks with IfError() → "User" fallback
-// - Result: App can always start; role defaults to "User" if API fails
-//
-// NON-CRITICAL ERROR PATTERN (implemented above in section 4):
-// When app can function without data, gracefully degrade
-// - CachedDepartments load fails → Silently use empty Table() fallback
-// - User sees: Empty gallery or "Unbekannt" placeholder (not error message)
-// - Result: App continues startup, user can work with limited lookup options
+// - ActiveRole: Named Formula checks Entra ID groups on-demand (no caching)
+// - Departments, Categories: Loaded directly from data sources via Named Formulas
+// - Result: Simpler code, no cache invalidation concerns, data always fresh
 //
 // USER ACTION ERROR PATTERN (use in Phase 3+ features):
 // When user performs action that fails (save, delete, approve)
