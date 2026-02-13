@@ -292,11 +292,14 @@ UserProfile = {
 // Find your Group IDs: Entra Admin Center → Groups → Select group → Object ID
 //
 // Role Hierarchy (higher priority = more permissions):
-//   Priority 1: Admin        → Full access (CRUD, ViewAll, Approve, Delete)
-//   Priority 2: Teamleitung  → Team management (Create, Edit, ViewAll, Approve)
-//   Priority 3: User         → Default fallback (Read own records only)
+//   Priority 1: Admin           → Full access (all CRUD, ViewAll, Approve, Delete)
+//   Priority 2: GF              → Executive view (ViewAll, Approve, Export)
+//   Priority 3: Manager         → Team management (Create, Edit, ViewAll, Approve, Archive)
+//   Priority 4: HR              → Employee data (ViewAll employees, Read, Export)
+//   Priority 5: Sachbearbeiter  → Case processing (Create, Edit own records)
+//   Priority 6: User            → Default fallback (Read own records only)
 //
-// The "highest role wins" pattern means a user in both Admin and Teamleitung
+// The "highest role wins" pattern means a user in both Admin and Manager
 // groups will be assigned the Admin role (highest priority).
 //
 RoleConfig = {
@@ -304,8 +307,93 @@ RoleConfig = {
     // CONFIGURATION: Replace with your Entra ID Security Group Object IDs
     // ========================================
     AdminGroupId: "00000000-aaaa-bbbb-cccc-111111111111",
-    TeamleitungGroupId: "00000000-aaaa-bbbb-cccc-222222222222"
+    GFGroupId: "00000000-aaaa-bbbb-cccc-222222222222",
+    ManagerGroupId: "00000000-aaaa-bbbb-cccc-333333333333",
+    HRGroupId: "00000000-aaaa-bbbb-cccc-444444444444",
+    SachbearbeiterGroupId: "00000000-aaaa-bbbb-cccc-555555555555"
 };
+
+// ============================================================
+// PERMISSION MATRIX - Central Definition of All Role Permissions
+// ============================================================
+//
+// THIS IS THE SINGLE SOURCE OF TRUTH for role permissions.
+// To change what a role can do: edit this table.
+// To add a new role: add a row.
+// To add a new permission: add a column to every row.
+//
+// ┌──────────────┬───────┬────┬─────────┬────┬───────────────┬──────┐
+// │ Permission   │ Admin │ GF │ Manager │ HR │ Sachbearbeiter│ User │
+// ├──────────────┼───────┼────┼─────────┼────┼───────────────┼──────┤
+// │ CanCreate    │  ✓    │    │    ✓    │    │      ✓        │      │
+// │ CanRead      │  ✓    │ ✓  │    ✓    │ ✓  │      ✓        │  ✓   │
+// │ CanEdit      │  ✓    │    │    ✓    │    │      ✓        │      │
+// │ CanDelete    │  ✓    │    │         │    │               │      │
+// │ CanViewAll   │  ✓    │ ✓  │    ✓    │ ✓  │               │      │
+// │ CanViewOwn   │  ✓    │ ✓  │    ✓    │ ✓  │      ✓        │  ✓   │
+// │ CanApprove   │  ✓    │ ✓  │    ✓    │    │               │      │
+// │ CanReject    │  ✓    │ ✓  │    ✓    │    │               │      │
+// │ CanArchive   │  ✓    │    │    ✓    │    │               │      │
+// │ CanExport    │  ✓    │ ✓  │    ✓    │ ✓  │               │      │
+// └──────────────┴───────┴────┴─────────┴────┴───────────────┴──────┘
+//
+PermissionMatrix = Table(
+    {Role: "Admin",          CanCreate: true,  CanRead: true,  CanEdit: true,  CanDelete: true,  CanViewAll: true,  CanViewOwn: true,  CanApprove: true,  CanReject: true,  CanArchive: true,  CanExport: true},
+    {Role: "GF",             CanCreate: false, CanRead: true,  CanEdit: false, CanDelete: false, CanViewAll: true,  CanViewOwn: true,  CanApprove: true,  CanReject: true,  CanArchive: false, CanExport: true},
+    {Role: "Manager",        CanCreate: true,  CanRead: true,  CanEdit: true,  CanDelete: false, CanViewAll: true,  CanViewOwn: true,  CanApprove: true,  CanReject: true,  CanArchive: true,  CanExport: true},
+    {Role: "HR",             CanCreate: false, CanRead: true,  CanEdit: false, CanDelete: false, CanViewAll: true,  CanViewOwn: true,  CanApprove: false, CanReject: false, CanArchive: false, CanExport: true},
+    {Role: "Sachbearbeiter", CanCreate: true,  CanRead: true,  CanEdit: true,  CanDelete: false, CanViewAll: false, CanViewOwn: true,  CanApprove: false, CanReject: false, CanArchive: false, CanExport: false},
+    {Role: "User",           CanCreate: false, CanRead: true,  CanEdit: false, CanDelete: false, CanViewAll: false, CanViewOwn: true,  CanApprove: false, CanReject: false, CanArchive: false, CanExport: false}
+);
+
+// ============================================================
+// ROLE METADATA - Central Display Configuration
+// ============================================================
+//
+// Controls how each role appears in the UI (labels, badges, colors).
+// To change a role's display: edit this table.
+// To add a new role: add a row (must also add to PermissionMatrix above).
+//
+// Priority determines "highest role wins" ordering (lower number = higher priority).
+//
+RoleMetadata = Table(
+    {Role: "Admin",          Priority: 1, DisplayLabel: "Administrator",    BadgeText: "Admin",  BadgeColor: RGBA(209, 52, 56, 1)},
+    {Role: "GF",             Priority: 2, DisplayLabel: "Geschäftsführung", BadgeText: "GF",     BadgeColor: RGBA(0, 33, 71, 1)},
+    {Role: "Manager",        Priority: 3, DisplayLabel: "Manager",          BadgeText: "MGR",    BadgeColor: RGBA(0, 120, 212, 1)},
+    {Role: "HR",             Priority: 4, DisplayLabel: "Personalwesen",    BadgeText: "HR",     BadgeColor: RGBA(255, 185, 0, 1)},
+    {Role: "Sachbearbeiter", Priority: 5, DisplayLabel: "Sachbearbeiter",   BadgeText: "SB",     BadgeColor: RGBA(0, 169, 157, 1)},
+    {Role: "User",           Priority: 6, DisplayLabel: "Benutzer",         BadgeText: "User",   BadgeColor: RGBA(138, 136, 134, 1)}
+);
+
+// ============================================================
+// GALLERY VISIBILITY MATRIX - Who Sees What in Galleries
+// ============================================================
+//
+// Controls record visibility in galleries per role.
+// SeeAllRecords: Can see records owned by anyone
+// SeeOwnRecords: Can see records owned by themselves
+// SeeDeptRecords: Can see records from their department
+// SeeArchived:   Can see archived/closed records
+//
+// ┌───────────────┬─────────┬──────┬──────┬──────────┐
+// │ Role          │ AllRec. │ Own  │ Dept │ Archived │
+// ├───────────────┼─────────┼──────┼──────┼──────────┤
+// │ Admin         │   ✓     │  ✓   │  ✓   │    ✓     │
+// │ GF            │   ✓     │  ✓   │  ✓   │          │
+// │ Manager       │   ✓     │  ✓   │  ✓   │    ✓     │
+// │ HR            │   ✓     │  ✓   │      │          │
+// │ Sachbearbeiter│         │  ✓   │  ✓   │          │
+// │ User          │         │  ✓   │      │          │
+// └───────────────┴─────────┴──────┴──────┴──────────┘
+//
+GalleryVisibility = Table(
+    {Role: "Admin",          SeeAllRecords: true,  SeeOwnRecords: true, SeeDeptRecords: true,  SeeArchived: true},
+    {Role: "GF",             SeeAllRecords: true,  SeeOwnRecords: true, SeeDeptRecords: true,  SeeArchived: false},
+    {Role: "Manager",        SeeAllRecords: true,  SeeOwnRecords: true, SeeDeptRecords: true,  SeeArchived: true},
+    {Role: "HR",             SeeAllRecords: true,  SeeOwnRecords: true, SeeDeptRecords: false, SeeArchived: false},
+    {Role: "Sachbearbeiter", SeeAllRecords: false, SeeOwnRecords: true, SeeDeptRecords: true,  SeeArchived: false},
+    {Role: "User",           SeeAllRecords: false, SeeOwnRecords: true, SeeDeptRecords: false, SeeArchived: false}
+);
 
 // Active Role - Single string representing the user's highest role
 // Determined on-demand via Entra ID Security Group membership checks
@@ -317,61 +405,54 @@ RoleConfig = {
 // - Office365Groups connector (or AzureAD for premium)
 //
 // Used by:
+// - UserPermissions (derived from PermissionMatrix via LookUp)
 // - UserRoles (derived boolean record for backward compatibility)
-// - UserPermissions (permission flags derived from role)
-// - RoleColor, RoleBadgeText (display properties)
+// - RoleColor, RoleBadgeText (derived from RoleMetadata via LookUp)
 // - HasRole(), GetRoleLabel() UDFs
 //
-// NOTE: This Named Formula checks Entra ID groups on-demand (no caching)
-// Activate by uncommenting group checks below and replacing 'false' placeholders
+// NOTE: This Named Formula checks Entra ID groups on-demand (no caching).
+// Activate by uncommenting group checks below and replacing 'false' placeholders.
+//
+// ADDING A NEW ROLE:
+// 1. Add GroupId to RoleConfig
+// 2. Add row to PermissionMatrix, RoleMetadata, GalleryVisibility
+// 3. Add priority check below (higher priority = checked first)
+// 4. Add boolean field to UserRoles
+// 5. Add case to HasRole() Switch
 //
 ActiveRole = IfError(
     If(
         // ── Priority 1: Admin ──────────────────────────────────
-        // ACTIVATE: Replace 'false' with one of these patterns:
-        //
-        // Option A - Standard license (Office365Groups connector):
-        // !IsEmpty(
-        //     Filter(
-        //         Office365Groups.ListGroupMembers(RoleConfig.AdminGroupId).value,
-        //         Lower(mail) = Lower(User().Email)
-        //     )
-        // ),
-        //
-        // Option B - Premium license (AzureAD / Entra ID connector):
-        // !IsEmpty(
-        //     AzureAD.CheckMemberGroupsV2(
-        //         User().Email,
-        //         [RoleConfig.AdminGroupId]
-        //     ).value
-        // ),
-        //
-        false,  // ← Placeholder: replace with group check above
+        // ACTIVATE: Replace 'false' with group check:
+        // !IsEmpty(Filter(Office365Groups.ListGroupMembers(RoleConfig.AdminGroupId).value, Lower(mail) = Lower(User().Email))),
+        false,  // ← Placeholder: replace with group check
         "Admin",
 
-        // ── Priority 2: Teamleitung ────────────────────────────
-        // ACTIVATE: Replace 'false' with one of these patterns:
-        //
-        // Option A - Standard license:
-        // !IsEmpty(
-        //     Filter(
-        //         Office365Groups.ListGroupMembers(RoleConfig.TeamleitungGroupId).value,
-        //         Lower(mail) = Lower(User().Email)
-        //     )
-        // ),
-        //
-        // Option B - Premium license:
-        // !IsEmpty(
-        //     AzureAD.CheckMemberGroupsV2(
-        //         User().Email,
-        //         [RoleConfig.TeamleitungGroupId]
-        //     ).value
-        // ),
-        //
-        false,  // ← Placeholder: replace with group check above
-        "Teamleitung",
+        // ── Priority 2: GF (Geschäftsführung) ──────────────────
+        // ACTIVATE: Replace 'false' with group check:
+        // !IsEmpty(Filter(Office365Groups.ListGroupMembers(RoleConfig.GFGroupId).value, Lower(mail) = Lower(User().Email))),
+        false,  // ← Placeholder: replace with group check
+        "GF",
 
-        // ── Priority 3: User (Default) ─────────────────────────
+        // ── Priority 3: Manager ────────────────────────────────
+        // ACTIVATE: Replace 'false' with group check:
+        // !IsEmpty(Filter(Office365Groups.ListGroupMembers(RoleConfig.ManagerGroupId).value, Lower(mail) = Lower(User().Email))),
+        false,  // ← Placeholder: replace with group check
+        "Manager",
+
+        // ── Priority 4: HR ─────────────────────────────────────
+        // ACTIVATE: Replace 'false' with group check:
+        // !IsEmpty(Filter(Office365Groups.ListGroupMembers(RoleConfig.HRGroupId).value, Lower(mail) = Lower(User().Email))),
+        false,  // ← Placeholder: replace with group check
+        "HR",
+
+        // ── Priority 5: Sachbearbeiter ─────────────────────────
+        // ACTIVATE: Replace 'false' with group check:
+        // !IsEmpty(Filter(Office365Groups.ListGroupMembers(RoleConfig.SachbearbeiterGroupId).value, Lower(mail) = Lower(User().Email))),
+        false,  // ← Placeholder: replace with group check
+        "Sachbearbeiter",
+
+        // ── Priority 6: User (Default) ─────────────────────────
         // No API call needed - all authenticated users get this role
         "User"
     ),
@@ -380,7 +461,7 @@ ActiveRole = IfError(
 );
 
 // User Roles - Derived from ActiveRole (backward-compatible boolean record)
-// No API calls - purely computed from the cached ActiveRole string
+// No API calls - purely computed from the ActiveRole string
 //
 // Depends on:
 // - ActiveRole Named Formula
@@ -392,16 +473,20 @@ ActiveRole = IfError(
 //
 UserRoles = {
     IsAdmin: ActiveRole = "Admin",
-    IsTeamleitung: ActiveRole = "Teamleitung",
+    IsGF: ActiveRole = "GF",
+    IsManager: ActiveRole = "Manager",
+    IsHR: ActiveRole = "HR",
+    IsSachbearbeiter: ActiveRole = "Sachbearbeiter",
     IsUser: true  // All authenticated users have base User role
 };
 
-// User Permissions - Derived from ActiveRole (NO API CALLS)
-// Permissions are calculated from the single ActiveRole string
-// Automatically updates when ActiveRole changes
+// User Permissions - Derived from PermissionMatrix via LookUp (NO API CALLS)
+// Automatically resolved from the centralized PermissionMatrix table.
+// To change permissions: edit PermissionMatrix above (NOT this formula).
 //
 // Depends on:
-// - ActiveRole Named Formula ("Admin" | "Teamleitung" | "User")
+// - ActiveRole Named Formula
+// - PermissionMatrix Named Formula (the central permission table)
 //
 // Used by:
 // - Permission check UDFs (HasPermission, CanAccessRecord, CanEditRecord, CanDeleteRecord)
@@ -409,54 +494,19 @@ UserRoles = {
 // - Filter initialization (GetUserScope)
 // - All permission-dependent control bindings
 //
-// Permission Matrix:
-// ┌──────────────┬───────┬──────────────┬──────┐
-// │ Permission   │ Admin │ Teamleitung  │ User │
-// ├──────────────┼───────┼──────────────┼──────┤
-// │ CanCreate    │  ✓    │      ✓       │      │
-// │ CanRead      │  ✓    │      ✓       │  ✓   │
-// │ CanEdit      │  ✓    │      ✓       │      │
-// │ CanDelete    │  ✓    │              │      │
-// │ CanViewAll   │  ✓    │      ✓       │      │
-// │ CanViewOwn   │  ✓    │      ✓       │  ✓   │
-// │ CanApprove   │  ✓    │              │      │
-// │ CanReject    │  ✓    │              │      │
-// │ CanArchive   │  ✓    │      ✓       │      │
-// └──────────────┴───────┴──────────────┴──────┘
-//
-UserPermissions = {
-    // CRUD Permissions
-    CanCreate: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
-    CanRead: true,  // All users can read (filtered by scope)
-    CanEdit: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
-    CanDelete: ActiveRole = "Admin",
+UserPermissions = LookUp(PermissionMatrix, Role = ActiveRole);
 
-    // Scope Permissions
-    CanViewAll: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
-    CanViewOwn: true,
+// Dynamic Role-Based Color - Derived from RoleMetadata table
+// To change a role's color: edit RoleMetadata above (NOT this formula).
+RoleColor = LookUp(RoleMetadata, Role = ActiveRole, BadgeColor);
 
-    // Special Permissions
-    CanApprove: ActiveRole = "Admin",
-    CanReject: ActiveRole = "Admin",
-    CanArchive: ActiveRole = "Admin" || ActiveRole = "Teamleitung"
-};
+// Role Badge Text - Derived from RoleMetadata table
+// To change a role's badge: edit RoleMetadata above (NOT this formula).
+RoleBadgeText = LookUp(RoleMetadata, Role = ActiveRole, BadgeText);
 
-// Dynamic Role-Based Color
-// Derived from ActiveRole - one color per role for badges, headers, indicators
-RoleColor = Switch(
-    ActiveRole,
-    "Admin", ThemeColors.Error,            // Red for Admin
-    "Teamleitung", ThemeColors.Primary,    // Blue for Teamleitung
-    ThemeColors.Success                    // Green for User (default)
-);
-
-// Role Badge Text - Short label for UI badges
-RoleBadgeText = Switch(
-    ActiveRole,
-    "Admin", "Admin",
-    "Teamleitung", "TL",
-    "User"
-);
+// User Gallery Access - Derived from GalleryVisibility table
+// To change what a role sees in galleries: edit GalleryVisibility above.
+UserGalleryAccess = LookUp(GalleryVisibility, Role = ActiveRole);
 
 // Feature Flags - Control feature availability
 FeatureFlags = {
@@ -489,6 +539,8 @@ DefaultFilters = {
 // -----------------------------------------------------------
 
 // Check if user has a specific permission by name
+// Valid names: "create", "read", "edit", "delete", "viewall", "viewown",
+//              "approve", "reject", "archive", "export" (case-insensitive)
 HasPermission(permissionName: Text): Boolean =
     Switch(
         Lower(permissionName),
@@ -501,16 +553,21 @@ HasPermission(permissionName: Text): Boolean =
         "approve", UserPermissions.CanApprove,
         "reject", UserPermissions.CanReject,
         "archive", UserPermissions.CanArchive,
+        "export", UserPermissions.CanExport,
         false
     );
 
 // Check if user has a specific role by name
-// Valid role names: "Admin", "Teamleitung", "User" (case-insensitive)
+// Valid role names: "Admin", "GF", "Manager", "HR", "Sachbearbeiter", "User"
+// (case-insensitive)
 HasRole(roleName: Text): Boolean =
     Switch(
         Lower(roleName),
         "admin", UserRoles.IsAdmin,
-        "teamleitung", UserRoles.IsTeamleitung,
+        "gf", UserRoles.IsGF,
+        "manager", UserRoles.IsManager,
+        "hr", UserRoles.IsHR,
+        "sachbearbeiter", UserRoles.IsSachbearbeiter,
         "user", UserRoles.IsUser,
         false
     );
@@ -538,13 +595,9 @@ HasAllRoles(roleNames: Text): Boolean =
     ) = 0;
 
 // Get user's active role as display label (German)
+// Display labels are defined in RoleMetadata table.
 GetRoleLabel(): Text =
-    Switch(
-        ActiveRole,
-        "Admin", "Administrator",
-        "Teamleitung", "Teamleitung",
-        "Benutzer"
-    );
+    LookUp(RoleMetadata, Role = ActiveRole, DisplayLabel);
 
 // Get role badge color for display
 GetRoleBadgeColor(): Color = RoleColor;
@@ -564,10 +617,22 @@ GetUserScope(): Text =
     If(UserPermissions.CanViewAll, Blank(), User().Email);
 
 // Check if current user can access a specific record by owner
+// Uses GalleryVisibility matrix: SeeAllRecords allows viewing any record,
+// otherwise only own records are visible.
 CanAccessRecord(ownerEmail: Text): Boolean =
-    UserPermissions.CanViewAll ||
+    UserGalleryAccess.SeeAllRecords ||
     IsBlank(ownerEmail) ||
     Lower(ownerEmail) = Lower(User().Email);
+
+// Check if current user can access records from a specific department
+// Uses GalleryVisibility matrix: SeeDeptRecords allows department-scoped access.
+CanAccessDepartment(recordDept: Text): Boolean =
+    UserGalleryAccess.SeeAllRecords ||
+    (UserGalleryAccess.SeeDeptRecords && recordDept = UserProfile.Department);
+
+// Check if archived records should be visible for the current user
+// Uses GalleryVisibility matrix: SeeArchived controls archived record visibility.
+CanSeeArchived(): Boolean = UserGalleryAccess.SeeArchived;
 
 // Check if user can edit a specific record
 CanEditRecord(ownerEmail: Text, status: Text): Boolean =
@@ -590,7 +655,7 @@ CanDeleteRecord(ownerEmail: Text): Boolean =
 // Returns: false if user lacks ViewAll permission (can only see Owner=CurrentUser)
 // Delegation: SAFE (references Named Formula, no filtering)
 // Use case: Filter(Items, CanViewAllData() || Owner = User().Email)
-CanViewAllData(): Boolean = UserPermissions.CanViewAll;
+CanViewAllData(): Boolean = UserGalleryAccess.SeeAllRecords;
 
 // FILT-02: Text search helper UDF
 // Parameters: field = Text field value to search in (e.g., ThisItem.Title)

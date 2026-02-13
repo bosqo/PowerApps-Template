@@ -130,18 +130,66 @@ See `docs/plans/2026-02-05-design-system-refactor-design.md` for full architectu
 
 ---
 
-## Roles & Permissions (6 Roles)
+## Roles & Permissions (6 Roles) — Central Matrix System
 
-| Role | Permissions |
-|------|-------------|
-| Admin | Full access (ViewAll, Approve, Delete) |
-| GF (CEO) | ViewAll, Approve |
-| Manager | ViewAll, Edit, Approve |
-| HR | ViewAll (employees only) |
-| Sachbearbeiter (Processor) | Create, Edit (own records) |
-| User | Read (own records) |
+All role permissions are defined in **3 central tables** in `App-Formulas-Template.fx`.
+To change permissions: edit the table. To add a role: add a row.
 
-**Setup:** Configure Azure AD group IDs in `App-Formulas-Template.fx:186-217`
+**Setup:** Configure Azure AD group IDs in `RoleConfig` in `App-Formulas-Template.fx`
+
+### PermissionMatrix (CRUD + Special Permissions)
+
+| Permission   | Admin | GF | Manager | HR | Sachbearbeiter | User |
+|-------------|-------|-----|---------|-----|---------------|------|
+| CanCreate    |  ✓    |     |    ✓    |     |      ✓        |      |
+| CanRead      |  ✓    |  ✓  |    ✓    |  ✓  |      ✓        |  ✓   |
+| CanEdit      |  ✓    |     |    ✓    |     |      ✓        |      |
+| CanDelete    |  ✓    |     |         |     |               |      |
+| CanViewAll   |  ✓    |  ✓  |    ✓    |  ✓  |               |      |
+| CanApprove   |  ✓    |  ✓  |    ✓    |     |               |      |
+| CanArchive   |  ✓    |     |    ✓    |     |               |      |
+| CanExport    |  ✓    |  ✓  |    ✓    |  ✓  |               |      |
+
+**Usage:** `UserPermissions = LookUp(PermissionMatrix, Role = ActiveRole)`
+
+### GalleryVisibility (Who Sees What)
+
+| Role           | All Records | Own Records | Dept Records | Archived |
+|----------------|-------------|-------------|--------------|----------|
+| Admin          |      ✓      |      ✓      |       ✓      |     ✓    |
+| GF             |      ✓      |      ✓      |       ✓      |          |
+| Manager        |      ✓      |      ✓      |       ✓      |     ✓    |
+| HR             |      ✓      |      ✓      |              |          |
+| Sachbearbeiter |             |      ✓      |       ✓      |          |
+| User           |             |      ✓      |              |          |
+
+**Usage:** `UserGalleryAccess = LookUp(GalleryVisibility, Role = ActiveRole)`
+
+### RoleMetadata (Display Configuration)
+
+| Role           | Priority | DisplayLabel       | BadgeText | Color    |
+|----------------|----------|--------------------|-----------|----------|
+| Admin          | 1        | Administrator      | Admin     | Red      |
+| GF             | 2        | Geschäftsführung   | GF        | DarkBlue |
+| Manager        | 3        | Manager            | MGR       | Blue     |
+| HR             | 4        | Personalwesen      | HR        | Amber    |
+| Sachbearbeiter | 5        | Sachbearbeiter     | SB        | Teal     |
+| User           | 6        | Benutzer           | User      | Gray     |
+
+### Adding a New Role
+
+1. `RoleConfig` — Add `NewRoleGroupId: "your-guid"`
+2. `PermissionMatrix` — Add one row with all permission booleans
+3. `RoleMetadata` — Add one row with display properties
+4. `GalleryVisibility` — Add one row with visibility flags
+5. `ActiveRole` — Add priority check in the `If()` chain
+6. `UserRoles` — Add `IsNewRole: ActiveRole = "NewRole"`
+7. `HasRole()` — Add `"newrole", UserRoles.IsNewRole` case
+
+### Adding a New Permission
+
+1. `PermissionMatrix` — Add new column (e.g., `CanImport: true/false`) to every row
+2. `HasPermission()` — Add `"import", UserPermissions.CanImport` case
 
 ### Permission UDFs
 
@@ -149,10 +197,14 @@ See `docs/plans/2026-02-05-design-system-refactor-design.md` for full architectu
 HasRole("Admin")                    // Check role
 HasPermission("Delete")             // Check permission
 HasAnyRole("Admin,Manager")         // One of several roles
-CanAccessRecord(email)              // Record access
+CanAccessRecord(email)              // Record access (uses GalleryVisibility)
+CanAccessDepartment(dept)           // Department access (uses GalleryVisibility)
+CanSeeArchived()                    // Archived visibility (uses GalleryVisibility)
 CanEditRecord(email, status)        // Edit with status check
 CanDeleteRecord(email)              // Delete allowed
 ```
+
+**Design:** See `docs/plans/2026-02-13-role-permission-matrix-design.md`
 
 ---
 
@@ -163,43 +215,45 @@ CanDeleteRecord(email)              // Delete allowed
 ### Permission & Role (7)
 | UDF | Returns | Use |
 |-----|---------|-----|
-| `HasPermission(name)` | Boolean | Validate permission (create/read/edit/delete/viewall/approve) |
+| `HasPermission(name)` | Boolean | Validate permission (create/read/edit/delete/viewall/approve/export) |
 | `HasRole(name)` | Boolean | Validate role (admin/gf/manager/hr/sachbearbeiter/user) |
 | `HasAnyRole(names)` | Boolean | Comma-separated list: one required |
 | `HasAllRoles(names)` | Boolean | All roles required |
-| `GetRoleLabel()` | Text | Display label (German) |
-| `GetRoleBadgeColor()` | Color | Theme color for badge |
-| `GetRoleBadge()` | Text | Short badge text |
+| `GetRoleLabel()` | Text | Display label from RoleMetadata (German) |
+| `GetRoleBadgeColor()` | Color | Badge color from RoleMetadata |
+| `GetRoleBadge()` | Text | Short badge text from RoleMetadata |
 
-### Data Access (7)
+### Data Access (8)
 | UDF | Returns | Use |
 |-----|---------|-----|
 | `GetUserScope()` | Text | User email or Blank() if ViewAll |
-| `GetDepartmentScope()` | Text | Department or Blank() if Admin |
-| `CanAccessRecord(email)` | Boolean | Owner-based access |
-| `CanAccessDepartment(dept)` | Boolean | Department-based access |
-| `CanAccessItem(email, dept)` | Boolean | Combined Owner + Department |
+| `CanAccessRecord(email)` | Boolean | Owner-based access (uses GalleryVisibility) |
+| `CanAccessDepartment(dept)` | Boolean | Department-based access (uses GalleryVisibility) |
+| `CanSeeArchived()` | Boolean | Archived record visibility (uses GalleryVisibility) |
 | `CanEditRecord(email, status)` | Boolean | Edit allowed (status-aware) |
 | `CanDeleteRecord(email)` | Boolean | Delete allowed |
+| `CanViewAllData()` | Boolean | Can see all records (delegation helper) |
+| `CanViewRecord(ownerEmail)` | Boolean | Combined view check (delegation helper) |
 
 ### Filtering UDFs (5)
 | UDF | Use |
 |-----|-----|
-| `CanViewAllData()` | User has ViewAll permission |
+| `CanViewAllData()` | User can see all records (uses GalleryVisibility.SeeAllRecords) |
+| `CanSeeArchived()` | User can see archived records (uses GalleryVisibility.SeeArchived) |
 | `MatchesSearchTerm(field, term)` | StartsWith text match (NOT delegable in Filter) |
 | `MatchesStatusFilter(recordStatus, filterValue)` | Status equality check (NOT delegable in Filter) |
 | `CanViewRecord(ownerEmail)` | ViewAll OR ownership check (NOT delegable in Filter) |
-| `FilteredGalleryData(showMy, status, search)` | Combined filter (NOT delegable, use for <2000 records) |
 
 **DELEGATION WARNING:** These UDFs are NOT delegable when used inside `Filter()`.
 For datasets >2000 records, use inline delegable expressions directly in Gallery.Items.
 
-**Gallery formula (<2000 records):**
+**Gallery formula (role-based visibility, <2000 records):**
 ```powerfx
-glr_Items.Items = FilteredGalleryData(
-    tog_MyItemsOnly.Value,
-    drp_StatusFilter.Selected.Value,
-    txt_Search.Text
+glr_Items.Items = Filter(
+    Items,
+    CanAccessRecord(Owner.Email),
+    If(!CanSeeArchived(), Status <> "Archived", true),
+    MatchesStatusFilter(Status, ActiveFilters.SelectedStatus)
 )
 ```
 
@@ -208,7 +262,7 @@ glr_Items.Items = FilteredGalleryData(
 glr_Items.Items = Filter(
     Items,
     (IsBlank(drp_StatusFilter.Selected.Value) || Status = drp_StatusFilter.Selected.Value) &&
-    (UserPermissions.CanViewAll || Owner.Email = User().Email) &&
+    (UserGalleryAccess.SeeAllRecords || Owner.Email = User().Email) &&
     StartsWith(Title, txt_Search.Text)
 )
 ```
@@ -221,8 +275,8 @@ glr_Items.Items = Filter(
 
 **Architecture:**
 ```powerfx
-// Layer 1: Base data (permission-filtered)
-UserScopedItems = If(UserPermissions.CanViewAll, Items, Filter(Items, Owner.Email = User().Email));
+// Layer 1: Base data (permission-filtered via GalleryVisibility matrix)
+UserScopedItems = If(UserGalleryAccess.SeeAllRecords, Items, Filter(Items, Owner.Email = User().Email));
 
 // Layer 2: Dynamic filter (reactive)
 FilteredItems = Filter(
