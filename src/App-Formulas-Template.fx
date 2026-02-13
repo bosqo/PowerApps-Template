@@ -237,10 +237,30 @@ DateRanges = {
 
     // Relative Ranges
     Last7Days: Today() - 7,
+    Last14Days: Today() - 14,
     Last30Days: Today() - 30,
     Last90Days: Today() - 90
 };
 
+// ============================================================================
+// BASE DATA LAYERS (Permission-Filtered)
+// ============================================================================
+// Purpose: Reusable base layers for galleries and dashboards
+// Depends on: UserPermissions.CanViewAll, User().Email
+// Used by: FilteredItems, dashboard KPIs, multiple galleries
+
+// All items visible to current user (respects ViewAll permission)
+UserScopedItems = If(
+    UserPermissions.CanViewAll,
+    Items,
+    Filter(Items, Owner.Email = User().Email)
+);
+
+// Active items only (Status = "Active")
+ActiveItems = Filter(UserScopedItems, Status = "Active");
+
+// Inactive items only (Status = "Inactive")
+InactiveItems = Filter(UserScopedItems, Status = "Inactive");
 
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS
