@@ -213,6 +213,47 @@ glr_Items.Items = Filter(
 )
 ```
 
+---
+
+## Reactive Filter Pattern (Named Formulas)
+
+**Pattern:** Dropdown changes → ActiveFilters state → FilteredItems recalculates → Gallery refreshes
+
+**Architecture:**
+```powerfx
+// Layer 1: Base data (permission-filtered)
+UserScopedItems = If(UserPermissions.CanViewAll, Items, Filter(Items, Owner.Email = User().Email));
+
+// Layer 2: Dynamic filter (reactive)
+FilteredItems = Filter(
+    UserScopedItems,
+    (IsBlank(ActiveFilters.Status) || Status = ActiveFilters.Status) &&
+    (IsBlank(ActiveFilters.Department) || Department = ActiveFilters.Department)
+);
+
+// Layer 3: UI binding
+glr_Items.Items = FilteredItems  // Auto-refreshes when FilteredItems changes
+```
+
+**Dropdown setup:**
+```powerfx
+// Status dropdown OnChange
+drp_Status.OnChange = Set(ActiveFilters, Patch(ActiveFilters, {Status: Self.Selected.Value}));
+
+// Gallery items (no ClearCollect needed)
+glr_Items.Items = FilteredItems
+```
+
+**Benefits:**
+- ✅ Zero manual ClearCollect calls
+- ✅ Instant reactivity (no "Apply Filters" button)
+- ✅ Delegation-safe (all inline expressions)
+- ✅ Single source of truth (FilteredItems formula)
+
+**Reference:** See `docs/plans/2026-02-13-reactive-filter-system-design.md`
+
+---
+
 ### Validation (7)
 | UDF | Use |
 |-----|-----|
