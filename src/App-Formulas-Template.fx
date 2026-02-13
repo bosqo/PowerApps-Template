@@ -299,6 +299,94 @@ UserProfile = {
 // The "highest role wins" pattern means a user in both Admin and Teamleitung
 // groups will be assigned the Admin role (highest priority).
 //
+// ============================================================
+// HOW TO: ADD A NEW ROLE (Example: "Manager")
+// ============================================================
+// Step 1: Add Group ID to RoleConfig below (e.g., ManagerGroupId)
+// Step 2: Add role check in ActiveRole formula (insert at desired priority)
+// Step 3: Add boolean flag to UserRoles (e.g., IsManager)
+// Step 4: Update UserPermissions to include new role in permission checks
+// Step 5: Update HasRole() UDF to recognize new role name
+// Step 6: Update GetRoleLabel() UDF to return German display name
+// Step 7: (Optional) Add color to RoleColor switch statement
+// Step 8: (Optional) Add badge text to RoleBadgeText switch statement
+//
+// Example for "Manager" role (Priority between Admin and Teamleitung):
+//
+// RoleConfig = {
+//     AdminGroupId: "...",
+//     ManagerGroupId: "00000000-aaaa-bbbb-cccc-333333333333",  // ← NEW
+//     TeamleitungGroupId: "..."
+// };
+//
+// ActiveRole = IfError(
+//     If(
+//         /* Admin check */, "Admin",
+//         /* NEW: Manager check */, "Manager",  // ← Priority 2
+//         /* Teamleitung check */, "Teamleitung",  // ← Now Priority 3
+//         "User"
+//     ),
+//     "User"
+// );
+//
+// UserRoles = {
+//     IsAdmin: ActiveRole = "Admin",
+//     IsManager: ActiveRole = "Manager",  // ← NEW
+//     IsTeamleitung: ActiveRole = "Teamleitung",
+//     IsUser: true
+// };
+//
+// UserPermissions = {
+//     CanCreate: ActiveRole = "Admin" || ActiveRole = "Manager" || ActiveRole = "Teamleitung",  // ← ADD
+//     CanEdit: ActiveRole = "Admin" || ActiveRole = "Manager",  // ← ADD (if needed)
+//     CanDelete: ActiveRole = "Admin",  // Keep admin-only
+//     CanViewAll: ActiveRole = "Admin" || ActiveRole = "Manager",  // ← ADD
+//     // ... etc
+// };
+//
+// HasRole(roleName: Text): Boolean = Switch(
+//     Lower(roleName),
+//     "admin", UserRoles.IsAdmin,
+//     "manager", UserRoles.IsManager,  // ← NEW
+//     "teamleitung", UserRoles.IsTeamleitung,
+//     "user", UserRoles.IsUser,
+//     false
+// );
+//
+// GetRoleLabel(): Text = Switch(
+//     ActiveRole,
+//     "Admin", "Administrator",
+//     "Manager", "Manager",  // ← NEW
+//     "Teamleitung", "Teamleitung",
+//     "Benutzer"
+// );
+//
+// ============================================================
+// HOW TO: EDIT PERMISSIONS FOR EXISTING ROLES
+// ============================================================
+// Scenario: Users should only read their own created records (no ViewAll)
+//
+// Solution: Modify UserPermissions Named Formula (line ~427)
+//
+// Current (Teamleitung can ViewAll):
+//   CanViewAll: ActiveRole = "Admin" || ActiveRole = "Teamleitung",
+//
+// Updated (Only Admin can ViewAll):
+//   CanViewAll: ActiveRole = "Admin",
+//
+// Result: Teamleitung users will only see Owner.Email = User().Email records
+// This affects:
+// - Gallery filtering (UserScopedItems Named Formula uses CanViewAll)
+// - GetUserScope() UDF (returns user email if !CanViewAll)
+// - All controls using CanAccessRecord() or CanViewRecord() UDFs
+//
+// To give User role Create permission:
+//   CanCreate: ActiveRole = "Admin" || ActiveRole = "Teamleitung" || ActiveRole = "User",
+//   // Or simply:
+//   CanCreate: true,  // All authenticated users can create
+//
+// ============================================================
+//
 RoleConfig = {
     // ========================================
     // CONFIGURATION: Replace with your Entra ID Security Group Object IDs
@@ -324,6 +412,32 @@ RoleConfig = {
 //
 // NOTE: This Named Formula checks Entra ID groups on-demand (no caching)
 // Activate by uncommenting group checks below and replacing 'false' placeholders
+//
+// ============================================================
+// HOW TO: INSERT NEW ROLE CHECK
+// ============================================================
+// To add a new role (e.g., "Manager") between Admin and Teamleitung:
+//
+// 1. Add after Admin check, before Teamleitung check
+// 2. Use same pattern as existing checks
+// 3. Update RoleConfig.ManagerGroupId first
+//
+// If(
+//     /* Admin check */,
+//     "Admin",
+//     /* NEW: Manager check */
+//     !IsEmpty(
+//         Filter(
+//             Office365Groups.ListGroupMembers(RoleConfig.ManagerGroupId).value,
+//             Lower(mail) = Lower(User().Email)
+//         )
+//     ),
+//     "Manager",
+//     /* Teamleitung check */,
+//     "Teamleitung",
+//     "User"
+// )
+// ============================================================
 //
 ActiveRole = IfError(
     If(
@@ -408,6 +522,26 @@ UserRoles = {
 // - Button visibility checks (CanCreate, CanEdit, CanDelete)
 // - Filter initialization (GetUserScope)
 // - All permission-dependent control bindings
+//
+// ============================================================
+// HOW TO: EDIT PERMISSIONS
+// ============================================================
+// Scenario: Make Users read-only (can only view own records)
+//   CanCreate: false,  // or remove from all roles
+//   CanEdit: ActiveRole = "Admin" || ActiveRole = "Teamleitung",  // Exclude User
+//   CanDelete: ActiveRole = "Admin",  // Only Admin
+//   CanViewAll: false,  // No one sees all records
+//   CanViewOwn: true,  // Everyone sees own records
+//
+// Scenario: Give Teamleitung approval rights
+//   CanApprove: ActiveRole = "Admin" || ActiveRole = "Teamleitung",  // Add Teamleitung
+//
+// Scenario: Let all users create but not edit
+//   CanCreate: true,  // All authenticated users
+//   CanEdit: ActiveRole = "Admin",  // Only Admin can edit
+//
+// TIP: Change the permission matrix below after editing to document your setup
+// ============================================================
 //
 // Permission Matrix:
 // ┌──────────────┬───────┬──────────────┬──────┐
