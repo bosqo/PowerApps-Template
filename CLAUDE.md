@@ -10,13 +10,14 @@
 
 ## Quick Start
 
-### Source Files (4,131 lines Power Fx)
+### Source Files (7,634 lines Power Fx)
 
 | File | Size | Purpose |
 |------|------|---------|
 | `src/App-Formulas-Template.fx` | 1,664 | Named Formulas + UDFs |
 | `src/App-OnStart-Minimal.fx` | 952 | State variables + Initialization |
 | `src/Control-Patterns-Modern.fx` | 1,515 | Control formulas (Gallery, Form, Toast) |
+| `src/Enum-Formulas.fx` | 3,503 | Enumeration tables (Colors, ErrorKinds, Icons) |
 
 ### Architecture
 
@@ -776,6 +777,10 @@ Set(NotificationCounter, 0); Set(ToastToRemove, Blank()); Set(ToastAnimationStar
 ### Troubleshooting
 - `docs/troubleshooting/TROUBLESHOOTING.md` - Symptom-based diagnosis
 
+### Enumerations
+- `docs/plans/2026-02-13-enum-formulas-design.md` - Enum component design
+- `src/Enum-Formulas.fx` - fxWebColors (140), fxErrorKinds (31), fxIcons (178)
+
 ### Project Planning
 - `.planning/PROJECT.md` - Purpose & value proposition
 - `.planning/REQUIREMENTS.md` - 45 requirements (all complete)
@@ -832,7 +837,7 @@ Domain-specific guides (auto-loaded when relevant):
 | Aspect | Detail |
 |--------|--------|
 | **Status** | ✅ Production-Ready (45/45 requirements) |
-| **Code Size** | 4,131 lines Power Fx |
+| **Code Size** | 7,634 lines Power Fx |
 | **Localization** | German (CET timezone, d.m.yyyy format) |
 | **Last Updated** | Phase 4 Complete (2025-02-05) |
 | **Phases** | 4 complete (Code, Performance, Filtering, UX) |
