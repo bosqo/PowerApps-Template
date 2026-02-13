@@ -115,12 +115,14 @@ Filter(
 
 // AFTER (using UDFs + ActiveFilters):
 // glr_Projects.Items
+// Access: CanAccessRecord uses GalleryVisibility matrix (SeeAllRecords / own only)
+// Archived: CanSeeArchived() uses GalleryVisibility matrix (SeeArchived per role)
 Filter(
     Projects,
-    // Access control via UDF (owner-based, no department scoping)
+    // Access control via UDF (owner-based, uses GalleryVisibility)
     CanAccessRecord(Owner.Email),
-    // Active status via conditional
-    If(!ActiveFilters.IncludeArchived, Status <> "Archived", true),
+    // Archive visibility (role-based via GalleryVisibility matrix)
+    If(!CanSeeArchived() && !ActiveFilters.IncludeArchived, Status <> "Archived", true),
     // Search (native)
     StartsWith(Lower('Project Name'), Lower(ActiveFilters.SearchTerm))
 )
@@ -131,22 +133,22 @@ Filter(
 // -----------------------------------------------------------
 
 // glr_Tasks.Items
+// Access: CanAccessRecord uses GalleryVisibility matrix
+// Archived: CanSeeArchived() controls archived record visibility per role
 Filter(
     Tasks,
-    // User access
+    // User access (owner-based, uses GalleryVisibility)
     CanAccessRecord('Assigned To'.Email),
     // Status filter (if selected)
     If(IsBlank(ActiveFilters.StatusFilter), true, Status = ActiveFilters.StatusFilter),
     // Priority filter (if selected)
     If(IsBlank(ActiveFilters.PriorityFilter), true, Priority = ActiveFilters.PriorityFilter),
-    // Active only
-    If(!ActiveFilters.IncludeArchived, Status <> "Archived", true),
+    // Archive visibility (role-based via GalleryVisibility matrix)
+    If(!CanSeeArchived() && !ActiveFilters.IncludeArchived, Status <> "Archived", true),
     // Due in future or today (handles both Date and UTC DateTime fields)
     If(
         IsBlank('Due Date'),
         true,
-        // For Date fields (stored locally): use Today()
-        // For DateTime fields (stored in UTC from SharePoint): use GetCETToday()
         'Due Date' >= GetCETToday()
     )
 )
@@ -173,12 +175,14 @@ Search(
 
 // glr_Invoices.Items
 // NOTE: 'Invoice Date' from SharePoint is in UTC, convert with ConvertUTCToCET()
+// Access: CanAccessRecord uses GalleryVisibility matrix
+// Archived/Void: CanSeeArchived() controls visibility per role
 Sort(
     Filter(
         Invoices,
         CanAccessRecord('Sales Rep'.Email),
         DateValue(ConvertUTCToCET('Invoice Date')) >= GetCETToday() - 90,
-        If(!ActiveFilters.IncludeArchived, Status <> "Void", true)
+        If(!CanSeeArchived() && !ActiveFilters.IncludeArchived, Status <> "Void", true)
     ),
     'Invoice Date',
     SortOrder.Descending
@@ -190,13 +194,15 @@ Sort(
 // -----------------------------------------------------------
 
 // glr_AllRecords.Items - Using pagination UDFs
+// Access: CanAccessRecord uses GalleryVisibility matrix
+// Archived: CanSeeArchived() controls archived visibility per role
 FirstN(
     Skip(
         Sort(
             Filter(
                 Records,
                 CanAccessRecord(Owner.Email),
-                If(!ActiveFilters.IncludeArchived, Status <> "Archived", true)
+                If(!CanSeeArchived() && !ActiveFilters.IncludeArchived, Status <> "Archived", true)
             ),
             'Created On',
             SortOrder.Descending
