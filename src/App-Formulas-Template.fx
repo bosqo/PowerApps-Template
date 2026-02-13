@@ -166,42 +166,6 @@ AppConfig = {
     MaxBulkOperationItems: 100
 };
 
-// ============================================================
-// SECTION 1A: CACHE STRATEGY & INVALIDATION
-// ============================================================
-//
-// CACHE SCOPE: Session-scoped (cleared on app close/restart)
-// CACHE STORAGE: CachedActiveRole variable (Text)
-//
-// CRITICAL DATA CACHE:
-// - UserProfile: Uses built-in User() function (no caching needed, instant)
-// - ActiveRole: Cached from Entra ID Security Group membership checks
-// - UserPermissions: Derived from ActiveRole (no cache needed, no API calls)
-//
-// ROLE DETERMINATION (Highest Role Wins):
-// App.OnStart checks Entra ID Security Groups in priority order:
-//   1. Admin group → If member, ActiveRole = "Admin" (stop)
-//   2. Teamleitung group → If member, ActiveRole = "Teamleitung" (stop)
-//   3. Default fallback → ActiveRole = "User"
-// Uses If() short-circuit: 1-2 API calls max (not N calls for N roles)
-//
-// CACHE VARIABLE SCHEMA:
-// CachedActiveRole: Text ("Admin" | "Teamleitung" | "User")
-// Size: <100 bytes
-// Updated: Once per session (set in App.OnStart critical path)
-//
-// CACHE INVALIDATION TRIGGERS:
-// 1. Session end: User closes app → variable cleared (new session starts)
-// 2. Explicit refresh: User clicks "Refresh" button → re-run role check
-// 3. Group change: If user's Entra ID groups change → not auto-detected
-//
-// CACHING BEST PRACTICES:
-// ✓ Cache static or slow-changing data (roles)
-// ✓ Cache data that comes from expensive APIs (Entra ID group checks)
-// ✓ Use built-in functions when available (User().Email, User().FullName)
-// ✗ Don't cache frequently changing data (current time, temporary form values)
-// ✗ Don't cache data without TTL awareness (stale data risk)
-
 // Date Range Calculations - Auto-refresh when date changes
 //
 // Depends on:
@@ -344,12 +308,13 @@ RoleConfig = {
 };
 
 // Active Role - Single string representing the user's highest role
-// Determined in App.OnStart via sequential Entra ID group checks
-// Cached in CachedActiveRole variable (session-scoped)
-// Falls back to "User" if variable not yet initialized or group check fails
+// Determined on-demand via Entra ID Security Group membership checks
+// "Highest Role Wins" Pattern using If() short-circuit evaluation
+// Falls back to "User" if group checks fail or user not in any group
 //
 // Depends on:
-// - CachedActiveRole variable (set in App.OnStart critical path)
+// - RoleConfig Named Formula (Entra ID Security Group IDs)
+// - Office365Groups connector (or AzureAD for premium)
 //
 // Used by:
 // - UserRoles (derived boolean record for backward compatibility)
@@ -357,7 +322,62 @@ RoleConfig = {
 // - RoleColor, RoleBadgeText (display properties)
 // - HasRole(), GetRoleLabel() UDFs
 //
-ActiveRole = Coalesce(CachedActiveRole, "User");
+// NOTE: This Named Formula checks Entra ID groups on-demand (no caching)
+// Activate by uncommenting group checks below and replacing 'false' placeholders
+//
+ActiveRole = IfError(
+    If(
+        // ── Priority 1: Admin ──────────────────────────────────
+        // ACTIVATE: Replace 'false' with one of these patterns:
+        //
+        // Option A - Standard license (Office365Groups connector):
+        // !IsEmpty(
+        //     Filter(
+        //         Office365Groups.ListGroupMembers(RoleConfig.AdminGroupId).value,
+        //         Lower(mail) = Lower(User().Email)
+        //     )
+        // ),
+        //
+        // Option B - Premium license (AzureAD / Entra ID connector):
+        // !IsEmpty(
+        //     AzureAD.CheckMemberGroupsV2(
+        //         User().Email,
+        //         [RoleConfig.AdminGroupId]
+        //     ).value
+        // ),
+        //
+        false,  // ← Placeholder: replace with group check above
+        "Admin",
+
+        // ── Priority 2: Teamleitung ────────────────────────────
+        // ACTIVATE: Replace 'false' with one of these patterns:
+        //
+        // Option A - Standard license:
+        // !IsEmpty(
+        //     Filter(
+        //         Office365Groups.ListGroupMembers(RoleConfig.TeamleitungGroupId).value,
+        //         Lower(mail) = Lower(User().Email)
+        //     )
+        // ),
+        //
+        // Option B - Premium license:
+        // !IsEmpty(
+        //     AzureAD.CheckMemberGroupsV2(
+        //         User().Email,
+        //         [RoleConfig.TeamleitungGroupId]
+        //     ).value
+        // ),
+        //
+        false,  // ← Placeholder: replace with group check above
+        "Teamleitung",
+
+        // ── Priority 3: User (Default) ─────────────────────────
+        // No API call needed - all authenticated users get this role
+        "User"
+    ),
+    // Error fallback: If any group check fails, default to "User" (least privilege)
+    "User"
+);
 
 // User Roles - Derived from ActiveRole (backward-compatible boolean record)
 // No API calls - purely computed from the cached ActiveRole string
@@ -1579,15 +1599,9 @@ ErrorMessage_NotFound(itemType: Text): Text =
 //     }))
 //   );
 //
-// --- NON-CRITICAL ERROR (Phase 2 - Background data) ---
-// When lookup data fails:
-//   ClearCollect(
-//     CachedDepartments,
-//     IfError(
-//       Filter(Departments, Status = "Active"),
-//       IfError(..., Table())  // Empty fallback, silent degradation
-//     )
-//   );
+// --- NON-CRITICAL ERROR (No longer applicable - no caching) ---
+// All data loaded on-demand via Named Formulas
+// Error handling moved to control level (e.g., Gallery.Items = IfError(...))
 //
 // --- USER ACTION ERROR (Phase 3 - Delete) ---
 // When user performs delete:
