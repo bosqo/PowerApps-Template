@@ -262,6 +262,31 @@ ActiveItems = Filter(UserScopedItems, Status = "Active");
 // Inactive items only (Status = "Inactive")
 InactiveItems = Filter(UserScopedItems, Status = "Inactive");
 
+// ============================================================================
+// DYNAMIC FILTER LAYER (Reactive to ActiveFilters state)
+// ============================================================================
+// Purpose: Combines all dropdown filters - fully reactive
+// Depends on: ActiveFilters state (Status, Department, DateRange, SearchTerm)
+// Used by: Gallery.Items property
+// Delegation: All filter expressions are delegable (no UDFs inside Filter)
+
+FilteredItems = Filter(
+    UserScopedItems,
+    // Status dropdown (blank = show all)
+    (IsBlank(ActiveFilters.Status) || Status = ActiveFilters.Status) &&
+
+    // Department dropdown (blank = show all)
+    (IsBlank(ActiveFilters.Department) || Department = ActiveFilters.Department) &&
+
+    // Date range dropdown (blank = show all)
+    (IsBlank(ActiveFilters.DateRange) ||
+     'Modified On' >= DateRanges[ActiveFilters.DateRange].Start) &&
+
+    // Display name search (blank = show all)
+    (IsBlank(ActiveFilters.SearchTerm) ||
+     StartsWith(Title, ActiveFilters.SearchTerm))
+);
+
 // ============================================================
 // SECTION 2: COMPUTED NAMED FORMULAS
 // These auto-refresh when their dependencies change
