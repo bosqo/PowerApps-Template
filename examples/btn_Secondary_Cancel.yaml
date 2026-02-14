@@ -33,7 +33,7 @@
       Align: =Align.Center
       VerticalAlign: =VerticalAlign.Middle
       DisplayMode: =DisplayMode.Edit
-      OnSelect:
+      OnSelect: =
       Tooltip: ="Vorgang abbrechen"
       TabIndex: =1
       Visible: =true
