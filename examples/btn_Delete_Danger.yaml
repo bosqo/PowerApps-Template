@@ -1,43 +1,38 @@
-btn_Delete As button:
-    X: =Spacing.LG
-    Y: =Spacing.LG
-    Width: =140
-    Height: =44
-
-    Fill: =ThemeColors.Error
-    HoverFill: =GetHoverColor(ThemeColors.Error)
-    PressedFill: =GetPressedColor(ThemeColors.Error)
-    DisabledFill: =GetDisabledColor(ThemeColors.Error)
-
-    BorderColor: =Color.Transparent
-    BorderThickness: =0
-    BorderStyle: =BorderStyle.None
-    FocusedBorderColor: =GetFocusColor(ThemeColors.Error)
-    FocusedBorderThickness: =3
-
-    Text: ="Löschen"
-    Color: =Color.White
-    HoverColor: =Color.White
-    PressedColor: =Color.White
-    DisabledColor: =Color.White
-
-    Font: =Typography.Font
-    FontSize: =Typography.SizeMD
-    FontWeight: =FontWeight.Semibold
-
-    RadiusTopLeft: =BorderRadius.MD
-    RadiusTopRight: =BorderRadius.MD
-    RadiusBottomLeft: =BorderRadius.MD
-    RadiusBottomRight: =BorderRadius.MD
-
-    PaddingTop: =Spacing.SM
-    PaddingBottom: =Spacing.SM
-    PaddingLeft: =Spacing.LG
-    PaddingRight: =Spacing.LG
-    Align: =Align.Center
-    VerticalAlign: =VerticalAlign.Middle
-
-    DisplayMode: |
+- btn_Delete:
+    Control: Classic/Button@2.2.0
+    Properties:
+      X: =Spacing.LG
+      Y: =Spacing.LG
+      Width: =140
+      Height: =44
+      Fill: =ThemeColors.Error
+      HoverFill: =GetHoverColor(ThemeColors.Error)
+      PressedFill: =GetPressedColor(ThemeColors.Error)
+      DisabledFill: =GetDisabledColor(ThemeColors.Error)
+      BorderColor: =Color.Transparent
+      BorderThickness: =0
+      BorderStyle: =BorderStyle.None
+      FocusedBorderColor: =GetFocusColor(ThemeColors.Error)
+      FocusedBorderThickness: =3
+      Text: ="Löschen"
+      Color: =Color.White
+      HoverColor: =Color.White
+      PressedColor: =Color.White
+      DisabledColor: =Color.White
+      Font: =Typography.Font
+      Size: =Typography.SizeMD
+      FontWeight: =FontWeight.Semibold
+      RadiusTopLeft: =BorderRadius.MD
+      RadiusTopRight: =BorderRadius.MD
+      RadiusBottomLeft: =BorderRadius.MD
+      RadiusBottomRight: =BorderRadius.MD
+      PaddingTop: =Spacing.SM
+      PaddingBottom: =Spacing.SM
+      PaddingLeft: =Spacing.LG
+      PaddingRight: =Spacing.LG
+      Align: =Align.Center
+      VerticalAlign: =VerticalAlign.Middle
+      DisplayMode: |
         =If(
             HasPermission("Delete") &&
             CanDeleteRecord(Gallery.Selected.Owner.Email) &&
@@ -45,8 +40,7 @@ btn_Delete As button:
             DisplayMode.Edit,
             DisplayMode.Disabled
         )
-
-    OnSelect: |
+      OnSelect: |
         =If(
             HasPermission("Delete") && CanDeleteRecord(Gallery.Selected.Owner.Email),
             If(
@@ -72,14 +66,11 @@ btn_Delete As button:
             ),
             NotifyPermissionDenied("delete this item")
         )
-
-    Tooltip: ="Eintrag unwiderruflich löschen"
-    AccessibleLabel: ="Löschen Button - Entfernt ausgewählten Eintrag nach Bestätigung"
-    TabIndex: =5
-
-    Visible: |
+      Tooltip: ="Eintrag unwiderruflich löschen"
+      AccessibleLabel: ="Löschen Button - Entfernt ausgewählten Eintrag nach Bestätigung"
+      TabIndex: =5
+      Visible: |
         =HasPermission("Delete") &&
         !IsBlank(Gallery.Selected) &&
         !IsOneOf(Gallery.Selected.Status, "Archived,Closed,Cancelled")
-
-    ZIndex: =1
+      ZIndex: =1

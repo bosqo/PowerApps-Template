@@ -1,59 +1,52 @@
-btn_Submit As button:
-    X: =Spacing.LG
-    Y: =Spacing.LG
-    Width: =160
-    Height: =44
-
-    Fill: =ThemeColors.Primary
-    HoverFill: =GetHoverColor(ThemeColors.Primary)
-    PressedFill: =GetPressedColor(ThemeColors.Primary)
-    DisabledFill: =GetDisabledColor(ThemeColors.Primary)
-
-    BorderColor: =Color.Transparent
-    BorderThickness: =0
-    BorderStyle: =BorderStyle.None
-    FocusedBorderColor: =GetFocusColor(ThemeColors.Primary)
-    FocusedBorderThickness: =3
-
-    Text: ="Speichern"
-    Color: =Color.White
-    HoverColor: =Color.White
-    PressedColor: =Color.White
-    DisabledColor: =Color.White
-
-    Font: =Typography.Font
-    FontSize: =Typography.SizeMD
-    FontWeight: =FontWeight.Semibold
-
-    RadiusTopLeft: =BorderRadius.MD
-    RadiusTopRight: =BorderRadius.MD
-    RadiusBottomLeft: =BorderRadius.MD
-    RadiusBottomRight: =BorderRadius.MD
-
-    PaddingTop: =Spacing.SM
-    PaddingBottom: =Spacing.SM
-    PaddingLeft: =Spacing.LG
-    PaddingRight: =Spacing.LG
-    Align: =Align.Center
-    VerticalAlign: =VerticalAlign.Middle
-
-    DisplayMode: =If(
-        HasPermission("Create"),
-        DisplayMode.Edit,
-        DisplayMode.Disabled
-    )
-
-    OnSelect: |
+- btn_Submit:
+    Control: Classic/Button@2.2.0
+    Properties:
+      X: =Spacing.LG
+      Y: =Spacing.LG
+      Width: =160
+      Height: =44
+      Fill: =ThemeColors.Primary
+      HoverFill: =GetHoverColor(ThemeColors.Primary)
+      PressedFill: =GetPressedColor(ThemeColors.Primary)
+      DisabledFill: =GetDisabledColor(ThemeColors.Primary)
+      BorderColor: =Color.Transparent
+      BorderThickness: =0
+      BorderStyle: =BorderStyle.None
+      FocusedBorderColor: =GetFocusColor(ThemeColors.Primary)
+      FocusedBorderThickness: =3
+      Text: ="Speichern"
+      Color: =Color.White
+      HoverColor: =Color.White
+      PressedColor: =Color.White
+      DisabledColor: =Color.White
+      Font: =Typography.Font
+      Size: =Typography.SizeMD
+      FontWeight: =FontWeight.Semibold
+      RadiusTopLeft: =BorderRadius.MD
+      RadiusTopRight: =BorderRadius.MD
+      RadiusBottomLeft: =BorderRadius.MD
+      RadiusBottomRight: =BorderRadius.MD
+      PaddingTop: =Spacing.SM
+      PaddingBottom: =Spacing.SM
+      PaddingLeft: =Spacing.LG
+      PaddingRight: =Spacing.LG
+      Align: =Align.Center
+      VerticalAlign: =VerticalAlign.Middle
+      DisplayMode: |
+        =If(
+            HasPermission("Create"),
+            DisplayMode.Edit,
+            DisplayMode.Disabled
+        )
+      OnSelect: |
         =If(
             HasPermission("Create"),
             SubmitForm(form_Details);
             NotifySuccess("Eintrag erfolgreich gespeichert"),
             NotifyPermissionDenied("create records")
         )
-
-    Tooltip: ="Neuen Eintrag speichern"
-    AccessibleLabel: ="Speichern Button - Erstellt neuen Eintrag"
-    TabIndex: =0
-
-    Visible: =true
-    ZIndex: =1
+      Tooltip: ="Neuen Eintrag speichern"
+      AccessibleLabel: ="Speichern Button - Erstellt neuen Eintrag"
+      TabIndex: =0
+      Visible: =true
+      ZIndex: =1

@@ -1,55 +1,47 @@
-btn_SpecialAction As button:
-    X: =Spacing.LG
-    Y: =Spacing.LG
-    Width: =180
-    Height: =44
-
-    Fill: =ThemeColors.Secondary
-    HoverFill: =GetHoverColor(ThemeColors.Secondary)
-    PressedFill: =GetPressedColor(ThemeColors.Secondary)
-    DisabledFill: =GetDisabledColor(ThemeColors.Secondary)
-
-    BorderColor: =Color.Transparent
-    BorderThickness: =0
-    BorderStyle: =BorderStyle.None
-    FocusedBorderColor: =GetFocusColor(ThemeColors.Secondary)
-    FocusedBorderThickness: =3
-
-    Text: ="Hervorheben"
-    Color: =ThemeColors.Text
-    HoverColor: =ThemeColors.Text
-    PressedColor: =ThemeColors.Text
-    DisabledColor: =ThemeColors.TextDisabled
-
-    Font: =Typography.Font
-    FontSize: =Typography.SizeMD
-    FontWeight: =FontWeight.Bold
-
-    RadiusTopLeft: =BorderRadius.MD
-    RadiusTopRight: =BorderRadius.MD
-    RadiusBottomLeft: =BorderRadius.MD
-    RadiusBottomRight: =BorderRadius.MD
-
-    PaddingTop: =Spacing.SM
-    PaddingBottom: =Spacing.SM
-    PaddingLeft: =Spacing.LG
-    PaddingRight: =Spacing.LG
-    Align: =Align.Center
-    VerticalAlign: =VerticalAlign.Middle
-
-    DisplayMode: =DisplayMode.Edit
-
-    OnSelect: |
+- btn_SpecialAction:
+    Control: Classic/Button@2.2.0
+    Properties:
+      X: =Spacing.LG
+      Y: =Spacing.LG
+      Width: =180
+      Height: =44
+      Fill: =ThemeColors.Secondary
+      HoverFill: =GetHoverColor(ThemeColors.Secondary)
+      PressedFill: =GetPressedColor(ThemeColors.Secondary)
+      DisabledFill: =GetDisabledColor(ThemeColors.Secondary)
+      BorderColor: =Color.Transparent
+      BorderThickness: =0
+      BorderStyle: =BorderStyle.None
+      FocusedBorderColor: =GetFocusColor(ThemeColors.Secondary)
+      FocusedBorderThickness: =3
+      Text: ="Hervorheben"
+      Color: =ThemeColors.Text
+      HoverColor: =ThemeColors.Text
+      PressedColor: =ThemeColors.Text
+      DisabledColor: =ThemeColors.TextDisabled
+      Font: =Typography.Font
+      Size: =Typography.SizeMD
+      FontWeight: =FontWeight.Bold
+      RadiusTopLeft: =BorderRadius.MD
+      RadiusTopRight: =BorderRadius.MD
+      RadiusBottomLeft: =BorderRadius.MD
+      RadiusBottomRight: =BorderRadius.MD
+      PaddingTop: =Spacing.SM
+      PaddingBottom: =Spacing.SM
+      PaddingLeft: =Spacing.LG
+      PaddingRight: =Spacing.LG
+      Align: =Align.Center
+      VerticalAlign: =VerticalAlign.Middle
+      DisplayMode: =DisplayMode.Edit
+      OnSelect: |
         =Patch(
             Items,
             Gallery.Selected,
             {IsFeatured: true, FeaturedDate: GetCETToday()}
         );
         NotifySuccess("Eintrag wurde hervorgehoben")
-
-    Tooltip: ="Diesen Eintrag hervorheben"
-    AccessibleLabel: ="Hervorheben Button - Markiert Eintrag als besonders"
-    TabIndex: =3
-
-    Visible: =HasPermission("Edit")
-    ZIndex: =1
+      Tooltip: ="Diesen Eintrag hervorheben"
+      AccessibleLabel: ="Hervorheben Button - Markiert Eintrag als besonders"
+      TabIndex: =3
+      Visible: =HasPermission("Edit")
+      ZIndex: =1

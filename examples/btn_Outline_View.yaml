@@ -1,61 +1,54 @@
-btn_ViewDetails As button:
-    X: =Spacing.LG
-    Y: =Spacing.LG
-    Width: =140
-    Height: =44
-
-    Fill: =ThemeColors.Surface
-    HoverFill: =GetHoverColor(ThemeColors.NeutralBase)
-    PressedFill: =GetPressedColor(ThemeColors.NeutralBase)
-    DisabledFill: =ThemeColors.Surface
-
-    BorderColor: =ThemeColors.Text
-    BorderThickness: =2
-    BorderStyle: =BorderStyle.Solid
-    HoverBorderColor: =GetHoverColor(ThemeColors.Text)
-    FocusedBorderColor: =GetFocusColor(ThemeColors.Text)
-    FocusedBorderThickness: =3
-    DisabledBorderColor: =GetDisabledColor(ThemeColors.Text)
-
-    Text: ="Details anzeigen"
-    Color: =ThemeColors.Text
-    HoverColor: =ThemeColors.Text
-    PressedColor: =ThemeColors.Text
-    DisabledColor: =ThemeColors.TextDisabled
-
-    Font: =Typography.Font
-    FontSize: =Typography.SizeMD
-    FontWeight: =FontWeight.Semibold
-
-    RadiusTopLeft: =BorderRadius.MD
-    RadiusTopRight: =BorderRadius.MD
-    RadiusBottomLeft: =BorderRadius.MD
-    RadiusBottomRight: =BorderRadius.MD
-
-    PaddingTop: =Spacing.SM
-    PaddingBottom: =Spacing.SM
-    PaddingLeft: =Spacing.MD
-    PaddingRight: =Spacing.MD
-    Align: =Align.Center
-    VerticalAlign: =VerticalAlign.Middle
-
-    DisplayMode: =If(
-        HasPermission("Read") && CanAccessRecord(Gallery.Selected.Owner.Email),
-        DisplayMode.Edit,
-        DisplayMode.Disabled
-    )
-
-    OnSelect: |
+- btn_ViewDetails:
+    Control: Classic/Button@2.2.0
+    Properties:
+      X: =Spacing.LG
+      Y: =Spacing.LG
+      Width: =140
+      Height: =44
+      Fill: =ThemeColors.Surface
+      HoverFill: =GetHoverColor(ThemeColors.NeutralBase)
+      PressedFill: =GetPressedColor(ThemeColors.NeutralBase)
+      DisabledFill: =ThemeColors.Surface
+      BorderColor: =ThemeColors.Text
+      BorderThickness: =2
+      BorderStyle: =BorderStyle.Solid
+      HoverBorderColor: =GetHoverColor(ThemeColors.Text)
+      FocusedBorderColor: =GetFocusColor(ThemeColors.Text)
+      FocusedBorderThickness: =3
+      DisabledBorderColor: =GetDisabledColor(ThemeColors.Text)
+      Text: ="Details anzeigen"
+      Color: =ThemeColors.Text
+      HoverColor: =ThemeColors.Text
+      PressedColor: =ThemeColors.Text
+      DisabledColor: =ThemeColors.TextDisabled
+      Font: =Typography.Font
+      Size: =Typography.SizeMD
+      FontWeight: =FontWeight.Semibold
+      RadiusTopLeft: =BorderRadius.MD
+      RadiusTopRight: =BorderRadius.MD
+      RadiusBottomLeft: =BorderRadius.MD
+      RadiusBottomRight: =BorderRadius.MD
+      PaddingTop: =Spacing.SM
+      PaddingBottom: =Spacing.SM
+      PaddingLeft: =Spacing.MD
+      PaddingRight: =Spacing.MD
+      Align: =Align.Center
+      VerticalAlign: =VerticalAlign.Middle
+      DisplayMode: |
+        =If(
+            HasPermission("Read") && CanAccessRecord(Gallery.Selected.Owner.Email),
+            DisplayMode.Edit,
+            DisplayMode.Disabled
+        )
+      OnSelect: |
         =If(
             HasPermission("Read") && CanAccessRecord(Gallery.Selected.Owner.Email),
             Set(UIState, Patch(UIState, {SelectedItem: Gallery.Selected}));
             Navigate(DetailsScreen, ScreenTransition.Fade),
             NotifyPermissionDenied("view this record")
         )
-
-    Tooltip: ="Eintrag-Details anzeigen"
-    AccessibleLabel: ="Details anzeigen Button - Öffnet Detailansicht"
-    TabIndex: =2
-
-    Visible: =!IsBlank(Gallery.Selected)
-    ZIndex: =1
+      Tooltip: ="Eintrag-Details anzeigen"
+      AccessibleLabel: ="Details anzeigen Button - Öffnet Detailansicht"
+      TabIndex: =2
+      Visible: =!IsBlank(Gallery.Selected)
+      ZIndex: =1
