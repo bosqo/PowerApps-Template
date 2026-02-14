@@ -33,18 +33,8 @@
       Align: =Align.Center
       VerticalAlign: =VerticalAlign.Middle
       DisplayMode: |
-        =If(
-            HasPermission("Create"),
-            DisplayMode.Edit,
-            DisplayMode.Disabled
-        )
-      OnSelect: |
-        =If(
-            HasPermission("Create"),
-            SubmitForm(form_Details);
-            NotifySuccess("Eintrag erfolgreich gespeichert"),
-            NotifyPermissionDenied("create records")
-        )
+        =DisplayMode.Edit
+      OnSelect: 
       Tooltip: ="Neuen Eintrag speichern"
       TabIndex: =0
       Visible: =true
