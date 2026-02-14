@@ -1,52 +1,44 @@
-btn_Cancel As button:
-    X: =Spacing.LG + 160 + Spacing.SM
-    Y: =Spacing.LG
-    Width: =120
-    Height: =44
-
-    Fill: =ThemeColors.NeutralGray
-    HoverFill: =GetHoverColor(ThemeColors.NeutralGray)
-    PressedFill: =GetPressedColor(ThemeColors.NeutralGray)
-    DisabledFill: =GetDisabledColor(ThemeColors.NeutralGray)
-
-    BorderColor: =Color.Transparent
-    BorderThickness: =0
-    BorderStyle: =BorderStyle.None
-    FocusedBorderColor: =GetFocusColor(ThemeColors.NeutralGray)
-    FocusedBorderThickness: =3
-
-    Text: ="Abbrechen"
-    Color: =Color.White
-    HoverColor: =Color.White
-    PressedColor: =Color.White
-    DisabledColor: =Color.White
-
-    Font: =Typography.Font
-    FontSize: =Typography.SizeMD
-    FontWeight: =FontWeight.Semibold
-
-    RadiusTopLeft: =BorderRadius.MD
-    RadiusTopRight: =BorderRadius.MD
-    RadiusBottomLeft: =BorderRadius.MD
-    RadiusBottomRight: =BorderRadius.MD
-
-    PaddingTop: =Spacing.SM
-    PaddingBottom: =Spacing.SM
-    PaddingLeft: =Spacing.LG
-    PaddingRight: =Spacing.LG
-    Align: =Align.Center
-    VerticalAlign: =VerticalAlign.Middle
-
-    DisplayMode: =DisplayMode.Edit
-
-    OnSelect: |
+- btn_Cancel:
+    Control: Classic/Button@2.2.0
+    Properties:
+      X: =Spacing.LG + 160 + Spacing.SM
+      Y: =Spacing.LG
+      Width: =120
+      Height: =44
+      Fill: =ThemeColors.NeutralGray
+      HoverFill: =GetHoverColor(ThemeColors.NeutralGray)
+      PressedFill: =GetPressedColor(ThemeColors.NeutralGray)
+      DisabledFill: =GetDisabledColor(ThemeColors.NeutralGray)
+      BorderColor: =Color.Transparent
+      BorderThickness: =0
+      BorderStyle: =BorderStyle.None
+      FocusedBorderColor: =GetFocusColor(ThemeColors.NeutralGray)
+      FocusedBorderThickness: =3
+      Text: ="Abbrechen"
+      Color: =Color.White
+      HoverColor: =Color.White
+      PressedColor: =Color.White
+      DisabledColor: =Color.White
+      Font: =Typography.Font
+      Size: =Typography.SizeMD
+      FontWeight: =FontWeight.Semibold
+      RadiusTopLeft: =BorderRadius.MD
+      RadiusTopRight: =BorderRadius.MD
+      RadiusBottomLeft: =BorderRadius.MD
+      RadiusBottomRight: =BorderRadius.MD
+      PaddingTop: =Spacing.SM
+      PaddingBottom: =Spacing.SM
+      PaddingLeft: =Spacing.LG
+      PaddingRight: =Spacing.LG
+      Align: =Align.Center
+      VerticalAlign: =VerticalAlign.Middle
+      DisplayMode: =DisplayMode.Edit
+      OnSelect: |
         =ResetForm(form_Details);
         Set(UIState, Patch(UIState, {FormMode: FormMode.View, UnsavedChanges: false}));
         Back()
-
-    Tooltip: ="Vorgang abbrechen"
-    AccessibleLabel: ="Abbrechen Button - Verwirft Änderungen"
-    TabIndex: =1
-
-    Visible: =true
-    ZIndex: =1
+      Tooltip: ="Vorgang abbrechen"
+      AccessibleLabel: ="Abbrechen Button - Verwirft Änderungen"
+      TabIndex: =1
+      Visible: =true
+      ZIndex: =1
