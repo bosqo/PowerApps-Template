@@ -143,6 +143,207 @@ BorderRadius = {
     Round: 9999
 };
 
+// ============================================================
+// COMPONENT STYLE RECORDS (for Canvas Components)
+// ============================================================
+// Purpose: Pre-defined style records that make ThemeColors, Typography,
+//          Spacing, and BorderRadius usable in Canvas Components.
+//
+// Background: Named Formulas like ThemeColors are NOT accessible inside
+//             components (they exist only in App.Formulas scope).
+//             Components require style data to be passed via Input Properties.
+//
+// Solution: Define complete style records here that combine all design tokens.
+//           Pass one style record to a component instead of 10+ individual properties.
+//
+// Usage:
+//   cmp_Button.Style = ButtonStylePrimary
+//   cmp_Input.Style = InputStyleDefault
+//   cmp_Card.Style = CardStyleDefault
+//
+// Override pattern with Patch():
+//   cmp_Button.Style = Patch(ButtonStylePrimary, {FontSize: Typography.SizeLG})
+//
+// Reference: docs/plans/2026-02-13-design-variables-component-review.md
+// ============================================================
+
+// ============================================================
+// BUTTON STYLE RECORDS
+// ============================================================
+
+// Primary Button Style (Main actions: Save, Submit, Create)
+ButtonStylePrimary = {
+    Fill: ThemeColors.Primary,
+    HoverFill: ColorFade(ThemeColors.Primary, ColorIntensity.Hover),
+    PressedFill: ColorFade(ThemeColors.Primary, ColorIntensity.Pressed),
+    DisabledFill: ColorFade(ThemeColors.Primary, ColorIntensity.Disabled),
+    TextColor: Color.White,
+    DisabledTextColor: Color.White,
+    BorderColor: Color.Transparent,
+    BorderWidth: 0,
+    BorderRadius: BorderRadius.MD,
+    FontSize: Typography.SizeMD,
+    Font: Typography.Font,
+    MinHeight: 36,
+    PaddingX: Spacing.MD,
+    PaddingY: Spacing.SM
+};
+
+// Secondary Button Style (Secondary actions: Cancel, Back, Close)
+ButtonStyleSecondary = {
+    Fill: ThemeColors.NeutralGray,
+    HoverFill: ColorFade(ThemeColors.NeutralGray, ColorIntensity.Hover),
+    PressedFill: ColorFade(ThemeColors.NeutralGray, ColorIntensity.Pressed),
+    DisabledFill: ColorFade(ThemeColors.NeutralGray, ColorIntensity.Disabled),
+    TextColor: Color.White,
+    DisabledTextColor: Color.White,
+    BorderColor: Color.Transparent,
+    BorderWidth: 0,
+    BorderRadius: BorderRadius.MD,
+    FontSize: Typography.SizeMD,
+    Font: Typography.Font,
+    MinHeight: 36,
+    PaddingX: Spacing.MD,
+    PaddingY: Spacing.SM
+};
+
+// Outline Button Style (Tertiary actions: View, Edit, Download)
+ButtonStyleOutline = {
+    Fill: ThemeColors.Surface,
+    HoverFill: ColorFade(ThemeColors.NeutralBase, ColorIntensity.Hover),
+    PressedFill: ColorFade(ThemeColors.NeutralBase, ColorIntensity.Pressed),
+    DisabledFill: ThemeColors.Surface,
+    TextColor: ThemeColors.Text,
+    DisabledTextColor: ThemeColors.TextDisabled,
+    BorderColor: ThemeColors.Text,
+    BorderWidth: 1,
+    BorderRadius: BorderRadius.MD,
+    FontSize: Typography.SizeMD,
+    Font: Typography.Font,
+    MinHeight: 36,
+    PaddingX: Spacing.MD,
+    PaddingY: Spacing.SM
+};
+
+// Danger Button Style (Destructive actions: Delete, Remove)
+ButtonStyleDanger = {
+    Fill: ThemeColors.Error,
+    HoverFill: ColorFade(ThemeColors.Error, ColorIntensity.Hover),
+    PressedFill: ColorFade(ThemeColors.Error, ColorIntensity.Pressed),
+    DisabledFill: ColorFade(ThemeColors.Error, ColorIntensity.Disabled),
+    TextColor: Color.White,
+    DisabledTextColor: Color.White,
+    BorderColor: Color.Transparent,
+    BorderWidth: 0,
+    BorderRadius: BorderRadius.MD,
+    FontSize: Typography.SizeMD,
+    Font: Typography.Font,
+    MinHeight: 36,
+    PaddingX: Spacing.MD,
+    PaddingY: Spacing.SM
+};
+
+// ============================================================
+// INPUT/TEXTINPUT STYLE RECORDS
+// ============================================================
+
+// Default Input Style (TextInput, Dropdown components)
+InputStyleDefault = {
+    Fill: Color.White,
+    FocusFill: Color.White,
+    DisabledFill: ThemeColors.NeutralBase,
+    TextColor: ThemeColors.Text,
+    PlaceholderColor: ThemeColors.TextSecondary,
+    DisabledTextColor: ThemeColors.TextDisabled,
+    BorderColor: ThemeColors.BorderStrong,
+    FocusBorderColor: ThemeColors.Primary,
+    ErrorBorderColor: ThemeColors.Error,
+    BorderWidth: 1,
+    FocusBorderWidth: 2,
+    BorderRadius: BorderRadius.MD,
+    FontSize: Typography.SizeMD,
+    Font: Typography.Font,
+    Height: 36,
+    PaddingX: Spacing.SM,
+    PaddingY: Spacing.XS,
+    LabelColor: ThemeColors.Text,
+    LabelFontSize: Typography.SizeSM,
+    ErrorColor: ThemeColors.Error,
+    ErrorFontSize: Typography.SizeSM
+};
+
+// ============================================================
+// CARD/CONTAINER STYLE RECORDS
+// ============================================================
+
+// Default Card Style (Standard card container with border)
+CardStyleDefault = {
+    Fill: ThemeColors.Surface,
+    HoverFill: ThemeColors.SurfaceHover,
+    BorderColor: ThemeColors.Border,
+    BorderWidth: 1,
+    BorderRadius: BorderRadius.LG,
+    ShadowColor: ThemeColors.Shadow,
+    PaddingX: Spacing.MD,
+    PaddingY: Spacing.MD,
+    Gap: Spacing.SM,
+    HeaderFontSize: Typography.SizeLG,
+    HeaderColor: ThemeColors.Text,
+    BodyFontSize: Typography.SizeMD,
+    BodyColor: ThemeColors.Text
+};
+
+// Elevated Card Style (Card with shadow, no border)
+CardStyleElevated = {
+    Fill: ThemeColors.Surface,
+    HoverFill: ThemeColors.SurfaceHover,
+    BorderColor: Color.Transparent,
+    BorderWidth: 0,
+    BorderRadius: BorderRadius.LG,
+    ShadowColor: ThemeColors.Shadow,
+    PaddingX: Spacing.LG,
+    PaddingY: Spacing.LG,
+    Gap: Spacing.MD,
+    HeaderFontSize: Typography.SizeLG,
+    HeaderColor: ThemeColors.Text,
+    BodyFontSize: Typography.SizeMD,
+    BodyColor: ThemeColors.Text
+};
+
+// ============================================================
+// BADGE/STATUS STYLE RECORDS
+// ============================================================
+
+// Default Badge Style (Status badges, role badges)
+BadgeStyleDefault = {
+    FontSize: Typography.SizeXS,
+    Font: Typography.Font,
+    PaddingX: Spacing.SM,
+    PaddingY: Spacing.XS,
+    BorderRadius: BorderRadius.Round,
+    Height: 24,
+    TextColor: Color.White
+};
+
+// ============================================================
+// GALLERY ROW STYLE RECORDS
+// ============================================================
+
+// Default Gallery Row Style (List items, table rows)
+GalleryRowStyleDefault = {
+    Fill: Color.Transparent,
+    SelectedFill: ColorFade(ThemeColors.Primary, 0.85),
+    AlternateFill: ColorFade(ThemeColors.NeutralBase, 0.50),
+    HoverFill: ThemeColors.SurfaceHover,
+    TextColor: ThemeColors.Text,
+    SecondaryTextColor: ThemeColors.TextSecondary,
+    DividerColor: ThemeColors.Divider,
+    Height: 48,
+    PaddingX: Spacing.MD,
+    FontSize: Typography.SizeMD,
+    SecondaryFontSize: Typography.SizeSM
+};
+
 // Application Configuration
 AppConfig = {
     // Environment Detection
