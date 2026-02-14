@@ -46,7 +46,5 @@
             NotifyPermissionDenied("create records")
         )
       Tooltip: ="Neuen Eintrag speichern"
-      AccessibleLabel: ="Speichern Button - Erstellt neuen Eintrag"
       TabIndex: =0
       Visible: =true
-      ZIndex: =1
