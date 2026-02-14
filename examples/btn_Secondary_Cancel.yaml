@@ -33,12 +33,7 @@
       Align: =Align.Center
       VerticalAlign: =VerticalAlign.Middle
       DisplayMode: =DisplayMode.Edit
-      OnSelect: |
-        =ResetForm(form_Details);
-        Set(UIState, Patch(UIState, {FormMode: FormMode.View, UnsavedChanges: false}));
-        Back()
+      OnSelect:
       Tooltip: ="Vorgang abbrechen"
-      AccessibleLabel: ="Abbrechen Button - Verwirft Änderungen"
       TabIndex: =1
       Visible: =true
-      ZIndex: =1
