@@ -1,72 +1,42 @@
-###
-### PRIMARY BUTTON - Following App-Formulas-Template.fx Design System
-### Type: Submit, Save, Create (Main CTA)
-### Reference: Control-Patterns-Modern.fx Pattern 3.4 (Lines 542-565)
-###
-
 btn_Submit As button:
-    # ============================================
-    # POSITIONING & SIZING
-    # ============================================
-    X: =Spacing.LG  # 24px from left
-    Y: =Spacing.LG  # 24px from top
+    X: =Spacing.LG
+    Y: =Spacing.LG
     Width: =160
-    Height: =44  # Touch-friendly height
+    Height: =44
 
-    # ============================================
-    # FILL COLORS (Primary Brand Color)
-    # ============================================
-    Fill: =ThemeColors.Primary  # Main brand color (#0078D4)
-    HoverFill: =GetHoverColor(ThemeColors.Primary)  # 20% darker on hover
-    PressedFill: =GetPressedColor(ThemeColors.Primary)  # 30% darker when pressed
-    DisabledFill: =GetDisabledColor(ThemeColors.Primary)  # 60% lighter when disabled
+    Fill: =ThemeColors.Primary
+    HoverFill: =GetHoverColor(ThemeColors.Primary)
+    PressedFill: =GetPressedColor(ThemeColors.Primary)
+    DisabledFill: =GetDisabledColor(ThemeColors.Primary)
 
-    # ============================================
-    # BORDER STYLING
-    # ============================================
-    BorderColor: =Color.Transparent  # No border for primary buttons
+    BorderColor: =Color.Transparent
     BorderThickness: =0
     BorderStyle: =BorderStyle.None
-    FocusedBorderColor: =GetFocusColor(ThemeColors.Primary)  # 10% darker border on focus
-    FocusedBorderThickness: =3  # Visible focus indicator for accessibility
+    FocusedBorderColor: =GetFocusColor(ThemeColors.Primary)
+    FocusedBorderThickness: =3
 
-    # ============================================
-    # TEXT STYLING
-    # ============================================
-    Text: ="Speichern"  # German: Save
-    Color: =Color.White  # White text on primary color background
+    Text: ="Speichern"
+    Color: =Color.White
     HoverColor: =Color.White
     PressedColor: =Color.White
     DisabledColor: =Color.White
 
-    # ============================================
-    # TYPOGRAPHY
-    # ============================================
-    Font: =Typography.Font  # Segoe UI
-    FontSize: =Typography.SizeMD  # 14px
-    FontWeight: =FontWeight.Semibold  # Medium weight for buttons
+    Font: =Typography.Font
+    FontSize: =Typography.SizeMD
+    FontWeight: =FontWeight.Semibold
 
-    # ============================================
-    # BORDER RADIUS
-    # ============================================
-    RadiusTopLeft: =BorderRadius.MD  # 4px
+    RadiusTopLeft: =BorderRadius.MD
     RadiusTopRight: =BorderRadius.MD
     RadiusBottomLeft: =BorderRadius.MD
     RadiusBottomRight: =BorderRadius.MD
 
-    # ============================================
-    # PADDING & ALIGNMENT
-    # ============================================
-    PaddingTop: =Spacing.SM  # 8px
+    PaddingTop: =Spacing.SM
     PaddingBottom: =Spacing.SM
-    PaddingLeft: =Spacing.LG  # 24px horizontal padding
+    PaddingLeft: =Spacing.LG
     PaddingRight: =Spacing.LG
-    Align: =Align.Center  # Center-align text
+    Align: =Align.Center
     VerticalAlign: =VerticalAlign.Middle
 
-    # ============================================
-    # INTERACTION & ACCESSIBILITY
-    # ============================================
     DisplayMode: =If(
         HasPermission("Create"),
         DisplayMode.Edit,
@@ -76,19 +46,14 @@ btn_Submit As button:
     OnSelect: |
         =If(
             HasPermission("Create"),
-            // Success path
             SubmitForm(form_Details);
             NotifySuccess("Eintrag erfolgreich gespeichert"),
-            // Permission denied
             NotifyPermissionDenied("create records")
         )
 
     Tooltip: ="Neuen Eintrag speichern"
     AccessibleLabel: ="Speichern Button - Erstellt neuen Eintrag"
-    TabIndex: =0  # Keyboard navigation order
+    TabIndex: =0
 
-    # ============================================
-    # VISIBILITY & Z-INDEX
-    # ============================================
     Visible: =true
     ZIndex: =1

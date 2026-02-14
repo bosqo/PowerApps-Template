@@ -1,62 +1,35 @@
-###
-### ACCENT BUTTON - Following App-Formulas-Template.fx Design System
-### Type: Special highlights (Rare use - uses Secondary color)
-### Reference: Control-Patterns-Modern.fx Pattern 3.4 (Lines 628-652)
-###
-
 btn_SpecialAction As button:
-    # ============================================
-    # POSITIONING & SIZING
-    # ============================================
     X: =Spacing.LG
     Y: =Spacing.LG
     Width: =180
     Height: =44
 
-    # ============================================
-    # FILL COLORS (Secondary/Accent Color)
-    # ============================================
-    Fill: =ThemeColors.Secondary  # Accent color (#50E6FF)
-    HoverFill: =GetHoverColor(ThemeColors.Secondary)  # 20% darker
-    PressedFill: =GetPressedColor(ThemeColors.Secondary)  # 30% darker
-    DisabledFill: =GetDisabledColor(ThemeColors.Secondary)  # 60% lighter
+    Fill: =ThemeColors.Secondary
+    HoverFill: =GetHoverColor(ThemeColors.Secondary)
+    PressedFill: =GetPressedColor(ThemeColors.Secondary)
+    DisabledFill: =GetDisabledColor(ThemeColors.Secondary)
 
-    # ============================================
-    # BORDER STYLING
-    # ============================================
-    BorderColor: =Color.Transparent  # No border
+    BorderColor: =Color.Transparent
     BorderThickness: =0
     BorderStyle: =BorderStyle.None
     FocusedBorderColor: =GetFocusColor(ThemeColors.Secondary)
     FocusedBorderThickness: =3
 
-    # ============================================
-    # TEXT STYLING
-    # ============================================
-    Text: ="Hervorheben"  # German: Highlight
-    Color: =ThemeColors.Text  # Dark text on light accent color
+    Text: ="Hervorheben"
+    Color: =ThemeColors.Text
     HoverColor: =ThemeColors.Text
     PressedColor: =ThemeColors.Text
     DisabledColor: =ThemeColors.TextDisabled
 
-    # ============================================
-    # TYPOGRAPHY
-    # ============================================
-    Font: =Typography.Font  # Segoe UI
-    FontSize: =Typography.SizeMD  # 14px
-    FontWeight: =FontWeight.Bold  # Bold for emphasis
+    Font: =Typography.Font
+    FontSize: =Typography.SizeMD
+    FontWeight: =FontWeight.Bold
 
-    # ============================================
-    # BORDER RADIUS
-    # ============================================
-    RadiusTopLeft: =BorderRadius.MD  # 4px
+    RadiusTopLeft: =BorderRadius.MD
     RadiusTopRight: =BorderRadius.MD
     RadiusBottomLeft: =BorderRadius.MD
     RadiusBottomRight: =BorderRadius.MD
 
-    # ============================================
-    # PADDING & ALIGNMENT
-    # ============================================
     PaddingTop: =Spacing.SM
     PaddingBottom: =Spacing.SM
     PaddingLeft: =Spacing.LG
@@ -64,14 +37,10 @@ btn_SpecialAction As button:
     Align: =Align.Center
     VerticalAlign: =VerticalAlign.Middle
 
-    # ============================================
-    # INTERACTION & ACCESSIBILITY
-    # ============================================
     DisplayMode: =DisplayMode.Edit
 
     OnSelect: |
-        =// Special action (example: feature a record)
-        Patch(
+        =Patch(
             Items,
             Gallery.Selected,
             {IsFeatured: true, FeaturedDate: GetCETToday()}
@@ -82,8 +51,5 @@ btn_SpecialAction As button:
     AccessibleLabel: ="Hervorheben Button - Markiert Eintrag als besonders"
     TabIndex: =3
 
-    # ============================================
-    # VISIBILITY & Z-INDEX
-    # ============================================
-    Visible: =HasPermission("Edit")  # Only visible for users with edit permission
+    Visible: =HasPermission("Edit")
     ZIndex: =1
