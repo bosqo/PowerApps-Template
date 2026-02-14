@@ -1539,6 +1539,223 @@ NotifyArchiveWithUndo(itemName: Text, revertData: RevertDataType): Void = {
     )
 };
 
+// ============================================================
+// ENTRY VALIDATION SYSTEM — Dynamic Form Validation
+// ============================================================
+// Architecture: Collection-Based Field Registry + Validation UDFs
+// Pattern: Declarative-Reactive (Approach C: Hybrid)
+//
+// Layers:
+//   1. Field Registry (Named Formula table) — declares fields + rules
+//   2. Form State (Variable) — holds current field values (updated via OnChange)
+//   3. Validation Engine (UDFs) — pure functions: value in → error out
+//   4. UI Binding (control properties) — references error formulas
+//
+// State Flow:
+//   User types → OnChange updates FormState → Error formulas re-evaluate
+//   → btn_Submit.DisplayMode auto-updates → error labels auto-update
+//
+// Adding a new field:
+//   1. Add row to FieldRegistry_[FormName]
+//   2. Add property to FormState_[FormName] + FormTouched_[FormName]
+//   3. Add Error_[FormName]_[Field] Named Formula
+//   4. Add line to IsValid_[FormName]
+//   5. Wire control OnChange (one-liner Set() call)
+//
+// Design: docs/plans/2026-02-14-entry-validation-system-design.md
+// ============================================================
+
+
+// -----------------------------------------------------------
+// Validation Rule Identifiers (Named Constants)
+// -----------------------------------------------------------
+// Used in FieldRegistry.Rule to specify which validation to apply
+ValidationRules = {
+    None: "none",
+    Email: "email",
+    NotPastDate: "notpastdate",
+    Alphanumeric: "alphanumeric",
+    MinLength: "minlength",
+    MaxLength: "maxlength",
+    NumberRange: "numberrange",
+    OneOf: "oneof"
+};
+
+
+// -----------------------------------------------------------
+// Example Field Registry: "New Item" Form
+// -----------------------------------------------------------
+// Central declaration of all form fields and their validation rules.
+// One registry per form/screen. Copy and customize per use case.
+// Each row: field name, display label, required flag, rule, rule parameter, field type.
+FieldRegistry_NewItem = Table(
+    { FieldName: "Title",       FieldLabel: "Titel",             IsRequired: true,  Rule: "maxlength",    RuleParam: "100",                      FieldType: "text" },
+    { FieldName: "Description", FieldLabel: "Beschreibung",      IsRequired: false, Rule: "maxlength",    RuleParam: "500",                      FieldType: "text" },
+    { FieldName: "Email",       FieldLabel: "E-Mail",            IsRequired: true,  Rule: "email",        RuleParam: "",                         FieldType: "text" },
+    { FieldName: "Category",    FieldLabel: "Kategorie",         IsRequired: true,  Rule: "oneof",        RuleParam: "A,B,C,D",                  FieldType: "choice" },
+    { FieldName: "DueDate",     FieldLabel: "Fälligkeitsdatum",  IsRequired: true,  Rule: "notpastdate",  RuleParam: "",                         FieldType: "date" },
+    { FieldName: "Priority",    FieldLabel: "Priorität",         IsRequired: true,  Rule: "oneof",        RuleParam: "Low,Medium,High,Critical", FieldType: "choice" },
+    { FieldName: "Amount",      FieldLabel: "Betrag",            IsRequired: false, Rule: "none",         RuleParam: "",                         FieldType: "number" }
+);
+
+
+// -----------------------------------------------------------
+// Validation Engine UDFs — Core Functions
+// -----------------------------------------------------------
+
+// Validate a single value against a named rule
+// Returns: Error message text (blank = valid)
+ValidateRule(value: Text, rule: Text, ruleParam: Text, fieldLabel: Text): Text =
+    If(
+        // No rule
+        rule = "none" || IsBlank(rule),
+        "",
+
+        // Email validation (reuses existing IsValidEmail UDF)
+        rule = "email",
+        If(!IsValidEmail(value), fieldLabel & ": Ungültige E-Mail-Adresse", ""),
+
+        // Not in past
+        rule = "notpastdate",
+        If(
+            !IsBlank(value) && DateValue(value) < GetCETToday(),
+            fieldLabel & ": Datum darf nicht in der Vergangenheit liegen",
+            ""
+        ),
+
+        // Alphanumeric only
+        rule = "alphanumeric",
+        If(!IsAlphanumeric(value), fieldLabel & ": Nur Buchstaben und Zahlen erlaubt", ""),
+
+        // Max length
+        rule = "maxlength",
+        If(
+            Len(value) > Value(ruleParam),
+            fieldLabel & ": Maximal " & ruleParam & " Zeichen erlaubt",
+            ""
+        ),
+
+        // Min length
+        rule = "minlength",
+        If(
+            Len(value) < Value(ruleParam),
+            fieldLabel & ": Mindestens " & ruleParam & " Zeichen erforderlich",
+            ""
+        ),
+
+        // Value in allowed list
+        rule = "oneof",
+        If(!IsOneOf(value, ruleParam), fieldLabel & ": Ungültiger Wert", ""),
+
+        // Unknown rule — no error
+        ""
+    );
+
+// Required field check
+// Returns: Error message text (blank = valid)
+ValidateRequired(value: Text, fieldLabel: Text): Text =
+    If(IsBlank(value), fieldLabel & ": Pflichtfeld", "");
+
+// Full field validation (required + rule)
+// Returns: First error message found (blank = valid)
+ValidateField(value: Text, isRequired: Boolean, rule: Text, ruleParam: Text, fieldLabel: Text): Text =
+    With(
+        { requiredError: If(isRequired, ValidateRequired(value, fieldLabel), "") },
+        If(
+            !IsBlank(requiredError),
+            requiredError,
+            ValidateRule(value, rule, ruleParam, fieldLabel)
+        )
+    );
+
+// Get error message for a specific field from a registry
+// Usage: GetFieldError("Email", FormState_NewItem.Email, FieldRegistry_NewItem)
+GetFieldError(fieldName: Text, fieldValue: Text, registry: Table): Text =
+    With(
+        { field: LookUp(registry, FieldName = fieldName) },
+        If(
+            IsBlank(field),
+            "",
+            ValidateField(fieldValue, field.IsRequired, field.Rule, field.RuleParam, field.FieldLabel)
+        )
+    );
+
+
+// -----------------------------------------------------------
+// Per-Field Error Named Formulas (Auto-Reactive)
+// -----------------------------------------------------------
+// Each formula auto-recalculates when FormState_NewItem changes.
+// This is the SINGLE definition of each field's validation.
+// All UI bindings (error labels, border colors, visibility) reference these.
+
+Error_NewItem_Title = ValidateField(FormState_NewItem.Title, true, "maxlength", "100", "Titel");
+Error_NewItem_Description = ValidateField(FormState_NewItem.Description, false, "maxlength", "500", "Beschreibung");
+Error_NewItem_Email = ValidateField(FormState_NewItem.Email, true, "email", "", "E-Mail");
+Error_NewItem_Category = ValidateField(FormState_NewItem.Category, true, "oneof", "A,B,C,D", "Kategorie");
+Error_NewItem_DueDate = ValidateField(FormState_NewItem.DueDate, true, "notpastdate", "", "Fälligkeitsdatum");
+Error_NewItem_Priority = ValidateField(FormState_NewItem.Priority, true, "oneof", "Low,Medium,High,Critical", "Priorität");
+Error_NewItem_Amount = ValidateField(FormState_NewItem.Amount, false, "none", "", "Betrag");
+
+// Form-level validity (references the per-field error formulas)
+IsValid_NewItem =
+    IsBlank(Error_NewItem_Title) &&
+    IsBlank(Error_NewItem_Email) &&
+    IsBlank(Error_NewItem_Category) &&
+    IsBlank(Error_NewItem_DueDate) &&
+    IsBlank(Error_NewItem_Priority) &&
+    IsBlank(Error_NewItem_Description) &&
+    IsBlank(Error_NewItem_Amount);
+
+
+// -----------------------------------------------------------
+// Form-Level Validation UDFs
+// -----------------------------------------------------------
+
+// Check if entire form is valid (explicit field listing)
+// NOTE: Power Fx cannot dynamically map field names to record properties.
+// This is the ONE place you list fields for validation.
+IsFormValid_NewItem(): Boolean =
+    IsBlank(ValidateField(FormState_NewItem.Title, true, "maxlength", "100", "Titel")) &&
+    IsBlank(ValidateField(FormState_NewItem.Email, true, "email", "", "E-Mail")) &&
+    IsBlank(ValidateField(FormState_NewItem.Category, true, "oneof", "A,B,C,D", "Kategorie")) &&
+    IsBlank(ValidateField(FormState_NewItem.DueDate, true, "notpastdate", "", "Fälligkeitsdatum")) &&
+    IsBlank(ValidateField(FormState_NewItem.Priority, true, "oneof", "Low,Medium,High,Critical", "Priorität")) &&
+    IsBlank(ValidateField(FormState_NewItem.Description, false, "maxlength", "500", "Beschreibung")) &&
+    IsBlank(ValidateField(FormState_NewItem.Amount, false, "none", "", "Betrag"));
+
+// Collect all errors into a single text (for summary display)
+GetFormErrors_NewItem(): Text =
+    Concat(
+        Filter(
+            Table(
+                { Error: ValidateField(FormState_NewItem.Title, true, "maxlength", "100", "Titel") },
+                { Error: ValidateField(FormState_NewItem.Email, true, "email", "", "E-Mail") },
+                { Error: ValidateField(FormState_NewItem.Category, true, "oneof", "A,B,C,D", "Kategorie") },
+                { Error: ValidateField(FormState_NewItem.DueDate, true, "notpastdate", "", "Fälligkeitsdatum") },
+                { Error: ValidateField(FormState_NewItem.Priority, true, "oneof", "Low,Medium,High,Critical", "Priorität") },
+                { Error: ValidateField(FormState_NewItem.Description, false, "maxlength", "500", "Beschreibung") },
+                { Error: ValidateField(FormState_NewItem.Amount, false, "none", "", "Betrag") }
+            ),
+            !IsBlank(Error)
+        ),
+        Error,
+        Char(10)
+    );
+
+// Reset form state, touched flags, and submit attempted flag
+ResetForm_NewItem(): Void = {
+    Set(FormState_NewItem, {
+        Title: "", Description: "", Email: "",
+        Category: "", DueDate: Blank(), Priority: "", Amount: 0
+    });
+    Set(FormTouched_NewItem, {
+        Title: false, Description: false, Email: false,
+        Category: false, DueDate: false, Priority: false, Amount: false
+    });
+    Set(FormSubmitAttempted_NewItem, false)
+};
+
+
 // -----------------------------------------------------------
 // Validation Functions (Is*)
 // Returns: Boolean

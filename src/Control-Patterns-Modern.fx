@@ -1155,6 +1155,225 @@ If(
 
 
 // ============================================================
+// SECTION 10.5: ENTRY VALIDATION PATTERNS (Form Validation System)
+// ============================================================
+// Control wiring patterns for the dynamic entry validation system.
+// Uses: FormState_NewItem, FormTouched_NewItem, FormSubmitAttempted_NewItem
+// Uses: Error_NewItem_*, IsValid_NewItem (Named Formulas from App-Formulas)
+// Uses: ValidateField(), IsFormValid_NewItem(), GetFormErrors_NewItem(), ResetForm_NewItem()
+//
+// Design: docs/plans/2026-02-14-entry-validation-system-design.md
+// ============================================================
+
+// -----------------------------------------------------------
+// Pattern 10.5.1: TextInput OnChange — Update FormState
+// -----------------------------------------------------------
+// Each control updates FormState and marks the field as touched.
+// This is the ONLY place control values enter the validation system.
+
+// txt_Title.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { Title: Self.Text }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Title: true }))
+
+// txt_Description.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { Description: Self.Text }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Description: true }))
+
+// txt_Email.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { Email: Self.Text }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Email: true }))
+
+// drp_Category.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { Category: Self.Selected.Value }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Category: true }))
+
+// dat_DueDate.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { DueDate: Text(Self.SelectedDate, "yyyy-mm-dd") }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { DueDate: true }))
+
+// drp_Priority.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { Priority: Self.Selected.Value }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Priority: true }))
+
+// txt_Amount.OnChange
+Set(FormState_NewItem, Patch(FormState_NewItem, { Amount: Text(Self.Value) }));
+Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Amount: true }))
+
+
+// -----------------------------------------------------------
+// Pattern 10.5.2: Submit Button — DisplayMode + OnSelect
+// -----------------------------------------------------------
+
+// btn_Submit.DisplayMode
+// Auto-disables when any field is invalid (uses IsValid_NewItem Named Formula)
+If(IsValid_NewItem, DisplayMode.Edit, DisplayMode.Disabled)
+
+// btn_Submit.OnSelect
+// Sets FormSubmitAttempted to show all errors, then validates and patches
+Set(FormSubmitAttempted_NewItem, true);
+If(
+    IsFormValid_NewItem(),
+    // Patch to data source
+    Patch(
+        MySharePointList,
+        Defaults(MySharePointList),
+        {
+            Title: FormState_NewItem.Title,
+            Description: FormState_NewItem.Description,
+            Email: FormState_NewItem.Email,
+            Category: {Value: FormState_NewItem.Category},
+            DueDate: DateValue(FormState_NewItem.DueDate),
+            Priority: {Value: FormState_NewItem.Priority},
+            Amount: Value(FormState_NewItem.Amount)
+        }
+    );
+    NotifySuccess("Eintrag erfolgreich gespeichert");
+    ResetForm_NewItem();
+    Back(),
+    // Show all errors as summary notification
+    NotifyWarning(GetFormErrors_NewItem())
+)
+
+
+// -----------------------------------------------------------
+// Pattern 10.5.3: Per-Field Error Labels
+// -----------------------------------------------------------
+// Error labels reference Error_NewItem_* Named Formulas.
+// Visible only after field is touched or form submit attempted.
+
+// lbl_Error_Title.Text
+Error_NewItem_Title
+
+// lbl_Error_Title.Visible
+(FormTouched_NewItem.Title || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Title)
+
+// lbl_Error_Description.Text
+Error_NewItem_Description
+
+// lbl_Error_Description.Visible
+(FormTouched_NewItem.Description || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Description)
+
+// lbl_Error_Email.Text
+Error_NewItem_Email
+
+// lbl_Error_Email.Visible
+(FormTouched_NewItem.Email || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Email)
+
+// lbl_Error_Category.Text
+Error_NewItem_Category
+
+// lbl_Error_Category.Visible
+(FormTouched_NewItem.Category || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Category)
+
+// lbl_Error_DueDate.Text
+Error_NewItem_DueDate
+
+// lbl_Error_DueDate.Visible
+(FormTouched_NewItem.DueDate || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_DueDate)
+
+// lbl_Error_Priority.Text
+Error_NewItem_Priority
+
+// lbl_Error_Priority.Visible
+(FormTouched_NewItem.Priority || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Priority)
+
+// lbl_Error_Amount.Text
+Error_NewItem_Amount
+
+// lbl_Error_Amount.Visible
+(FormTouched_NewItem.Amount || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Amount)
+
+
+// -----------------------------------------------------------
+// Pattern 10.5.4: Field Border Color (Visual Feedback)
+// -----------------------------------------------------------
+// Show red border when field has an error and user has interacted with it.
+
+// txt_Title.BorderColor
+If(
+    (FormTouched_NewItem.Title || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Title),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+// txt_Email.BorderColor
+If(
+    (FormTouched_NewItem.Email || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Email),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+// txt_Description.BorderColor
+If(
+    (FormTouched_NewItem.Description || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Description),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+// drp_Category.BorderColor
+If(
+    (FormTouched_NewItem.Category || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Category),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+// dat_DueDate.BorderColor
+If(
+    (FormTouched_NewItem.DueDate || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_DueDate),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+// drp_Priority.BorderColor
+If(
+    (FormTouched_NewItem.Priority || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Priority),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+
+// -----------------------------------------------------------
+// Pattern 10.5.5: Reset Form Button
+// -----------------------------------------------------------
+
+// btn_ResetForm.OnSelect
+ResetForm_NewItem();
+// Also reset the actual controls to clear displayed values
+Reset(txt_Title);
+Reset(txt_Description);
+Reset(txt_Email);
+Reset(drp_Category);
+Reset(dat_DueDate);
+Reset(drp_Priority);
+Reset(txt_Amount)
+
+
+// -----------------------------------------------------------
+// Pattern 10.5.6: Edit Mode — Pre-populate from Existing Record
+// -----------------------------------------------------------
+// When editing an existing record, initialize FormState from the record
+// and mark all fields as touched so existing invalid data shows errors.
+
+// Screen.OnVisible (Edit Mode)
+/*
+Set(FormState_NewItem, {
+    Title: SelectedRecord.Title,
+    Description: SelectedRecord.Description,
+    Email: SelectedRecord.Email,
+    Category: SelectedRecord.Category.Value,
+    DueDate: Text(SelectedRecord.DueDate, "yyyy-mm-dd"),
+    Priority: SelectedRecord.Priority.Value,
+    Amount: Text(SelectedRecord.Amount)
+});
+Set(FormTouched_NewItem, {
+    Title: true, Description: true, Email: true,
+    Category: true, DueDate: true, Priority: true, Amount: true
+});
+Set(FormSubmitAttempted_NewItem, false);
+*/
+
+
+// ============================================================
 // SECTION 11: TOAST NOTIFICATION PATTERNS (NEW in Phase 4)
 // ============================================================
 // Toast notifications appear as non-blocking overlays in top-right corner

@@ -290,7 +290,7 @@ btn_Archive.OnSelect =
 
 ## 7. Validation Functions
 
-Functions for validating user input.
+Functions for validating user input (field-level checks).
 
 | UDF | Parameters | Returns | Description |
 |-----|------------|---------|-------------|
@@ -325,6 +325,114 @@ If(!IsNotPastDate(dat_DueDate.SelectedDate),
 If(!IsDateInRange(dat_EventDate.SelectedDate, DateRanges.Today, DateRanges.EndOfYear),
    NotifyValidationError("Event Date", "Must be within this year"))
 ```
+
+---
+
+## 7b. Entry Validation System (Dynamic Form Validation)
+
+Functions for the dynamic entry validation system. These wrap the field-level validation functions (Section 7) into a declarative, form-aware system with per-field error messages, form-level validity checks, and automatic UI binding.
+
+**Design:** `docs/plans/2026-02-14-entry-validation-system-design.md`
+
+### Validation Engine UDFs
+
+| UDF | Parameters | Returns | Description |
+|-----|------------|---------|-------------|
+| `ValidateRule` | `value: Text, rule: Text, ruleParam: Text, fieldLabel: Text` | `Text` | Validates value against a named rule. Returns error message or blank |
+| `ValidateRequired` | `value: Text, fieldLabel: Text` | `Text` | Checks if required field is blank. Returns error message or blank |
+| `ValidateField` | `value: Text, isRequired: Boolean, rule: Text, ruleParam: Text, fieldLabel: Text` | `Text` | Full field validation (required + rule). Returns first error or blank |
+| `GetFieldError` | `fieldName: Text, fieldValue: Text, registry: Table` | `Text` | Gets error for a field by looking up its rule in a registry table |
+
+### Form-Level UDFs (Template Example: NewItem)
+
+| UDF | Parameters | Returns | Description |
+|-----|------------|---------|-------------|
+| `IsFormValid_NewItem` | none | `Boolean` | Checks if all fields in the NewItem form are valid |
+| `GetFormErrors_NewItem` | none | `Text` | Collects all errors into a newline-separated summary |
+| `ResetForm_NewItem` | none | `Void` | Resets FormState, FormTouched, and FormSubmitAttempted |
+
+### Named Formulas (Auto-Reactive)
+
+| Formula | Type | Description |
+|---------|------|-------------|
+| `ValidationRules` | Record | Named constants for rule identifiers (Email, MaxLength, etc.) |
+| `FieldRegistry_NewItem` | Table | Central field declaration (name, label, required, rule, param, type) |
+| `Error_NewItem_Title` | Text | Auto-reactive error for Title field |
+| `Error_NewItem_Description` | Text | Auto-reactive error for Description field |
+| `Error_NewItem_Email` | Text | Auto-reactive error for Email field |
+| `Error_NewItem_Category` | Text | Auto-reactive error for Category field |
+| `Error_NewItem_DueDate` | Text | Auto-reactive error for DueDate field |
+| `Error_NewItem_Priority` | Text | Auto-reactive error for Priority field |
+| `Error_NewItem_Amount` | Text | Auto-reactive error for Amount field |
+| `IsValid_NewItem` | Boolean | True when all fields pass validation |
+
+### Validation Rules
+
+| Rule | RuleParam | Description |
+|------|-----------|-------------|
+| `none` | — | No validation rule applied |
+| `email` | — | Email format validation (uses IsValidEmail) |
+| `notpastdate` | — | Date must not be in the past (uses GetCETToday) |
+| `alphanumeric` | — | Only letters and numbers (uses IsAlphanumeric) |
+| `maxlength` | max chars (e.g. "100") | Maximum character length |
+| `minlength` | min chars (e.g. "3") | Minimum character length |
+| `oneof` | comma-separated values | Value must be in allowed list (uses IsOneOf) |
+
+### State Variables (Initialized in App.OnStart)
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `FormState_NewItem` | Record | Current values of all form fields |
+| `FormTouched_NewItem` | Record | Boolean flags per field (true after user interaction) |
+| `FormSubmitAttempted_NewItem` | Boolean | True after first submit attempt (shows all errors) |
+
+### Usage Examples
+
+```powerfx
+// Submit button auto-disables when form is invalid
+btn_Submit.DisplayMode = If(IsValid_NewItem, DisplayMode.Edit, DisplayMode.Disabled)
+
+// Per-field error label (only shows after user touches the field)
+lbl_Error_Email.Text = Error_NewItem_Email
+lbl_Error_Email.Visible = (FormTouched_NewItem.Email || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Email)
+
+// Field border turns red on error
+txt_Email.BorderColor = If(
+    (FormTouched_NewItem.Email || FormSubmitAttempted_NewItem) && !IsBlank(Error_NewItem_Email),
+    ThemeColors.Error,
+    ColorValue("#8A8886")
+)
+
+// OnChange updates FormState (one-liner per control)
+txt_Email.OnChange = Set(FormState_NewItem, Patch(FormState_NewItem, { Email: Self.Text }));
+    Set(FormTouched_NewItem, Patch(FormTouched_NewItem, { Email: true }))
+
+// Submit with validation summary on failure
+btn_Submit.OnSelect =
+    Set(FormSubmitAttempted_NewItem, true);
+    If(IsFormValid_NewItem(),
+        Patch(DataSource, Defaults(DataSource), {...});
+        NotifySuccess("Gespeichert");
+        ResetForm_NewItem(),
+        NotifyWarning(GetFormErrors_NewItem())
+    )
+
+// Reset form
+btn_Reset.OnSelect = ResetForm_NewItem()
+```
+
+### Naming Convention
+
+| Element | Pattern | Example |
+|---------|---------|---------|
+| Field Registry | `FieldRegistry_[FormName]` | `FieldRegistry_NewItem` |
+| Form State | `FormState_[FormName]` | `FormState_NewItem` |
+| Touched State | `FormTouched_[FormName]` | `FormTouched_NewItem` |
+| Submit Attempted | `FormSubmitAttempted_[FormName]` | `FormSubmitAttempted_NewItem` |
+| Per-field Error | `Error_[FormName]_[Field]` | `Error_NewItem_Email` |
+| Form Valid | `IsValid_[FormName]` | `IsValid_NewItem` |
+| Form Valid UDF | `IsFormValid_[FormName]()` | `IsFormValid_NewItem()` |
+| Form Reset UDF | `ResetForm_[FormName]()` | `ResetForm_NewItem()` |
 
 ---
 
@@ -711,6 +819,13 @@ lbl_Count.Text = CountRows(FilteredItems)
 | 71 | `ErrorMessage_NetworkError` | Error | Text | 1583 |
 | 72 | `ErrorMessage_TimeoutError` | Error | Text | 1586 |
 | 73 | `ErrorMessage_NotFound` | Error | Text | 1589 |
+| 74 | `ValidateRule` | Entry Validation | Text | — |
+| 75 | `ValidateRequired` | Entry Validation | Text | — |
+| 76 | `ValidateField` | Entry Validation | Text | — |
+| 77 | `GetFieldError` | Entry Validation | Text | — |
+| 78 | `IsFormValid_NewItem` | Entry Validation | Boolean | — |
+| 79 | `GetFormErrors_NewItem` | Entry Validation | Text | — |
+| 80 | `ResetForm_NewItem` | Entry Validation | Void | — |
 
 ---
 
@@ -727,3 +842,5 @@ lbl_Count.Text = CountRows(FilteredItems)
 | `Notify*` | Notification | Void | `NotifySuccess("Saved")` |
 | `Matches*` | Filter | Boolean | `MatchesSearchTerm(field, term)` |
 | `ErrorMessage_*` | Error text | Text | `ErrorMessage_Generic` |
+| `Validate*` | Entry validation | Text | `ValidateField(value, true, "email", "", "E-Mail")` |
+| `Reset*` | Form reset | Void | `ResetForm_NewItem()` |

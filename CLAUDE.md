@@ -320,6 +320,22 @@ glr_Items.Items = FilteredItems
 | `HasMaxLength(text, max)` | Under max length |
 | `IsBlank(value)` | Empty/null |
 
+### Entry Validation System (7 UDFs + Named Formulas)
+| UDF | Use |
+|-----|-----|
+| `ValidateRule(value, rule, ruleParam, fieldLabel)` | Validate value against a named rule (error text or blank) |
+| `ValidateRequired(value, fieldLabel)` | Check required field (error text or blank) |
+| `ValidateField(value, isRequired, rule, ruleParam, fieldLabel)` | Full field validation (required + rule) |
+| `GetFieldError(fieldName, fieldValue, registry)` | Look up field in registry and validate |
+| `IsFormValid_NewItem()` | Check all NewItem form fields are valid |
+| `GetFormErrors_NewItem()` | Collect all NewItem errors into summary text |
+| `ResetForm_NewItem()` | Reset FormState, FormTouched, FormSubmitAttempted |
+
+**Named Formulas:** `Error_NewItem_[Field]` (per-field auto-reactive error), `IsValid_NewItem` (form-level validity)
+**State Variables:** `FormState_NewItem`, `FormTouched_NewItem`, `FormSubmitAttempted_NewItem`
+**Rules:** `none`, `email`, `notpastdate`, `alphanumeric`, `maxlength`, `minlength`, `oneof`
+**Design:** `docs/plans/2026-02-14-entry-validation-system-design.md`
+
 ### Notifications (7)
 | UDF | Type | Auto-Dismiss |
 |-----|------|--------------|

@@ -279,6 +279,44 @@ Set(UIState, {
 // User-scoped data (Recent Items, Pending Tasks) also accessed via Named Formulas
 
 
+// ============================================================
+// 4. FORM STATE — Entry Validation System (Template Example)
+// ============================================================
+// Purpose: Initialize form state variables for the "New Item" form
+// Pattern: One record per form holding all field values
+// Updated via control OnChange: Set(FormState_NewItem, Patch(FormState_NewItem, {Field: Value}))
+//
+// Copy this section and customize for each form in your app.
+// See: docs/plans/2026-02-14-entry-validation-system-design.md
+
+// Current values of all form fields (one property per FieldRegistry entry)
+Set(FormState_NewItem, {
+    Title: "",
+    Description: "",
+    Email: "",
+    Category: "",
+    DueDate: Blank(),
+    Priority: "",
+    Amount: 0
+});
+
+// Track whether user has interacted with each field
+// Errors only show after touch (or after first submit attempt)
+Set(FormTouched_NewItem, {
+    Title: false,
+    Description: false,
+    Email: false,
+    Category: false,
+    DueDate: false,
+    Priority: false,
+    Amount: false
+});
+
+// Track whether the form has been submitted at least once
+// When true, all field errors become visible (not just touched fields)
+Set(FormSubmitAttempted_NewItem, false);
+
+
 // TIMING: Section 6 - Finalize (IsInitializing = false)
 
 // ============================================================
