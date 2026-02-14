@@ -1,0 +1,146 @@
+###
+### DANGER BUTTON (DELETE) - Semantic Error Color
+### Type: Delete, Remove, Destructive Actions
+### Uses: ThemeColors.Error (Red) for dangerous actions
+### Reference: Semantic colors from App-Formulas-Template.fx
+###
+
+btn_Delete As button:
+    # ============================================
+    # POSITIONING & SIZING
+    # ============================================
+    X: =Spacing.LG
+    Y: =Spacing.LG
+    Width: =140
+    Height: =44
+
+    # ============================================
+    # FILL COLORS (Semantic Error/Danger)
+    # ============================================
+    Fill: =ThemeColors.Error  # Red (#D13438)
+    HoverFill: =GetHoverColor(ThemeColors.Error)  # 20% darker red
+    PressedFill: =GetPressedColor(ThemeColors.Error)  # 30% darker red
+    DisabledFill: =GetDisabledColor(ThemeColors.Error)  # 60% lighter red (washed out)
+
+    # ============================================
+    # BORDER STYLING
+    # ============================================
+    BorderColor: =Color.Transparent  # No border for danger buttons
+    BorderThickness: =0
+    BorderStyle: =BorderStyle.None
+    FocusedBorderColor: =GetFocusColor(ThemeColors.Error)  # Darker red focus
+    FocusedBorderThickness: =3  # Prominent focus indicator
+
+    # ============================================
+    # TEXT STYLING
+    # ============================================
+    Text: ="Löschen"  # German: Delete
+    Color: =Color.White  # White text on red background
+    HoverColor: =Color.White
+    PressedColor: =Color.White
+    DisabledColor: =Color.White
+
+    # ============================================
+    # TYPOGRAPHY
+    # ============================================
+    Font: =Typography.Font  # Segoe UI
+    FontSize: =Typography.SizeMD  # 14px
+    FontWeight: =FontWeight.Semibold
+
+    # ============================================
+    # BORDER RADIUS
+    # ============================================
+    RadiusTopLeft: =BorderRadius.MD  # 4px
+    RadiusTopRight: =BorderRadius.MD
+    RadiusBottomLeft: =BorderRadius.MD
+    RadiusBottomRight: =BorderRadius.MD
+
+    # ============================================
+    # PADDING & ALIGNMENT
+    # ============================================
+    PaddingTop: =Spacing.SM  # 8px
+    PaddingBottom: =Spacing.SM
+    PaddingLeft: =Spacing.LG  # 24px
+    PaddingRight: =Spacing.LG
+    Align: =Align.Center
+    VerticalAlign: =VerticalAlign.Middle
+
+    # ============================================
+    # INTERACTION & ACCESSIBILITY
+    # ============================================
+    DisplayMode: |
+        =If(
+            HasPermission("Delete") &&
+            CanDeleteRecord(Gallery.Selected.Owner.Email) &&
+            !IsBlank(Gallery.Selected),
+            DisplayMode.Edit,
+            DisplayMode.Disabled
+        )
+
+    OnSelect: |
+        =// Multi-step safety: Permission check + Confirmation + Delete + Undo notification
+        If(
+            HasPermission("Delete") && CanDeleteRecord(Gallery.Selected.Owner.Email),
+            // Step 1: Show confirmation dialog
+            If(
+                Confirm(
+                    "Möchten Sie diesen Eintrag wirklich löschen?" & Char(10) &
+                    "Name: " & Gallery.Selected.Title,
+                    "Löschen bestätigen"
+                ),
+                // Step 2: Store item data for potential undo
+                With(
+                    {
+                        deletedItem: {
+                            ItemID: Gallery.Selected.ID,
+                            ItemName: Gallery.Selected.Title
+                        }
+                    },
+                    // Step 3: Perform deletion
+                    Remove(Items, Gallery.Selected);
+                    // Step 4: Show success with undo option
+                    NotifyDeleteWithUndo(
+                        deletedItem.ItemName,
+                        deletedItem
+                    )
+                ),
+                // User cancelled confirmation
+                Blank()
+            ),
+            // Permission denied
+            NotifyPermissionDenied("delete this item")
+        )
+
+    Tooltip: ="Eintrag unwiderruflich löschen"
+    AccessibleLabel: ="Löschen Button - Entfernt ausgewählten Eintrag nach Bestätigung"
+    TabIndex: =5  # Last in tab order (destructive action)
+
+    # ============================================
+    # VISIBILITY & Z-INDEX
+    # ============================================
+    Visible: |
+        =// Show only when:
+        // 1. User has delete permission
+        // 2. Item is selected
+        // 3. Item status allows deletion (not archived/closed)
+        HasPermission("Delete") &&
+        !IsBlank(Gallery.Selected) &&
+        !IsOneOf(Gallery.Selected.Status, "Archived,Closed,Cancelled")
+
+    ZIndex: =1
+
+    # ============================================
+    # NOTES FOR DEVELOPERS
+    # ============================================
+    # This button implements multiple safety layers:
+    # 1. Permission check (HasPermission + CanDeleteRecord)
+    # 2. Status validation (not archived/closed)
+    # 3. User confirmation dialog (Confirm)
+    # 4. Undo capability (NotifyDeleteWithUndo)
+    #
+    # NotifyDeleteWithUndo requires:
+    # - RevertDataType UDT enabled (Settings > Updates > User-Defined Types)
+    # - HandleRevert UDF configured in App-Formulas-Template.fx
+    # - NotificationStack collection in App.OnStart
+    #
+    # See: docs/notifications/TOAST-REVERT-EXAMPLES.md for full undo workflow

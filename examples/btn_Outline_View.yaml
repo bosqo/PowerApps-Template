@@ -1,0 +1,96 @@
+###
+### OUTLINE BUTTON - Following App-Formulas-Template.fx Design System
+### Type: View, Edit, Download (White background + colored border)
+### Reference: Control-Patterns-Modern.fx Pattern 3.4 (Lines 595-625)
+###
+
+btn_ViewDetails As button:
+    # ============================================
+    # POSITIONING & SIZING
+    # ============================================
+    X: =Spacing.LG
+    Y: =Spacing.LG
+    Width: =140
+    Height: =44
+
+    # ============================================
+    # FILL COLORS (White/Surface)
+    # ============================================
+    Fill: =ThemeColors.Surface  # White/light background
+    HoverFill: =GetHoverColor(ThemeColors.NeutralBase)  # Subtle gray on hover
+    PressedFill: =GetPressedColor(ThemeColors.NeutralBase)  # Darker gray when pressed
+    DisabledFill: =ThemeColors.Surface  # Stay white when disabled
+
+    # ============================================
+    # BORDER STYLING
+    # ============================================
+    BorderColor: =ThemeColors.Text  # Dark border for contrast
+    BorderThickness: =2  # Visible border
+    BorderStyle: =BorderStyle.Solid
+    HoverBorderColor: =GetHoverColor(ThemeColors.Text)  # Darker border on hover
+    FocusedBorderColor: =GetFocusColor(ThemeColors.Text)
+    FocusedBorderThickness: =3
+    DisabledBorderColor: =GetDisabledColor(ThemeColors.Text)  # Lighter border when disabled
+
+    # ============================================
+    # TEXT STYLING
+    # ============================================
+    Text: ="Details anzeigen"  # German: View Details
+    Color: =ThemeColors.Text  # Dark text on light background
+    HoverColor: =ThemeColors.Text
+    PressedColor: =ThemeColors.Text
+    DisabledColor: =ThemeColors.TextDisabled  # Grayed out text when disabled
+
+    # ============================================
+    # TYPOGRAPHY
+    # ============================================
+    Font: =Typography.Font  # Segoe UI
+    FontSize: =Typography.SizeMD  # 14px
+    FontWeight: =FontWeight.Semibold
+
+    # ============================================
+    # BORDER RADIUS
+    # ============================================
+    RadiusTopLeft: =BorderRadius.MD  # 4px
+    RadiusTopRight: =BorderRadius.MD
+    RadiusBottomLeft: =BorderRadius.MD
+    RadiusBottomRight: =BorderRadius.MD
+
+    # ============================================
+    # PADDING & ALIGNMENT
+    # ============================================
+    PaddingTop: =Spacing.SM
+    PaddingBottom: =Spacing.SM
+    PaddingLeft: =Spacing.MD  # 16px (less padding than primary)
+    PaddingRight: =Spacing.MD
+    Align: =Align.Center
+    VerticalAlign: =VerticalAlign.Middle
+
+    # ============================================
+    # INTERACTION & ACCESSIBILITY
+    # ============================================
+    DisplayMode: =If(
+        HasPermission("Read") && CanAccessRecord(Gallery.Selected.Owner.Email),
+        DisplayMode.Edit,
+        DisplayMode.Disabled
+    )
+
+    OnSelect: |
+        =If(
+            HasPermission("Read") && CanAccessRecord(Gallery.Selected.Owner.Email),
+            // Navigate to details screen
+            Set(UIState, Patch(UIState, {SelectedItem: Gallery.Selected}));
+            Navigate(DetailsScreen, ScreenTransition.Fade),
+            // Permission denied
+            NotifyPermissionDenied("view this record")
+        )
+
+    Tooltip: ="Eintrag-Details anzeigen"
+    AccessibleLabel: ="Details anzeigen Button - Öffnet Detailansicht"
+    TabIndex: =2
+
+    # ============================================
+    # VISIBILITY & Z-INDEX
+    # ============================================
+    Visible: =!IsBlank(Gallery.Selected)
+    ZIndex: =1
